@@ -146,6 +146,15 @@ label.fld input,label.fld select{font-size:14px;font-weight:400;text-transform:n
 .confirm{background:var(--bad-bg);color:var(--bad);border-radius:var(--radius-sm);padding:11px 13px;margin-top:13px;font-size:13px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:24px;background:var(--brand);color:var(--brand-fg);padding:12px 20px;border-radius:999px;font-size:14px;font-weight:500;z-index:60;box-shadow:var(--shadow-lg);border:1px solid rgba(255,255,255,.08)}
 
+/* confirm dialog (e.g. log out) */
+.confirm-scrim{position:fixed;inset:0;background:rgba(10,16,24,.5);backdrop-filter:blur(3px);z-index:70;display:flex;align-items:center;justify-content:center;padding:20px;animation:fade .15s ease}
+.confirm-box{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-lg);width:min(380px,100%);padding:26px 24px;text-align:center;animation:slide .2s cubic-bezier(.2,.8,.2,1)}
+.confirm-ic{width:52px;height:52px;border-radius:50%;background:var(--accent-soft);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;margin:0 auto 14px}
+.confirm-box h3{font:700 20px var(--f-display);margin:0 0 6px}
+.confirm-box p{color:var(--muted);font-size:14px;line-height:1.5;margin:0 0 20px}
+.confirm-actions{display:flex;gap:10px;justify-content:center}
+.confirm-actions .btn{min-width:112px;justify-content:center}
+
 /* ───────── mobile ───────── */
 .hamburger{display:none;background:none;border:0;color:var(--fg);cursor:pointer}
 @media (max-width:860px){
