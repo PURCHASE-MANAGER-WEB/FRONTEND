@@ -161,6 +161,25 @@ export async function downloadPoPdf(data) {
     y += rowH;
   });
 
+  // ── Table totals row ──
+  const totQty = data.items.reduce((s, it) => s + (Number(it.qty) || 0), 0);
+  const totAmt = data.items.reduce((s, it) => s + (Number(it.amount) || 0), 0);
+  const tUnits = [...new Set(data.items.map(it => it.unit).filter(Boolean))];
+  const tUnit = tUnits.length === 1 ? tUnits[0] : '';
+  const fh = 22;
+  if (y + fh > H - 60) { doc.addPage(); y = drawHeader(46); }
+  doc.setFillColor(235, 242, 241);
+  doc.rect(M, y, CW, fh, 'F');
+  doc.setDrawColor(...LINE).setLineWidth(0.8);
+  doc.rect(M, y, CW, fh);
+  cols.forEach((c, i) => { if (i > 0) { const x = xOf(i); doc.line(x, y, x, y + fh); } });
+  doc.setFont('helvetica', 'bold').setFontSize(9.5).setTextColor(...INK);
+  cellText(cols[1], 1, `Total (${data.items.length} item${data.items.length > 1 ? 's' : ''})`, y + 6);
+  cellText(cols[3], 3, qn(totQty), y + 6);
+  if (tUnit) cellText(cols[4], 4, tUnit, y + 6);
+  cellText(cols[6], 6, rs(totAmt), y + 6);
+  y += fh;
+
   y += 20;
 
   // ── Totals (boxed panel, right) + amount in words (left) ──

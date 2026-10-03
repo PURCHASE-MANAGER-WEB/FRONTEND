@@ -217,7 +217,6 @@ export default function PurchaseOrders() {
           <div className="po-items">
             <div className="po-items-head">
               <span>Materials &amp; specification</span>
-              <button type="button" className="btn ghost sm" onClick={addItem}><Plus size={15} /> Add item</button>
             </div>
             {editing.items.map((it, i) => {
               const amt = num(it.qty) * num(it.rate);
@@ -256,6 +255,7 @@ export default function PurchaseOrders() {
                 </div>
               );
             })}
+            <button type="button" className="btn ghost add-item-btn" onClick={addItem}><Plus size={16} /> Add item</button>
           </div>
 
           {/* ── Charges ── */}
@@ -309,6 +309,7 @@ export default function PurchaseOrders() {
         .po-items-head span{font:700 12px var(--f-body);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
         .btn.ghost{background:var(--accent-soft);color:var(--accent-ink);border:1px solid transparent}
         .btn.sm{padding:7px 11px;font-size:12.5px;display:inline-flex;align-items:center;gap:6px}
+        .add-item-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:7px;border:1px dashed var(--accent);font-weight:600;padding:12px}
         .po-item{border:1px solid var(--line);border-radius:12px;padding:13px 13px 11px;margin-bottom:12px;background:var(--surface)}
         .po-item-top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
         .po-sno{font:700 12.5px var(--f-mono,var(--f-body));color:var(--accent-ink);background:var(--accent-soft);padding:3px 9px;border-radius:7px}
