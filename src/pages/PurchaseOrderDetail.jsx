@@ -4,7 +4,7 @@ import { ArrowLeft, Download, Printer, Pencil, FileText } from 'lucide-react';
 import { usePurchaseData } from '../context/PurchaseData';
 import { useToast } from '../components/Toast';
 import { Pill, StateRow } from '../components/ui';
-import { calcLine, calcPO, poCharges, amountInWords, groupPOs, vendorName, num, inr, qfmt, dfmt } from '../utils/procurement';
+import { calcLine, calcPO, poCharges, amountInWords, groupPOs, vendorName, num, inr, qfmt, dfmt, formatTerms } from '../utils/procurement';
 import { downloadPoPdf } from '../utils/poPdf';
 
 const dtfmt = (s) => { if (!s) return '—'; const d = new Date(s); return isNaN(d) ? '—' : d.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }); };
@@ -197,7 +197,7 @@ export default function PurchaseOrderDetail() {
         <div className="pod-bottom-left">
           <div className="card pod-card">
             <h3>Terms &amp; conditions</h3>
-            {h.terms ? <p className="pod-terms">{h.terms}</p> : <p className="pod-empty">No terms &amp; conditions recorded for this PO.</p>}
+            {h.terms ? <p className="pod-terms">{formatTerms(h.terms)}</p> : <p className="pod-empty">No terms &amp; conditions recorded for this PO.</p>}
           </div>
           <div className="card pod-card">
             <h3>Notes / remarks</h3>

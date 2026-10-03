@@ -12,6 +12,8 @@ const MUTE = [107, 114, 128];
 const LINE = [219, 227, 239];
 const SOFT = [219, 234, 254];
 
+import { formatTerms } from './procurement';
+
 const rs = (n) => 'Rs. ' + Math.round(Number(n) || 0).toLocaleString('en-IN');
 const qn = (n) => (Number(n) || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 
@@ -234,10 +236,9 @@ export async function downloadPoPdf(data) {
     doc.setFont('helvetica', 'bold').setFontSize(8).setTextColor(...MUTE);
     doc.text('TERMS & CONDITIONS', M, y); y += 14;
     doc.setFont('helvetica', 'normal').setFontSize(9.5).setTextColor(...INK);
-    // Normalise: drop tabs, collapse runs of spaces, keep real line breaks —
-    // otherwise the viewer's tab/space layout renders as big uneven gaps.
-    const tLines = String(data.terms).replace(/\t/g, ' ').split(/\r?\n/)
-      .flatMap(p => { const c = p.replace(/ {2,}/g, ' ').trim(); return c ? doc.splitTextToSize(c, CW) : ['']; });
+    // Each numbered clause on its own line (shared with the on-screen view).
+    const tLines = formatTerms(data.terms).split('\n')
+      .flatMap(p => { const c = p.trim(); return c ? doc.splitTextToSize(c, CW) : ['']; });
     tLines.forEach(l => { if (y > H - 55) { doc.addPage(); y = 50; } doc.text(l, M, y); y += 13; });
     y += 10;
   }

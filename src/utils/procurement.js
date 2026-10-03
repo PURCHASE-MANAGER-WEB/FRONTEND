@@ -157,6 +157,19 @@ export const poCharges = (line = {}) => ({
   gstPct: (line.gstPct === '' || line.gstPct === null || line.gstPct === undefined) ? 18 : num(line.gstPct),
 });
 
+// Tidy terms & conditions for display: drop tabs, collapse runs of spaces, and
+// put each numbered clause (1. 2. 3. …) on its own line. Decimals like "2.5%"
+// are left intact (a digit right after the dot is not treated as a new clause).
+export function formatTerms(t) {
+  if (!t) return '';
+  return String(t)
+    .replace(/\t/g, ' ')
+    .replace(/ {2,}/g, ' ')
+    .replace(/\s+(?=\d{1,2}\.(?:\s|[A-Za-z]))/g, '\n')
+    .replace(/\n{2,}/g, '\n')
+    .trim();
+}
+
 // Amount in words, Indian numbering (Crore / Lakh / Thousand). Integer rupees.
 export function amountInWords(n) {
   n = Math.round(num(n));

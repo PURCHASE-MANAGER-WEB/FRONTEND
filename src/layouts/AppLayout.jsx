@@ -44,14 +44,14 @@ export default function AppLayout() {
         <Sidebar open={open} onNavigate={() => setOpen(false)} />
         <div className="main">
           <header className="topbar">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: '1 1 auto' }}>
               <button className="hamburger" aria-label="Menu" onClick={() => setOpen(o => !o)}><Menu size={22} /></button>
-              <div>
+              <div style={{ minWidth: 0 }}>
                 <h1>{title}</h1>
                 {subtitle && <div className="sub">{subtitle}</div>}
               </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
               {/* ── Notification bell ── */}
               <div className="bell-wrap" ref={bellRef}>
                 <button className="bell-btn" aria-label={`${od.count} overdue purchase orders`} onClick={() => setBellOpen(o => !o)}>
@@ -85,8 +85,8 @@ export default function AppLayout() {
                   </div>
                 )}
               </div>
-              <button className="btn" onClick={reload} disabled={loading} title="Refresh data">
-                <RefreshCw size={15} style={{ verticalAlign: '-2px' }} /> {loading ? 'Loading…' : 'Refresh'}
+              <button className="btn refresh-btn" onClick={reload} disabled={loading} title="Refresh data" aria-label="Refresh data">
+                <RefreshCw size={15} style={{ verticalAlign: '-2px' }} /> <span className="btn-label">{loading ? 'Loading…' : 'Refresh'}</span>
               </button>
             </div>
           </header>
