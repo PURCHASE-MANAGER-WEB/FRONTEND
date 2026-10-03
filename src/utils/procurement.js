@@ -13,6 +13,11 @@ export const today = () => { const t = new Date(); return new Date(t.getTime() -
 export const UNITS = ['MT','Kg','Nos','Sq.ft','Sq.m','Rft','Mtr','Ltr','Bag','Set','Lot'];
 export const TERMS = ['Advance','7 Days','15 Days','30 Days','45 Days','60 Days'];
 export const VENDOR_STATUS = ['Active','Inactive','Blocked'];
+export const PAYMENT_METHODS = ['UPI','Cash','Cheque','Bank Transfer','Card','Other'];
+
+// Is a single PO line overdue (delivery date passed & not received, or payment
+// due date passed & still owed)?
+export const isLineOverdue = (l) => { const c = calcLine(l); return c.delOverdueDays > 0 || c.payOverdueDays > 0; };
 
 // Whole-day difference (a − b) between two YYYY-MM-DD date strings.
 // Built on Date.UTC from the parsed parts, so it is immune to local-timezone
@@ -98,16 +103,33 @@ export function groupPOs(lines) {
   }).sort((a,b) => String(a.po).localeCompare(String(b.po), undefined, { numeric: true }));
 }
 
-// Portfolio KPIs across all lines.
+// Portfolio KPIs. Money is summed across lines; counts are per PO (grouped),
+// so "Pending / Completed / Overdue POs" mean whole purchase orders, not lines.
+// Everything here is derived from the real backend records — nothing hard-coded.
 export function kpis(lines) {
-  let value = 0, paid = 0, out = 0, pend = 0, over = 0;
-  for (const l of lines) {
-    const c = calcLine(l);
-    value += c.total; paid += num(l.paid); out += c.out;
-    if (c.pending > 0) pend++;
-    if (c.delOverdueDays > 0 || c.payOverdueDays > 0) over++;
+  let value = 0, paid = 0, out = 0;
+  for (const l of lines) { const c = calcLine(l); value += c.total; paid += num(l.paid); out += c.out; }
+
+  const groups = groupPOs(lines);
+  let pend = 0, completed = 0, overdueCount = 0, overdueAmount = 0, maxOverdueDays = 0;
+  for (const g of groups) {
+    const od = Math.max(g.overdueDays || 0, g.payOverdueDays || 0);
+    if (g.delivery === 'Completed') completed++; else pend++;
+    if (od > 0) { overdueCount++; overdueAmount += g.out; maxOverdueDays = Math.max(maxOverdueDays, od); }
   }
-  return { value, paid, out, pend, over };
+  // `over` kept for backwards compatibility (= overdue PO count).
+  return { value, paid, out, pend, completed, over: overdueCount, overdueCount, overdueAmount, maxOverdueDays, poCount: groups.length };
+}
+
+// Overdue roll-up for the notification bell: count, total outstanding, and the
+// list of overdue POs (PO number + worst overdue-day figure), newest first.
+export function overdueStats(lines) {
+  const groups = groupPOs(lines);
+  const list = groups
+    .map(g => ({ po: g.po, days: Math.max(g.overdueDays || 0, g.payOverdueDays || 0), out: g.out, delivery: g.delivery, payment: g.payment }))
+    .filter(g => g.days > 0)
+    .sort((a, b) => b.days - a.days);
+  return { count: list.length, amount: list.reduce((s, g) => s + g.out, 0), list };
 }
 
 // ── PO document totals ──────────────────────────────────────────────

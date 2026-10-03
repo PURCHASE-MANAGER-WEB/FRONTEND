@@ -55,6 +55,8 @@ export default function PurchaseOrderDetail() {
         poDateFmt: dfmt(model.h.poDate),
         deliveryDateFmt: model.deliveryDateFmt,
         project: model.h.project,
+        paymentMethod: model.h.paymentMethod,
+        terms: model.h.terms,
         vendor: model.vendor,
         delivery: model.g.delivery || '—',
         payment: model.g.payment || '—',
@@ -126,6 +128,7 @@ export default function PurchaseOrderDetail() {
           <Row k="Delivery Date" v={model.deliveryDateFmt} />
           <Row k="Project" v={h.project} />
           <Row k="GST Rate" v={`${totals.gstPct}%`} />
+          <Row k="Payment Method" v={h.paymentMethod} />
         </div>
         <div className="card pod-card">
           <h3>Supplier</h3>
@@ -189,6 +192,10 @@ export default function PurchaseOrderDetail() {
       <div className="pod-bottom">
         <div className="pod-bottom-left">
           <div className="card pod-card">
+            <h3>Terms &amp; conditions</h3>
+            {h.terms ? <p className="pod-terms">{h.terms}</p> : <p className="pod-empty">No terms &amp; conditions recorded for this PO.</p>}
+          </div>
+          <div className="card pod-card">
             <h3>Notes / remarks</h3>
             {notes.length ? <ul className="pod-notes">{notes.map((n, i) => <li key={i}>{n}</li>)}</ul> : <p className="pod-empty">No notes recorded for this PO.</p>}
           </div>
@@ -239,6 +246,7 @@ export default function PurchaseOrderDetail() {
         .pod-words{padding:9px 0 2px;font-size:12.5px;font-style:italic;color:var(--muted);border-top:1px solid var(--line);margin-top:4px}
         .pod-notes{margin:0;padding-left:18px;font-size:13.5px;color:var(--fg)}
         .pod-notes li{margin:3px 0}
+        .pod-terms{margin:0;font-size:13.5px;color:var(--fg);line-height:1.6;white-space:pre-wrap}
         .pod-empty{color:var(--muted);font-size:13.5px;margin:0}
         @media (max-width:900px){.pod-grid{grid-template-columns:1fr}.pod-bottom{grid-template-columns:1fr}}
         @media print{

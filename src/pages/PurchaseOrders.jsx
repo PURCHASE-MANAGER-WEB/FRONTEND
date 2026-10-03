@@ -5,7 +5,7 @@ import { usePurchaseData } from '../context/PurchaseData';
 import { purchaseApi } from '../api/client';
 import { useToast } from '../components/Toast';
 import { Pill, Drawer, Field, StateRow } from '../components/ui';
-import { calcLine, calcPO, poCharges, amountInWords, num, inr, qfmt, dfmt, today, vendorName, nextPo, UNITS } from '../utils/procurement';
+import { calcLine, calcPO, poCharges, amountInWords, num, inr, qfmt, dfmt, today, vendorName, nextPo, UNITS, PAYMENT_METHODS } from '../utils/procurement';
 
 const newId = () => 'L' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
@@ -20,7 +20,7 @@ const blankItem = () => ({
 const blankPO = (lines, vendors) => ({
   isNew: true,
   po: nextPo(lines), poDate: today(), vid: vendors[0]?.vid || '', project: '',
-  loading: '', transport: '', gstPct: 18, notes: '',
+  loading: '', transport: '', gstPct: 18, notes: '', paymentMethod: '', terms: '',
   items: [blankItem()], origIds: [],
 });
 
@@ -33,10 +33,20 @@ export default function PurchaseOrders() {
   const [busy, setBusy] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
 
+  const filter = searchParams.get('filter') || 'all';
+  const setFilter = (f) => { const n = new URLSearchParams(searchParams); if (f === 'all') n.delete('filter'); else n.set('filter', f); setSearchParams(n, { replace: true }); };
+
+  const statusOk = (c) => {
+    if (filter === 'overdue') return c.delOverdueDays > 0 || c.payOverdueDays > 0;
+    if (filter === 'pending') return c.delivery !== 'Completed';
+    if (filter === 'completed') return c.delivery === 'Completed';
+    return true;
+  };
+
   const rows = useMemo(() => lines
     .map(l => ({ l, c: calcLine(l), vn: vendorName(vendors, l.vid) }))
-    .filter(({ l, vn }) => !q || [l.po, l.vid, vn, l.project, l.material, l.spec, l.description].join(' ').toLowerCase().includes(q.toLowerCase()))
-    .sort((a, b) => String(a.l.po).localeCompare(String(b.l.po), undefined, { numeric: true }) || String(a.l.spec || '').localeCompare(String(b.l.spec || ''))), [lines, vendors, q]);
+    .filter(({ l, c, vn }) => statusOk(c) && (!q || [l.po, l.vid, vn, l.project, l.material, l.spec, l.description].join(' ').toLowerCase().includes(q.toLowerCase())))
+    .sort((a, b) => String(a.l.po).localeCompare(String(b.l.po), undefined, { numeric: true }) || String(a.l.spec || '').localeCompare(String(b.l.spec || ''))), [lines, vendors, q, filter]);
 
   const totals = rows.reduce((s, { l, c }) => ({ total: s.total + c.total, paid: s.paid + num(l.paid), out: s.out + c.out }), { total: 0, paid: 0, out: 0 });
   const poNums = [...new Set(lines.map(l => l.po))];
@@ -53,6 +63,7 @@ export default function PurchaseOrders() {
       isNew: false,
       po: h.po || poKey, poDate: h.poDate || today(), vid: h.vid || vendors[0]?.vid || '', project: h.project || '',
       loading: ch.loading || '', transport: ch.transport || '', gstPct: ch.gstPct, notes: h.notes || '',
+      paymentMethod: h.paymentMethod || '', terms: h.terms || '',
       items: group.map(l => ({
         _id: l.id, isNew: false,
         material: l.material || '', description: l.description || '', spec: l.spec || '', hsn: l.hsn || '',
@@ -103,7 +114,7 @@ export default function PurchaseOrders() {
 
     const loading = num(d.loading), transport = num(d.transport);
     const gstPct = (d.gstPct === '' || d.gstPct === null || d.gstPct === undefined) ? 18 : num(d.gstPct);
-    const shared = { po, poDate: d.poDate, vid: d.vid, project: d.project.trim(), loading, transport, gstPct, notes: String(d.notes || '').trim() };
+    const shared = { po, poDate: d.poDate, vid: d.vid, project: d.project.trim(), loading, transport, gstPct, notes: String(d.notes || '').trim(), paymentMethod: d.paymentMethod || '', terms: String(d.terms || '').trim() };
 
     setBusy(true);
     try {
@@ -148,10 +159,22 @@ export default function PurchaseOrders() {
       <div className="toolbar">
         <h2>Purchase Order &amp; Material Tracking</h2>
         <div className="right">
+          <select className="po-filter" value={filter} onChange={e => setFilter(e.target.value)} aria-label="Filter purchase orders by status">
+            <option value="all">All POs</option>
+            <option value="pending">Pending delivery</option>
+            <option value="completed">Completed</option>
+            <option value="overdue">Overdue</option>
+          </select>
           <input className="search" value={q} onChange={e => setQ(e.target.value)} placeholder="Search PO, vendor, material…" aria-label="Search purchase orders" />
           <button className="btn primary" onClick={() => open(null)}>+ New PO</button>
         </div>
       </div>
+      {filter !== 'all' && (
+        <div className="filter-note">
+          Showing <b>{filter === 'pending' ? 'pending-delivery' : filter}</b> purchase orders ({rows.length}).
+          <button className="link" onClick={() => setFilter('all')}>Clear filter</button>
+        </div>
+      )}
       <p className="legend" style={{ margin: '8px 0 0' }}>Shaded columns are calculated automatically. Add several materials, charges (loading / transport) and GST to one PO — click any row to edit the whole PO.</p>
       <div className="tbl" style={{ marginTop: 10 }}>
         <table>
@@ -265,6 +288,20 @@ export default function PurchaseOrders() {
               <label className="pf">Loading Charges (₹)<input type="number" min="0" step="any" value={editing.loading} onChange={e => setHdr('loading', e.target.value)} placeholder="0" /></label>
               <label className="pf">Transport Charge (₹)<input type="number" min="0" step="any" value={editing.transport} onChange={e => setHdr('transport', e.target.value)} placeholder="0" /></label>
               <label className="pf">GST %<input type="number" min="0" step="any" value={editing.gstPct} onChange={e => setHdr('gstPct', e.target.value)} placeholder="18" /></label>
+              <label className="pf">Payment Method
+                <select value={editing.paymentMethod} onChange={e => setHdr('paymentMethod', e.target.value)}>
+                  <option value="">— Select —</option>
+                  {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </label>
+            </div>
+          </div>
+
+          {/* ── Terms & conditions ── */}
+          <div className="po-charges">
+            <div className="po-items-head"><span>Terms &amp; conditions</span></div>
+            <div className="po-fields">
+              <label className="pf full"><textarea rows={3} value={editing.terms} onChange={e => setHdr('terms', e.target.value)} placeholder="Payment terms, delivery terms, warranty, penalties, or any conditions for this PO (shown on the details page and the PDF)." /></label>
             </div>
           </div>
 
@@ -301,6 +338,9 @@ export default function PurchaseOrders() {
       )}
 
       <style>{`
+        .po-filter{font:600 13.5px var(--f-body)}
+        .filter-note{margin:10px 0 0;font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px}
+        .filter-note b{color:var(--accent-ink);text-transform:capitalize}
         .po-link{color:var(--accent-ink);font-weight:700;text-decoration:none;border-bottom:1px dotted var(--accent);cursor:pointer}
         .po-link:hover{text-decoration:none;border-bottom-style:solid}
         .sub-desc{font-size:11.5px;color:var(--muted);margin-top:2px;max-width:240px;white-space:normal;line-height:1.35}

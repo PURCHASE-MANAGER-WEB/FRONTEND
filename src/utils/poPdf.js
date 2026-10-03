@@ -92,6 +92,7 @@ export async function downloadPoPdf(data) {
   metaRow('Project', data.project);
   metaRow('Delivery', data.delivery + (data.overdueDays > 0 ? ` (${data.overdueDays}d overdue)` : '') + ` · ${data.delPct}%`);
   metaRow('Payment', data.payment);
+  if (data.paymentMethod) metaRow('Payment Method', data.paymentMethod);
 
   y = Math.max(ly, ry) + 10;
 
@@ -226,6 +227,16 @@ export async function downloadPoPdf(data) {
   doc.text(words, M, boxTop + 26);
 
   y = boxTop + boxH + 20;
+
+  // ── Terms & conditions ──
+  if (data.terms) {
+    if (y > H - 90) { doc.addPage(); y = 50; }
+    doc.setFont('helvetica', 'bold').setFontSize(8).setTextColor(...MUTE);
+    doc.text('TERMS & CONDITIONS', M, y); y += 14;
+    doc.setFont('helvetica', 'normal').setFontSize(9.5).setTextColor(...INK);
+    const tt = doc.splitTextToSize(String(data.terms), CW);
+    doc.text(tt, M, y); y += tt.length * 12 + 12;
+  }
 
   // ── Notes ──
   if (data.notes && data.notes.length) {
