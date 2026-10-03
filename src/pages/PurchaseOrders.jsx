@@ -5,7 +5,7 @@ import { usePurchaseData } from '../context/PurchaseData';
 import { purchaseApi } from '../api/client';
 import { useToast } from '../components/Toast';
 import { Pill, Drawer, Field, StateRow } from '../components/ui';
-import { calcLine, calcPO, poCharges, amountInWords, num, inr, qfmt, dfmt, today, vendorName, nextPo, UNITS, PAYMENT_METHODS } from '../utils/procurement';
+import { calcLine, calcPO, poCharges, amountInWords, groupPOs, num, inr, qfmt, dfmt, today, vendorName, nextPo, UNITS, PAYMENT_METHODS } from '../utils/procurement';
 import { uploadInvoice } from '../utils/cloudinary';
 
 const kb = (n) => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
@@ -41,19 +41,24 @@ export default function PurchaseOrders() {
   const filter = searchParams.get('filter') || 'all';
   const setFilter = (f) => { const n = new URLSearchParams(searchParams); if (f === 'all') n.delete('filter'); else n.set('filter', f); setSearchParams(n, { replace: true }); };
 
-  const statusOk = (c) => {
-    if (filter === 'overdue') return c.delOverdueDays > 0 || c.payOverdueDays > 0;
-    if (filter === 'pending') return c.delivery !== 'Completed';
-    if (filter === 'completed') return c.delivery === 'Completed';
+  const statusOkG = (g) => {
+    if (filter === 'overdue') return g.overdueDays > 0 || g.payOverdueDays > 0;
+    if (filter === 'pending') return g.delivery !== 'Completed';
+    if (filter === 'completed') return g.delivery === 'Completed';
     return true;
   };
 
-  const rows = useMemo(() => lines
-    .map(l => ({ l, c: calcLine(l), vn: vendorName(vendors, l.vid) }))
-    .filter(({ l, c, vn }) => statusOk(c) && (!q || [l.po, l.vid, vn, l.project, l.material, l.spec, l.description].join(' ').toLowerCase().includes(q.toLowerCase())))
-    .sort((a, b) => String(a.l.po).localeCompare(String(b.l.po), undefined, { numeric: true }) || String(a.l.spec || '').localeCompare(String(b.l.spec || ''))), [lines, vendors, q, filter]);
+  // One row per PO (rolled up from its material lines), like Purchase Progress.
+  const rows = useMemo(() => {
+    const q2 = q.trim().toLowerCase();
+    const matchLine = (po) => lines.some(l => l.po === po && [l.material, l.spec, l.description].filter(Boolean).join(' ').toLowerCase().includes(q2));
+    return groupPOs(lines)
+      .map(g => ({ g, vn: vendorName(vendors, g.vid) }))
+      .filter(({ g, vn }) => statusOkG(g) && (!q2 || [g.po, g.vid, vn, g.project].filter(Boolean).join(' ').toLowerCase().includes(q2) || matchLine(g.po)))
+      .sort((a, b) => String(a.g.po).localeCompare(String(b.g.po), undefined, { numeric: true }));
+  }, [lines, vendors, q, filter]);
 
-  const totals = rows.reduce((s, { l, c }) => ({ total: s.total + c.total, paid: s.paid + num(l.paid), out: s.out + c.out }), { total: 0, paid: 0, out: 0 });
+  const totals = rows.reduce((s, { g }) => ({ total: s.total + g.value, paid: s.paid + g.paid, out: s.out + g.out }), { total: 0, paid: 0, out: 0 });
   const poNums = [...new Set(lines.map(l => l.po))];
 
   // Open the whole PO (all its material lines) in one editor. poKey === null → new PO.
@@ -190,41 +195,41 @@ export default function PurchaseOrders() {
           <button className="link" onClick={() => setFilter('all')}>Clear filter</button>
         </div>
       )}
-      <p className="legend" style={{ margin: '8px 0 0' }}>Shaded columns are calculated automatically. Add several materials, charges (loading / transport) and GST to one PO — click any row to edit the whole PO.</p>
+      <p className="legend" style={{ margin: '8px 0 0' }}>One row per PO — a PO with several materials is rolled up. Click the PO number to view full details, or Edit to change the whole PO.</p>
       <div className="tbl" style={{ marginTop: 10 }}>
         <table>
           <thead><tr>
-            <th>PO Number</th><th>PO Date</th><th>Vendor</th><th>Project</th><th>Material</th><th>Spec</th>
-            <th className="num">Ordered</th><th>Unit</th><th className="num">Rate</th><th className="num">Total</th>
-            <th className="num">Received</th><th className="num">Pending</th><th>Exp. Delivery</th><th>Payment Due</th>
-            <th className="num">Paid</th><th className="num">Outstanding</th><th>Delivery</th><th>Payment</th><th></th>
+            <th>PO Number</th><th>PO Date</th><th>Vendor</th><th>Project</th><th className="num">Items</th>
+            <th className="num">Ordered</th><th className="num">PO Value</th><th className="num">Received</th><th className="num">Pending</th>
+            <th>Exp. Delivery</th><th className="num">Paid</th><th className="num">Outstanding</th><th>Delivery</th><th>Payment</th><th></th>
           </tr></thead>
           <tbody>
             {loading || error || rows.length === 0 ? (
-              <StateRow cols={19} loading={loading} error={error}
-                empty={lines.length ? 'No PO lines match your search.' : (vendors.length ? 'No purchase orders yet. Add a PO to start tracking.' : 'Add a vendor first, then raise purchase orders against them.')} />
-            ) : rows.map(({ l, c, vn }) => (
-              <tr key={l.id}>
-                <td className="id"><Link className="po-link" to={`/purchase-orders/${encodeURIComponent(l.po)}`}>{l.po}</Link></td><td>{dfmt(l.poDate)}</td><td>{vn}</td><td>{l.project || '—'}</td>
-                <td>
-                  <div>{l.material || '—'}</div>
-                  {l.description ? <div className="sub-desc">{l.description}</div> : null}
-                </td>
-                <td>{l.spec || '—'}</td>
-                <td className="num">{qfmt(l.qty)}</td><td>{l.unit}</td><td className="num">{inr(l.rate)}</td>
-                <td className="num calc">{inr(c.total)}</td><td className="num">{qfmt(l.received)}</td><td className="num calc">{qfmt(c.pending)}</td>
-                <td className={c.delOverdueDays > 0 ? 'overdue' : ''}>{dfmt(l.expDate)}{c.delOverdueDays > 0 ? ` · ${c.delOverdueDays}d overdue` : (c.delDueToday ? ' · due today' : '')}</td>
-                <td className={c.payOverdueDays > 0 ? 'overdue' : ''}>{dfmt(l.dueDate)}{c.payOverdueDays > 0 ? ` · ${c.payOverdueDays}d overdue` : (c.payDueToday ? ' · due today' : '')}</td>
-                <td className="num">{inr(l.paid)}</td><td className="num calc">{inr(c.out)}</td>
-                <td className="calc"><Pill s={c.delivery} /></td><td className="calc"><Pill s={c.payment} /></td>
-                <td><button className="link" onClick={() => open(l.po)}>Edit</button></td>
-              </tr>
-            ))}
+              <StateRow cols={15} loading={loading} error={error}
+                empty={lines.length ? 'No purchase orders match your search.' : (vendors.length ? 'No purchase orders yet. Add a PO to start tracking.' : 'Add a vendor first, then raise purchase orders against them.')} />
+            ) : rows.map(({ g, vn }) => {
+              const u = g.unit === 'mixed units' ? '' : ' ' + g.unit;
+              return (
+                <tr key={g.po}>
+                  <td className="id"><Link className="po-link" to={`/purchase-orders/${encodeURIComponent(g.po)}`}>{g.po}</Link></td>
+                  <td>{dfmt(g.date)}</td><td>{vn}</td><td>{g.project || '—'}</td>
+                  <td className="num">{g.count}</td>
+                  <td className="num">{qfmt(g.qty)}{u}</td>
+                  <td className="num calc">{inr(g.value)}</td>
+                  <td className="num">{qfmt(g.rec)}{u}</td>
+                  <td className="num calc">{qfmt(g.pend)}{u}</td>
+                  <td className={g.overdueDays > 0 ? 'overdue' : ''}>{dfmt(g.expDate)}{g.overdueDays > 0 ? ` · ${g.overdueDays}d overdue` : (g.dueToday && g.delivery !== 'Completed' ? ' · due today' : '')}</td>
+                  <td className="num">{inr(g.paid)}</td><td className="num calc">{inr(g.out)}</td>
+                  <td className="calc"><Pill s={g.delivery} /></td><td className="calc"><Pill s={g.payment} /></td>
+                  <td><button className="link" onClick={() => open(g.po)}>Edit</button></td>
+                </tr>
+              );
+            })}
           </tbody>
           {rows.length > 0 && (
             <tfoot><tr>
-              <td colSpan={9}>Material sub-total ({rows.length} line{rows.length > 1 ? 's' : ''})</td>
-              <td className="num">{inr(totals.total)}</td><td colSpan={4}></td>
+              <td colSpan={6}>Total ({rows.length} PO{rows.length > 1 ? 's' : ''})</td>
+              <td className="num">{inr(totals.total)}</td><td colSpan={3}></td>
               <td className="num">{inr(totals.paid)}</td><td className="num">{inr(totals.out)}</td><td colSpan={3}></td>
             </tr></tfoot>
           )}

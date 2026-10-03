@@ -76,17 +76,22 @@ export function groupPOs(lines) {
   const map = new Map();
   for (const l of lines) {
     const c = calcLine(l);
-    const g = map.get(l.po) || { po: l.po, vid: l.vid, project: l.project, date: l.poDate, value: 0, paid: 0, out: 0, qty: 0, rec: 0, pend: 0, units: new Set(), delOverdue: 0, payOverdue: 0, dueToday: false, payDueToday: false };
+    const g = map.get(l.po) || { po: l.po, vid: l.vid, project: l.project, date: l.poDate, value: 0, paid: 0, out: 0, qty: 0, rec: 0, pend: 0, units: new Set(), delOverdue: 0, payOverdue: 0, dueToday: false, payDueToday: false, count: 0, exps: [], dues: [] };
     g.value += c.total; g.paid += num(l.paid); g.out += c.out;
     g.qty += num(l.qty); g.rec += Math.min(num(l.received), num(l.qty)); g.pend += c.pending; g.units.add(l.unit);
     g.delOverdue = Math.max(g.delOverdue, c.delOverdueDays);
     g.payOverdue = Math.max(g.payOverdue, c.payOverdueDays);
     g.dueToday = g.dueToday || c.delDueToday;
     g.payDueToday = g.payDueToday || c.payDueToday;
+    g.count += 1;
+    if (l.expDate) g.exps.push(l.expDate);
+    if (l.dueDate) g.dues.push(l.dueDate);
     map.set(l.po, g);
   }
   return [...map.values()].map(g => {
     g.unit = g.units.size === 1 ? [...g.units][0] : 'mixed units';
+    g.expDate = g.exps.length ? g.exps.slice().sort()[0] : '';
+    g.dueDate = g.dues.length ? g.dues.slice().sort()[0] : '';
     const delivered = g.qty > 0 && g.rec >= g.qty;
     const settled = g.value > 0 && g.out <= 0;
     g.delPct = g.qty ? (delivered ? 100 : Math.min(99, Math.max(0, Math.round(g.rec / g.qty * 100)))) : 0;
