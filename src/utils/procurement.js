@@ -36,9 +36,10 @@ export function calcLine(l) {
   const total = qty * rate, pending = Math.max(qty - rec, 0), out = total - paid;
   const t = today();
 
-  // Delivery
-  const delPct = qty > 0 ? Math.min(100, Math.max(0, Math.round(rec / qty * 100))) : 0;
+  // Delivery — only 100% when fully received; otherwise capped at 99% so a
+  // near-complete receipt never rounds up to a misleading "100%".
   const delivered = qty > 0 && rec >= qty;
+  const delPct = qty > 0 ? (delivered ? 100 : Math.min(99, Math.max(0, Math.round(rec / qty * 100)))) : 0;
   const delOverdueDays = (!delivered && l.expDate && l.expDate < t) ? daysDiff(t, l.expDate) : 0;
   const delDueToday = !delivered && !!l.expDate && l.expDate === t;
   const delivery = delivered ? 'Completed'
@@ -47,9 +48,10 @@ export function calcLine(l) {
     : rec > 0 ? 'Partial'
     : 'Pending';
 
-  // Payment
-  const payPct = total > 0 ? Math.min(100, Math.max(0, Math.round(paid / total * 100))) : 0;
+  // Payment — only 100% when fully settled; otherwise capped at 99% so an
+  // outstanding balance (even ₹450) never shows a misleading "100% paid".
   const settled = total > 0 && out <= 0;
+  const payPct = total > 0 ? (settled ? 100 : Math.min(99, Math.max(0, Math.round(paid / total * 100)))) : 0;
   const payOverdueDays = (!settled && l.dueDate && l.dueDate < t) ? daysDiff(t, l.dueDate) : 0;
   const payDueToday = !settled && !!l.dueDate && l.dueDate === t;
   const payment = settled ? 'Paid' : paid > 0 ? 'Partial' : 'Unpaid';
@@ -82,8 +84,8 @@ export function groupPOs(lines) {
     g.unit = g.units.size === 1 ? [...g.units][0] : 'mixed units';
     const delivered = g.qty > 0 && g.rec >= g.qty;
     const settled = g.value > 0 && g.out <= 0;
-    g.delPct = g.qty ? Math.min(100, Math.max(0, Math.round(g.rec / g.qty * 100))) : 0;
-    g.payPct = g.value ? Math.min(100, Math.max(0, Math.round(g.paid / g.value * 100))) : 0;
+    g.delPct = g.qty ? (delivered ? 100 : Math.min(99, Math.max(0, Math.round(g.rec / g.qty * 100)))) : 0;
+    g.payPct = g.value ? (settled ? 100 : Math.min(99, Math.max(0, Math.round(g.paid / g.value * 100)))) : 0;
     g.overdueDays = delivered ? 0 : g.delOverdue;       // only while not yet delivered
     g.payOverdueDays = settled ? 0 : g.payOverdue;
     g.delivery = delivered ? 'Completed'
