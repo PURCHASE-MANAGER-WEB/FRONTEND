@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff, Truck, PackageCheck, ClipboardList, ShieldCheck, ArrowRight, Boxes } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Truck, ClipboardList, ShieldCheck, ArrowRight, Boxes } from 'lucide-react';
 import { authApi, setSession, clearSession, getUser, isAuthenticated, APP_ROLE } from '../api/client';
 
 export default function Login() {
@@ -51,12 +51,18 @@ export default function Login() {
         </div>
 
         <div className="lg-hero-mid">
-          <div className="lg-chip"><PackageCheck size={15} /> Purchase Manager Portal</div>
           <h1>Procurement,<br/>under control.</h1>
           <p>Register vendors, raise purchase orders, and track delivery &amp; payment progress — one precise ledger for the whole supply chain.</p>
-          <div className="lg-feats">
-            {[[Truck, 'Delivery tracking'], [ClipboardList, 'PO management'], [ShieldCheck, 'Vendor credit control']].map(([I, t], i) => (
-              <div className="lg-feat" key={i} style={{ animationDelay: `${.25 + i * .08}s` }}><span><I size={16} /></span>{t}</div>
+          <div className="lg-rows">
+            {[
+              [Truck, 'Delivery tracking', "Know what's received, pending and overdue."],
+              [ClipboardList, 'PO management', 'Multi-material orders, charges, GST and PDF.'],
+              [ShieldCheck, 'Vendor credit control', 'Outstanding and credit limits at a glance.'],
+            ].map(([I, t, s], i) => (
+              <div className="lg-row" key={i} style={{ animationDelay: `${.25 + i * .08}s` }}>
+                <span className="lg-row-ic"><I size={18} /></span>
+                <div><div className="lg-row-t">{t}</div><div className="lg-row-s">{s}</div></div>
+              </div>
             ))}
           </div>
         </div>
@@ -105,9 +111,11 @@ export default function Login() {
         .lg-chip{display:inline-flex;align-items:center;gap:7px;background:rgba(59,130,246,.14);border:1px solid rgba(96,165,250,.4);color:#93c5fd;padding:8px 14px;border-radius:999px;font-size:12px;font-weight:600;margin-bottom:26px;animation:lgUp .5s both}
         .lg-hero h1{font:700 48px/1.05 var(--f-display);margin:0 0 20px;letter-spacing:-.01em;animation:lgUp .5s .06s both}
         .lg-hero p{opacity:.78;font-size:16px;line-height:1.65;margin:0;max-width:430px;animation:lgUp .5s .12s both}
-        .lg-feats{display:flex;flex-wrap:wrap;gap:12px;margin-top:34px}
-        .lg-feat{display:flex;align-items:center;gap:9px;font-size:13.5px;color:#cdd8e6;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);padding:9px 13px;border-radius:10px;animation:lgUp .5s both}
-        .lg-feat span{display:flex;color:#93c5fd}
+        .lg-rows{display:flex;flex-direction:column;gap:12px;margin-top:30px;max-width:430px}
+        .lg-row{display:flex;align-items:center;gap:13px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:13px;padding:13px 15px;animation:lgUp .5s both}
+        .lg-row-ic{width:38px;height:38px;flex-shrink:0;border-radius:10px;background:rgba(96,165,250,.16);display:flex;align-items:center;justify-content:center;color:#93c5fd}
+        .lg-row-t{font:700 14px var(--f-display);color:#fff}
+        .lg-row-s{font-size:12px;color:rgba(255,255,255,.65);margin-top:1px}
         .lg-foot{position:relative;font-size:11.5px;opacity:.5;letter-spacing:.02em}
         /* form */
         .lg-form{display:flex;align-items:center;justify-content:center;padding:56px 44px}
