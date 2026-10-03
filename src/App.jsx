@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Vendors from './pages/Vendors';
 import PurchaseOrders from './pages/PurchaseOrders';
+import PurchaseProgress from './pages/PurchaseProgress';
 
 // This application is LOCKED to the Purchase Manager role. A token carried over
 // from another portal, or a hand-edited URL, cannot reach these pages.
@@ -38,6 +39,7 @@ export default function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/vendors" element={<Vendors />} />
           <Route path="/purchase-orders" element={<PurchaseOrders />} />
+          <Route path="/purchase-progress" element={<PurchaseProgress />} />
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

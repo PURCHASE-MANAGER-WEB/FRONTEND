@@ -1,12 +1,13 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Store, ClipboardList, LogOut } from 'lucide-react';
+import { LayoutDashboard, Store, ClipboardList, TrendingUp, LogOut } from 'lucide-react';
 import { getUser, clearSession, authApi } from '../api/client';
 
 const NAV = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/vendors', label: 'Vendors', icon: Store },
   { to: '/purchase-orders', label: 'Purchase Orders', icon: ClipboardList },
+  { to: '/purchase-progress', label: 'Purchase Progress', icon: TrendingUp },
 ];
 
 export default function Sidebar({ open, onNavigate }) {

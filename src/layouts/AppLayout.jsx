@@ -9,6 +9,7 @@ const TITLES = {
   '/dashboard': ['Procurement Dashboard', 'Vendors, purchase orders and delivery & payment progress'],
   '/vendors': ['Vendor Registration', 'Register and manage your supplier master'],
   '/purchase-orders': ['Purchase Orders', 'Material-wise ordering, delivery and payment tracking'],
+  '/purchase-progress': ['Purchase Progress', 'Delivery & payment progress across every PO'],
 };
 
 export default function AppLayout() {
