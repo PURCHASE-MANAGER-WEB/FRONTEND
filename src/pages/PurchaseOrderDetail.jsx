@@ -32,9 +32,18 @@ export default function PurchaseOrderDetail() {
     const deliveryDateFmt = expDates.length === 0 ? '—' : expDates.length === 1 ? dfmt(expDates[0]) : `${dfmt(expDates[0])} → ${dfmt(expDates[expDates.length - 1])}`;
     const createdAt = group.map(l => l.createdAt).filter(Boolean).sort()[0];
     const updatedAt = group.map(l => l.updatedAt).filter(Boolean).sort().slice(-1)[0];
-    const notes = [...new Set(group.map(l => l.description).filter(Boolean))];
+    // PO-level notes (entered in the editor) first, then any per-item descriptions.
+    const poNote = group.map(l => l.notes).find(Boolean) || '';
+    const notes = [...new Set([poNote, ...group.map(l => l.description)].filter(Boolean))];
 
-    return { group, h, ch, items, sub, totals, g, vendor, expDates, deliveryDateFmt, createdAt, updatedAt, notes };
+    // Item-table totals
+    const totQty = group.reduce((s, l) => s + num(l.qty), 0);
+    const totRec = group.reduce((s, l) => s + num(l.received), 0);
+    const totPend = items.reduce((s, x) => s + x.c.pending, 0);
+    const units = [...new Set(group.map(l => l.unit).filter(Boolean))];
+    const unit = units.length === 1 ? units[0] : '';
+
+    return { group, h, ch, items, sub, totals, g, vendor, expDates, deliveryDateFmt, createdAt, updatedAt, notes, totQty, totRec, totPend, unit };
   }, [lines, vendors, po]);
 
   const onDownload = async () => {
@@ -164,6 +173,15 @@ export default function PurchaseOrderDetail() {
               </tr>
             ))}
           </tbody>
+          <tfoot><tr>
+            <td colSpan={5}>Total · {items.length} item{items.length > 1 ? 's' : ''}</td>
+            <td className="num">{qfmt(model.totQty)}{model.unit ? ` ${model.unit}` : ''}</td>
+            <td></td><td></td>
+            <td className="num">{inr(sub)}</td>
+            <td className="num">{qfmt(model.totRec)}</td>
+            <td className="num">{qfmt(model.totPend)}</td>
+            <td></td>
+          </tr></tfoot>
         </table>
       </div>
 

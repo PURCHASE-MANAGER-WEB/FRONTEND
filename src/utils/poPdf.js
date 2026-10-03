@@ -161,44 +161,61 @@ export async function downloadPoPdf(data) {
     y += rowH;
   });
 
-  y += 16;
+  y += 20;
 
-  // ── Totals (right block) + amount in words (left) ──
-  if (y > H - 170) { doc.addPage(); y = 50; }
-  const tLabelX = M + CW * 0.52;
-  const totRow = (k, v, bold) => {
-    if (y > H - 70) { doc.addPage(); y = 50; }
-    doc.setFont('helvetica', bold ? 'bold' : 'normal').setFontSize(bold ? 11.5 : 10);
-    doc.setTextColor(...(bold ? TEAL : INK));
-    doc.text(k, tLabelX, y);
-    doc.text(v, W - M, y, { align: 'right' });
-    y += bold ? 20 : 15.5;
-  };
-  const wordsTop = y;
-  totRow('Sub Total', rs(data.totals.sub));
-  if (data.totals.loading) totRow('Loading Charges', rs(data.totals.loading));
-  if (data.totals.transport) totRow('Transport Charge', rs(data.totals.transport));
-  totRow('Taxable Value', rs(data.totals.taxable));
-  totRow(`CGST @ ${data.totals.gstPct / 2}%`, rs(data.totals.cgst));
-  totRow(`SGST @ ${data.totals.gstPct / 2}%`, rs(data.totals.sgst));
-  if (Math.abs(data.totals.roundOff) >= 0.005) totRow('Round Off', (data.totals.roundOff >= 0 ? '+ ' : '- ') + rs(Math.abs(data.totals.roundOff)));
-  doc.setDrawColor(...LINE).setLineWidth(1).line(tLabelX, y - 5, W - M, y - 5);
-  totRow('Grand Total', rs(data.totals.grand), true);
+  // ── Totals (boxed panel, right) + amount in words (left) ──
+  const T = data.totals;
+  const rows = [['Sub Total', rs(T.sub)]];
+  if (T.loading) rows.push(['Loading Charges', rs(T.loading)]);
+  if (T.transport) rows.push(['Transport Charge', rs(T.transport)]);
+  rows.push(['Taxable Value', rs(T.taxable)]);
+  rows.push([`CGST @ ${T.gstPct / 2}%`, rs(T.cgst)]);
+  rows.push([`SGST @ ${T.gstPct / 2}%`, rs(T.sgst)]);
+  if (Math.abs(T.roundOff) >= 0.5) rows.push(['Round Off', (T.roundOff >= 0 ? '+ ' : '- ') + rs(Math.abs(T.roundOff))]);
 
-  // amount in words (left column)
-  doc.setFont('helvetica', 'italic').setFontSize(9).setTextColor(...MUTE);
-  const words = doc.splitTextToSize('Amount in words: ' + data.amountWords, CW * 0.46);
-  doc.text(words, M, wordsTop + 2);
+  const boxW = 250, boxX = W - M - boxW, pad = 12, rowH2 = 17, grandH = 30;
+  const boxH = pad + rows.length * rowH2 + grandH;
+  if (y + boxH > H - 70) { doc.addPage(); y = 50; }
+  const boxTop = y;
+
+  doc.setDrawColor(...LINE).setLineWidth(1);
+  doc.roundedRect(boxX, boxTop, boxW, boxH, 5, 5, 'S');
+
+  let ty = boxTop + pad + 4;
+  doc.setFontSize(10);
+  rows.forEach(([k, v]) => {
+    doc.setFont('helvetica', 'normal').setTextColor(...MUTE);
+    doc.text(k, boxX + 12, ty);
+    doc.setFont('helvetica', 'normal').setTextColor(...INK);
+    doc.text(v, boxX + boxW - 12, ty, { align: 'right' });
+    ty += rowH2;
+  });
+  // Grand total band
+  const gTop = boxTop + boxH - grandH;
+  doc.setFillColor(...SOFT);
+  doc.rect(boxX + 0.5, gTop, boxW - 1, grandH - 0.5, 'F');
+  doc.setDrawColor(...LINE).line(boxX, gTop, boxX + boxW, gTop);
+  doc.setFont('helvetica', 'bold').setFontSize(12).setTextColor(...TEAL);
+  doc.text('Grand Total', boxX + 12, gTop + 19);
+  doc.text(rs(T.grand), boxX + boxW - 12, gTop + 19, { align: 'right' });
+
+  // Amount in words (left, aligned with box top)
+  doc.setFont('helvetica', 'bold').setFontSize(8).setTextColor(...MUTE);
+  doc.text('AMOUNT IN WORDS', M, boxTop + 10);
+  doc.setFont('helvetica', 'italic').setFontSize(9.5).setTextColor(...INK);
+  const words = doc.splitTextToSize(data.amountWords, boxX - M - 20);
+  doc.text(words, M, boxTop + 26);
+
+  y = boxTop + boxH + 20;
 
   // ── Notes ──
-  let ny = y + 14;
   if (data.notes && data.notes.length) {
-    if (ny > H - 80) { doc.addPage(); ny = 50; }
-    doc.setFont('helvetica', 'bold').setFontSize(9).setTextColor(...MUTE);
-    doc.text('NOTES / REMARKS', M, ny); ny += 13;
-    doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(...INK);
+    if (y > H - 80) { doc.addPage(); y = 50; }
+    doc.setFont('helvetica', 'bold').setFontSize(8).setTextColor(...MUTE);
+    doc.text('NOTES / REMARKS', M, y); y += 14;
+    doc.setFont('helvetica', 'normal').setFontSize(9.5).setTextColor(...INK);
     const nn = doc.splitTextToSize(data.notes.join('  •  '), CW);
-    doc.text(nn, M, ny);
+    doc.text(nn, M, y);
   }
 
   // ── Footer ──

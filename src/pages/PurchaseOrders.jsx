@@ -20,7 +20,7 @@ const blankItem = () => ({
 const blankPO = (lines, vendors) => ({
   isNew: true,
   po: nextPo(lines), poDate: today(), vid: vendors[0]?.vid || '', project: '',
-  loading: '', transport: '', gstPct: 18,
+  loading: '', transport: '', gstPct: 18, notes: '',
   items: [blankItem()], origIds: [],
 });
 
@@ -52,7 +52,7 @@ export default function PurchaseOrders() {
     setEditing({
       isNew: false,
       po: h.po || poKey, poDate: h.poDate || today(), vid: h.vid || vendors[0]?.vid || '', project: h.project || '',
-      loading: ch.loading || '', transport: ch.transport || '', gstPct: ch.gstPct,
+      loading: ch.loading || '', transport: ch.transport || '', gstPct: ch.gstPct, notes: h.notes || '',
       items: group.map(l => ({
         _id: l.id, isNew: false,
         material: l.material || '', description: l.description || '', spec: l.spec || '', hsn: l.hsn || '',
@@ -103,7 +103,7 @@ export default function PurchaseOrders() {
 
     const loading = num(d.loading), transport = num(d.transport);
     const gstPct = (d.gstPct === '' || d.gstPct === null || d.gstPct === undefined) ? 18 : num(d.gstPct);
-    const shared = { po, poDate: d.poDate, vid: d.vid, project: d.project.trim(), loading, transport, gstPct };
+    const shared = { po, poDate: d.poDate, vid: d.vid, project: d.project.trim(), loading, transport, gstPct, notes: String(d.notes || '').trim() };
 
     setBusy(true);
     try {
@@ -268,6 +268,14 @@ export default function PurchaseOrders() {
             </div>
           </div>
 
+          {/* ── Notes ── */}
+          <div className="po-charges">
+            <div className="po-items-head"><span>Notes / remarks</span></div>
+            <div className="po-fields">
+              <label className="pf full"><textarea rows={3} value={editing.notes} onChange={e => setHdr('notes', e.target.value)} placeholder="Terms, delivery instructions, or any remarks for this PO (shown on the details page and the PDF)." /></label>
+            </div>
+          </div>
+
           {/* ── Invoice-style totals ── */}
           <div className="po-totals">
             <Row label="Sub Total (materials)" val={money(poTot.sub)} />
@@ -313,6 +321,8 @@ export default function PurchaseOrders() {
         .pf.full{grid-column:1/-1}
         .pf input,.pf select{width:100%;box-sizing:border-box;max-width:100%;font:400 14px var(--f-body);padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--fg);outline:none;min-width:0}
         .pf input[type=date],.pf input[type=number]{-webkit-appearance:none;appearance:none}
+        .pf textarea{width:100%;box-sizing:border-box;font:400 14px var(--f-body);padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--fg);outline:none;resize:vertical;min-height:62px}
+        .pf textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
         .pf input:focus,.pf select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
         .po-track{margin-top:10px;border-top:1px dashed var(--line);padding-top:10px}
         .po-track summary{cursor:pointer;font-size:12px;font-weight:600;color:var(--accent-ink);list-style:none;user-select:none}
