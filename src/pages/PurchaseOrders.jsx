@@ -297,7 +297,8 @@ export default function PurchaseOrders() {
         .pf{display:flex;flex-direction:column;gap:5px;font-size:11.5px;font-weight:600;color:var(--muted);min-width:0}
         .pf.wide{grid-column:span 2}
         .pf.full{grid-column:1/-1}
-        .pf input,.pf select{font:400 14px var(--f-body);padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--fg);outline:none;min-width:0}
+        .pf input,.pf select{width:100%;box-sizing:border-box;max-width:100%;font:400 14px var(--f-body);padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--fg);outline:none;min-width:0}
+        .pf input[type=date],.pf input[type=number]{-webkit-appearance:none;appearance:none}
         .pf input:focus,.pf select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
         .po-track{margin-top:10px;border-top:1px dashed var(--line);padding-top:10px}
         .po-track summary{cursor:pointer;font-size:12px;font-weight:600;color:var(--accent-ink);list-style:none;user-select:none}
