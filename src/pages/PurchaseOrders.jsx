@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Plus, Trash2 } from 'lucide-react';
 import { usePurchaseData } from '../context/PurchaseData';
 import { purchaseApi } from '../api/client';
@@ -30,6 +31,7 @@ export default function PurchaseOrders() {
   const [editing, setEditing] = useState(null);
   const [formErr, setFormErr] = useState('');
   const [busy, setBusy] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const rows = useMemo(() => lines
     .map(l => ({ l, c: calcLine(l), vn: vendorName(vendors, l.vid) }))
@@ -129,6 +131,16 @@ export default function PurchaseOrders() {
     }
   };
 
+  // Deep link from the PO Details page: /purchase-orders?edit=PO-003 opens that PO.
+  useEffect(() => {
+    const ep = searchParams.get('edit');
+    if (ep && !editing && vendors.length && lines.some(l => l.po === ep)) {
+      open(ep);
+      const next = new URLSearchParams(searchParams); next.delete('edit'); setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, vendors, lines]);
+
   const money = (n) => num(n) ? inr(n) : '₹0';
 
   return (
@@ -155,7 +167,7 @@ export default function PurchaseOrders() {
                 empty={lines.length ? 'No PO lines match your search.' : (vendors.length ? 'No purchase orders yet. Add a PO to start tracking.' : 'Add a vendor first, then raise purchase orders against them.')} />
             ) : rows.map(({ l, c, vn }) => (
               <tr key={l.id}>
-                <td className="id">{l.po}</td><td>{dfmt(l.poDate)}</td><td>{vn}</td><td>{l.project || '—'}</td>
+                <td className="id"><Link className="po-link" to={`/purchase-orders/${encodeURIComponent(l.po)}`}>{l.po}</Link></td><td>{dfmt(l.poDate)}</td><td>{vn}</td><td>{l.project || '—'}</td>
                 <td>
                   <div>{l.material || '—'}</div>
                   {l.description ? <div className="sub-desc">{l.description}</div> : null}
@@ -281,6 +293,8 @@ export default function PurchaseOrders() {
       )}
 
       <style>{`
+        .po-link{color:var(--accent-ink);font-weight:700;text-decoration:none;border-bottom:1px dotted var(--accent);cursor:pointer}
+        .po-link:hover{text-decoration:none;border-bottom-style:solid}
         .sub-desc{font-size:11.5px;color:var(--muted);margin-top:2px;max-width:240px;white-space:normal;line-height:1.35}
         .po-items,.po-charges{margin-top:18px}
         .po-items-head{display:flex;align-items:center;justify-content:space-between;margin:0 0 10px}

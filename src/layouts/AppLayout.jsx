@@ -16,7 +16,9 @@ export default function AppLayout() {
   const [open, setOpen] = useState(false);
   const loc = useLocation();
   const { reload, loading } = usePurchaseData();
-  const [title, subtitle] = TITLES[loc.pathname] || ['Purchase Manager', ''];
+  const [title, subtitle] = loc.pathname.startsWith('/purchase-orders/')
+    ? ['Purchase Order Details', 'Full details, PDF and print for this purchase order']
+    : (TITLES[loc.pathname] || ['Purchase Manager', '']);
 
   return (
     <ToastProvider>
