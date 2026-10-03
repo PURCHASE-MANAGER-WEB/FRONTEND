@@ -45,6 +45,7 @@ export default function PurchaseOrderDetail() {
         po,
         poDateFmt: dfmt(model.h.poDate),
         deliveryDateFmt: model.deliveryDateFmt,
+        project: model.h.project,
         vendor: model.vendor,
         delivery: model.g.delivery || '—',
         payment: model.g.payment || '—',
@@ -166,9 +167,22 @@ export default function PurchaseOrderDetail() {
         </table>
       </div>
 
-      {/* ── Totals ── */}
-      <div className="pod-totals-wrap">
-        <div className="pod-totals card">
+      {/* ── Notes / record (left) + totals (right) ── */}
+      <div className="pod-bottom">
+        <div className="pod-bottom-left">
+          <div className="card pod-card">
+            <h3>Notes / remarks</h3>
+            {notes.length ? <ul className="pod-notes">{notes.map((n, i) => <li key={i}>{n}</li>)}</ul> : <p className="pod-empty">No notes recorded for this PO.</p>}
+          </div>
+          <div className="card pod-card">
+            <h3>Record</h3>
+            <Row k="Created" v={dtfmt(model.createdAt)} />
+            <Row k="Last updated" v={dtfmt(model.updatedAt)} />
+            <Row k="Line items" v={items.length} />
+          </div>
+        </div>
+        <div className="card pod-totals">
+          <h3>Order summary</h3>
           <Row k="Sub Total (materials)" v={money(totals.sub)} />
           {totals.loading ? <Row k="Loading Charges" v={money(totals.loading)} /> : null}
           {totals.transport ? <Row k="Transport Charge" v={money(totals.transport)} /> : null}
@@ -178,20 +192,6 @@ export default function PurchaseOrderDetail() {
           {Math.abs(totals.roundOff) >= 0.005 ? <Row k="Round Off" v={(totals.roundOff >= 0 ? '+' : '−') + '₹' + Math.abs(totals.roundOff).toFixed(2)} /> : null}
           <Row k="Grand Total" v={inr(totals.grand)} strong />
           <div className="pod-words">{amountInWords(totals.grand)}</div>
-        </div>
-      </div>
-
-      {/* ── Notes + meta ── */}
-      <div className="pod-grid2">
-        <div className="card pod-card">
-          <h3>Notes / remarks</h3>
-          {notes.length ? <ul className="pod-notes">{notes.map((n, i) => <li key={i}>{n}</li>)}</ul> : <p className="pod-empty">No notes recorded for this PO.</p>}
-        </div>
-        <div className="card pod-card">
-          <h3>Record</h3>
-          <Row k="Created" v={dtfmt(model.createdAt)} />
-          <Row k="Last updated" v={dtfmt(model.updatedAt)} />
-          <Row k="Line items" v={items.length} />
         </div>
       </div>
 
@@ -214,13 +214,15 @@ export default function PurchaseOrderDetail() {
         .pod-row.strong{padding:10px 0}
         .pod-row.strong .k{color:var(--fg);font-weight:700}
         .pod-row.strong .v{color:var(--accent-ink);font-weight:800;font-size:16px}
-        .pod-totals-wrap{display:flex;justify-content:flex-end;margin-top:16px}
-        .pod-totals{width:100%;max-width:420px;padding:10px 18px}
+        .pod-bottom{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:14px;margin-top:16px;align-items:start}
+        .pod-bottom-left{display:flex;flex-direction:column;gap:14px;min-width:0}
+        .pod-totals{padding:16px 18px;min-width:0}
+        .pod-totals h3{font:700 12px var(--f-body);text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:0 0 8px}
         .pod-words{padding:9px 0 2px;font-size:12.5px;font-style:italic;color:var(--muted);border-top:1px solid var(--line);margin-top:4px}
         .pod-notes{margin:0;padding-left:18px;font-size:13.5px;color:var(--fg)}
         .pod-notes li{margin:3px 0}
         .pod-empty{color:var(--muted);font-size:13.5px;margin:0}
-        @media (max-width:900px){.pod-grid{grid-template-columns:1fr}.pod-grid2{grid-template-columns:1fr}.pod-totals{max-width:none}}
+        @media (max-width:900px){.pod-grid{grid-template-columns:1fr}.pod-bottom{grid-template-columns:1fr}}
         @media print{
           .sidebar,.topbar,.hamburger,.backdrop,.no-print{display:none!important}
           .main,.content{margin:0!important;padding:0!important}

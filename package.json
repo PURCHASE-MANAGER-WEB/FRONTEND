@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "jspdf": "^2.5.2",
-    "jspdf-autotable": "^3.8.4",
     "lucide-react": "^1.24.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
