@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Download, Printer, Pencil } from 'lucide-react';
+import { ArrowLeft, Download, Printer, Pencil, FileText } from 'lucide-react';
 import { usePurchaseData } from '../context/PurchaseData';
 import { useToast } from '../components/Toast';
 import { Pill, StateRow } from '../components/ui';
@@ -57,6 +57,8 @@ export default function PurchaseOrderDetail() {
         project: model.h.project,
         paymentMethod: model.h.paymentMethod,
         terms: model.h.terms,
+        invoiceUrl: model.h.invoice?.url,
+        invoiceName: model.h.invoice?.name,
         vendor: model.vendor,
         delivery: model.g.delivery || '—',
         payment: model.g.payment || '—',
@@ -101,6 +103,7 @@ export default function PurchaseOrderDetail() {
       <div className="pod-bar no-print">
         <button className="btn" onClick={() => navigate('/purchase-orders')}><ArrowLeft size={15} style={{ verticalAlign: '-2px' }} /> Back</button>
         <div className="pod-bar-right">
+          {h.invoice?.url && <a className="btn" href={h.invoice.url} target="_blank" rel="noreferrer"><FileText size={15} style={{ verticalAlign: '-2px' }} /> Invoice</a>}
           <button className="btn" onClick={() => navigate(`/purchase-orders?edit=${encodeURIComponent(po)}`)}><Pencil size={15} style={{ verticalAlign: '-2px' }} /> Edit</button>
           <button className="btn" onClick={() => window.print()}><Printer size={15} style={{ verticalAlign: '-2px' }} /> Print</button>
           <button className="btn primary" onClick={onDownload} disabled={pdfBusy}><Download size={15} style={{ verticalAlign: '-2px' }} /> {pdfBusy ? 'Preparing…' : 'Download PDF'}</button>
@@ -129,6 +132,7 @@ export default function PurchaseOrderDetail() {
           <Row k="Project" v={h.project} />
           <Row k="GST Rate" v={`${totals.gstPct}%`} />
           <Row k="Payment Method" v={h.paymentMethod} />
+          <Row k="Invoice" v={h.invoice?.url ? <a href={h.invoice.url} target="_blank" rel="noreferrer" style={{ color: 'var(--accent-ink)', fontWeight: 600 }}>View / Download</a> : 'Not uploaded'} />
         </div>
         <div className="card pod-card">
           <h3>Supplier</h3>
@@ -246,7 +250,7 @@ export default function PurchaseOrderDetail() {
         .pod-words{padding:9px 0 2px;font-size:12.5px;font-style:italic;color:var(--muted);border-top:1px solid var(--line);margin-top:4px}
         .pod-notes{margin:0;padding-left:18px;font-size:13.5px;color:var(--fg)}
         .pod-notes li{margin:3px 0}
-        .pod-terms{margin:0;font-size:13.5px;color:var(--fg);line-height:1.6;white-space:pre-wrap}
+        .pod-terms{margin:0;font-size:13.5px;color:var(--fg);line-height:1.6;white-space:pre-line}
         .pod-empty{color:var(--muted);font-size:13.5px;margin:0}
         @media (max-width:900px){.pod-grid{grid-template-columns:1fr}.pod-bottom{grid-template-columns:1fr}}
         @media print{

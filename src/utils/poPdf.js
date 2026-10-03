@@ -6,11 +6,11 @@
 // Note: the built-in PDF fonts don't carry the ₹ glyph, so money is printed as
 // "Rs." in the PDF (the on-screen UI still uses ₹).
 
-const TEAL = [15, 118, 110];
+const TEAL = [29, 78, 216];   // CRM blue accent (name kept for minimal churn)
 const INK = [17, 24, 39];
 const MUTE = [107, 114, 128];
-const LINE = [220, 226, 234];
-const SOFT = [240, 249, 247];
+const LINE = [219, 227, 239];
+const SOFT = [219, 234, 254];
 
 const rs = (n) => 'Rs. ' + Math.round(Number(n) || 0).toLocaleString('en-IN');
 const qn = (n) => (Number(n) || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
@@ -234,8 +234,23 @@ export async function downloadPoPdf(data) {
     doc.setFont('helvetica', 'bold').setFontSize(8).setTextColor(...MUTE);
     doc.text('TERMS & CONDITIONS', M, y); y += 14;
     doc.setFont('helvetica', 'normal').setFontSize(9.5).setTextColor(...INK);
-    const tt = doc.splitTextToSize(String(data.terms), CW);
-    doc.text(tt, M, y); y += tt.length * 12 + 12;
+    // Normalise: drop tabs, collapse runs of spaces, keep real line breaks —
+    // otherwise the viewer's tab/space layout renders as big uneven gaps.
+    const tLines = String(data.terms).replace(/\t/g, ' ').split(/\r?\n/)
+      .flatMap(p => { const c = p.replace(/ {2,}/g, ' ').trim(); return c ? doc.splitTextToSize(c, CW) : ['']; });
+    tLines.forEach(l => { if (y > H - 55) { doc.addPage(); y = 50; } doc.text(l, M, y); y += 13; });
+    y += 10;
+  }
+
+  // ── Invoice ──
+  if (data.invoiceUrl) {
+    if (y > H - 70) { doc.addPage(); y = 50; }
+    doc.setFont('helvetica', 'bold').setFontSize(8).setTextColor(...MUTE);
+    doc.text('INVOICE', M, y); y += 13;
+    doc.setFont('helvetica', 'normal').setFontSize(9.5).setTextColor(...INK);
+    doc.text(`${data.invoiceName || 'Invoice.pdf'} — attached`, M, y); y += 13;
+    doc.setFont('helvetica', 'bold').setTextColor(...TEAL);
+    doc.textWithLink('View / download invoice', M, y, { url: data.invoiceUrl }); y += 16;
   }
 
   // ── Notes ──

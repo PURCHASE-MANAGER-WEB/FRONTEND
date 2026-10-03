@@ -1,11 +1,14 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, FileText, Upload } from 'lucide-react';
 import { usePurchaseData } from '../context/PurchaseData';
 import { purchaseApi } from '../api/client';
 import { useToast } from '../components/Toast';
 import { Pill, Drawer, Field, StateRow } from '../components/ui';
 import { calcLine, calcPO, poCharges, amountInWords, num, inr, qfmt, dfmt, today, vendorName, nextPo, UNITS, PAYMENT_METHODS } from '../utils/procurement';
+import { uploadInvoice } from '../utils/cloudinary';
+
+const kb = (n) => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
 
 const newId = () => 'L' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
@@ -20,7 +23,7 @@ const blankItem = () => ({
 const blankPO = (lines, vendors) => ({
   isNew: true,
   po: nextPo(lines), poDate: today(), vid: vendors[0]?.vid || '', project: '',
-  loading: '', transport: '', gstPct: 18, notes: '', paymentMethod: '', terms: '',
+  loading: '', transport: '', gstPct: 18, notes: '', paymentMethod: '', terms: '', invoice: null,
   items: [blankItem()], origIds: [],
 });
 
@@ -31,6 +34,8 @@ export default function PurchaseOrders() {
   const [editing, setEditing] = useState(null);
   const [formErr, setFormErr] = useState('');
   const [busy, setBusy] = useState(false);
+  const [invBusy, setInvBusy] = useState(false);
+  const [invErr, setInvErr] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
 
   const filter = searchParams.get('filter') || 'all';
@@ -63,7 +68,7 @@ export default function PurchaseOrders() {
       isNew: false,
       po: h.po || poKey, poDate: h.poDate || today(), vid: h.vid || vendors[0]?.vid || '', project: h.project || '',
       loading: ch.loading || '', transport: ch.transport || '', gstPct: ch.gstPct, notes: h.notes || '',
-      paymentMethod: h.paymentMethod || '', terms: h.terms || '',
+      paymentMethod: h.paymentMethod || '', terms: h.terms || '', invoice: h.invoice || null,
       items: group.map(l => ({
         _id: l.id, isNew: false,
         material: l.material || '', description: l.description || '', spec: l.spec || '', hsn: l.hsn || '',
@@ -114,7 +119,7 @@ export default function PurchaseOrders() {
 
     const loading = num(d.loading), transport = num(d.transport);
     const gstPct = (d.gstPct === '' || d.gstPct === null || d.gstPct === undefined) ? 18 : num(d.gstPct);
-    const shared = { po, poDate: d.poDate, vid: d.vid, project: d.project.trim(), loading, transport, gstPct, notes: String(d.notes || '').trim(), paymentMethod: d.paymentMethod || '', terms: String(d.terms || '').trim() };
+    const shared = { po, poDate: d.poDate, vid: d.vid, project: d.project.trim(), loading, transport, gstPct, notes: String(d.notes || '').trim(), paymentMethod: d.paymentMethod || '', terms: String(d.terms || '').trim(), invoice: d.invoice || null };
 
     setBusy(true);
     try {
@@ -151,6 +156,16 @@ export default function PurchaseOrders() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, vendors, lines]);
+
+  const onInvoice = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setInvErr(''); setInvBusy(true);
+    try { const inv = await uploadInvoice(file); setHdr('invoice', inv); toast('Invoice uploaded'); }
+    catch (err) { setInvErr(err.message || 'Could not upload the invoice.'); }
+    finally { setInvBusy(false); }
+  };
 
   const money = (n) => num(n) ? inr(n) : '₹0';
 
@@ -313,6 +328,27 @@ export default function PurchaseOrders() {
             </div>
           </div>
 
+          {/* ── Invoice PDF ── */}
+          <div className="po-charges">
+            <div className="po-items-head"><span>Invoice (PDF)</span></div>
+            {editing.invoice?.url ? (
+              <div className="inv-row">
+                <FileText size={18} />
+                <a href={editing.invoice.url} target="_blank" rel="noreferrer" className="inv-name">{editing.invoice.name || 'Invoice.pdf'}</a>
+                {editing.invoice.size ? <span className="inv-size">{kb(editing.invoice.size)}</span> : null}
+                <label className="link inv-replace">{invBusy ? 'Uploading…' : 'Replace'}<input type="file" accept="application/pdf" hidden onChange={onInvoice} disabled={invBusy} /></label>
+                <button type="button" className="link inv-remove" onClick={() => setHdr('invoice', null)}>Remove</button>
+              </div>
+            ) : (
+              <label className={`inv-drop ${invBusy ? 'busy' : ''}`}>
+                <input type="file" accept="application/pdf" hidden onChange={onInvoice} disabled={invBusy} />
+                <Upload size={17} /> {invBusy ? 'Uploading…' : 'Upload invoice PDF'}
+                <span className="inv-hint">PDF only · up to 15 MB</span>
+              </label>
+            )}
+            {invErr && <div className="err" style={{ marginTop: 8 }}>{invErr}</div>}
+          </div>
+
           {/* ── Invoice-style totals ── */}
           <div className="po-totals">
             <Row label="Sub Total (materials)" val={money(poTot.sub)} />
@@ -373,6 +409,14 @@ export default function PurchaseOrders() {
         .po-track .po-fields{margin-top:10px}
         .po-track-stat{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12px;color:var(--muted)}
         .po-track-stat b{color:var(--fg)}
+        .inv-drop{display:flex;align-items:center;gap:9px;flex-wrap:wrap;border:1px dashed var(--accent);border-radius:11px;padding:14px 16px;cursor:pointer;color:var(--accent-ink);font-weight:600;font-size:14px;background:var(--accent-soft)}
+        .inv-drop.busy{opacity:.7;cursor:default}
+        .inv-hint{font-weight:400;color:var(--muted);font-size:12px;margin-left:auto}
+        .inv-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border:1px solid var(--line);border-radius:11px;padding:12px 14px;background:var(--surface)}
+        .inv-name{color:var(--accent-ink);font-weight:600;text-decoration:none;word-break:break-all}
+        .inv-name:hover{text-decoration:underline}
+        .inv-size{color:var(--muted);font-size:12px}
+        .inv-replace{margin-left:auto}
         .po-totals{margin-top:18px;border:1px solid var(--line);border-radius:12px;padding:6px 14px;background:var(--surface)}
         .po-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;font-size:13.5px;border-bottom:1px dashed var(--line)}
         .po-row:last-of-type{border-bottom:0}

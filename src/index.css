@@ -1,40 +1,40 @@
 /* ─────────────────────────────────────────────────────────────────────────
-   Purchase Manager Portal — "Architectural / Industrial-Luxury"
-   Deep navy structure · brass accent · warm blueprint-paper base.
+   Purchase Manager Portal — Tesco CRM blue theme
+   Deep blue structure · blue accent · cool neutral base.
    Display: Bricolage Grotesque · Body: IBM Plex Sans · Numerics: IBM Plex Mono
    ───────────────────────────────────────────────────────────────────────── */
 :root{
-  --bg:#f4f1ea; --surface:#ffffff; --sunk:#f1ebdf; --line:#e4ddce; --line-soft:#eee7d9;
-  --fg:#16222f; --muted:#6c7684;
-  --brand:#0e1b2e; --brand-2:#16293f; --brand-fg:#e9eef5; --brand-dim:#9fb0c4;
-  --accent:#14b8a6; --accent-2:#2dd4bf; --accent-soft:#d8f6f0; --accent-ink:#0f766e;
-  --action:#13233b; --action-2:#22405f; --action-fg:#ffffff;
+  --bg:#eef3fa; --surface:#ffffff; --sunk:#eef2f8; --line:#dbe3ef; --line-soft:#eaeff7;
+  --fg:#132033; --muted:#5f6b80;
+  --brand:#0f2147; --brand-2:#163360; --brand-fg:#e8eefb; --brand-dim:#9fb2d4;
+  --accent:#2563eb; --accent-2:#3b82f6; --accent-soft:#dbeafe; --accent-ink:#1d4ed8;
+  --action:#1d4ed8; --action-2:#2563eb; --action-fg:#ffffff;
   --ok:#1c7a46; --ok-bg:#dff0e4; --warn:#8a5a10; --warn-bg:#faedcf; --bad:#a12b20; --bad-bg:#f8dfdb;
   --f-display:"Bricolage Grotesque","Archivo",sans-serif;
   --f-body:"IBM Plex Sans","Segoe UI",sans-serif;
   --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
   --radius:12px; --radius-sm:9px;
-  --shadow-sm:0 1px 2px rgba(16,27,46,.06),0 1px 1px rgba(16,27,46,.04);
-  --shadow:0 10px 30px -12px rgba(16,27,46,.28);
-  --shadow-lg:0 28px 60px -22px rgba(16,27,46,.45);
-  --grid:rgba(16,27,46,.045);
+  --shadow-sm:0 1px 2px rgba(15,33,71,.06),0 1px 1px rgba(15,33,71,.04);
+  --shadow:0 10px 30px -12px rgba(15,33,71,.26);
+  --shadow-lg:0 28px 60px -22px rgba(15,33,71,.42);
+  --grid:rgba(37,99,235,.05);
   color-scheme:light;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#0a1119; --surface:#101a26; --sunk:#16212f; --line:#243244; --line-soft:#1b2736;
-  --fg:#e7edf4; --muted:#92a1b4;
-  --brand:#070d15; --brand-2:#0e1a28; --brand-fg:#e7edf4; --brand-dim:#8698ad;
-  --accent:#2dd4bf; --accent-2:#5eead4; --accent-soft:#0e2e2a; --accent-ink:#5eead4;
-  --action:#1a3250; --action-2:#2c4a6e; --action-fg:#ffffff;
+  --bg:#0a1322; --surface:#101c30; --sunk:#16243a; --line:#243755; --line-soft:#1b2c45;
+  --fg:#e7eefb; --muted:#93a4c0;
+  --brand:#081026; --brand-2:#0e1d3c; --brand-fg:#e7eefb; --brand-dim:#8ba0c4;
+  --accent:#60a5fa; --accent-2:#93c5fd; --accent-soft:#132a4d; --accent-ink:#93c5fd;
+  --action:#2563eb; --action-2:#3b82f6; --action-fg:#ffffff;
   --ok:#67d39a; --ok-bg:#15301f; --warn:#e6b45a; --warn-bg:#332710; --bad:#ef8a80; --bad-bg:#3a1714;
   --grid:rgba(255,255,255,.04);
   color-scheme:dark;
 }}
 :root[data-theme="dark"]{
-  --bg:#0a1119; --surface:#101a26; --sunk:#16212f; --line:#243244; --line-soft:#1b2736;
-  --fg:#e7edf4; --muted:#92a1b4; --brand:#070d15; --brand-2:#0e1a28; --brand-fg:#e7edf4; --brand-dim:#8698ad;
-  --accent:#2dd4bf; --accent-2:#5eead4; --accent-soft:#0e2e2a; --accent-ink:#5eead4;
-  --action:#1a3250; --action-2:#2c4a6e; --action-fg:#ffffff;
+  --bg:#0a1322; --surface:#101c30; --sunk:#16243a; --line:#243755; --line-soft:#1b2c45;
+  --fg:#e7eefb; --muted:#93a4c0; --brand:#081026; --brand-2:#0e1d3c; --brand-fg:#e7eefb; --brand-dim:#8ba0c4;
+  --accent:#60a5fa; --accent-2:#93c5fd; --accent-soft:#132a4d; --accent-ink:#93c5fd;
+  --action:#2563eb; --action-2:#3b82f6; --action-fg:#ffffff;
   --ok:#67d39a; --ok-bg:#15301f; --warn:#e6b45a; --warn-bg:#332710; --bad:#ef8a80; --bad-bg:#3a1714;
   --grid:rgba(255,255,255,.04); color-scheme:dark;
 }
@@ -56,7 +56,7 @@ body{
 .sidebar{width:252px;flex-shrink:0;background:linear-gradient(185deg,var(--brand) 0%,var(--brand-2) 100%);color:var(--brand-fg);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;border-right:1px solid rgba(255,255,255,.06)}
 .sidebar .logo{padding:24px 22px 18px;border-bottom:1px solid rgba(255,255,255,.07)}
 .sidebar .logo .mark{display:flex;align-items:center;gap:12px}
-.sidebar .logo .tile{width:40px;height:40px;flex-shrink:0;border-radius:11px;background:#fff;padding:7px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px -8px rgba(0,0,0,.5),0 0 0 1px rgba(45,212,191,.4) inset}
+.sidebar .logo .tile{width:40px;height:40px;flex-shrink:0;border-radius:11px;background:#fff;padding:7px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px -8px rgba(0,0,0,.5),0 0 0 1px rgba(59,130,246,.45) inset}
 .sidebar .logo .tile img{width:100%;height:100%;object-fit:contain;display:block}
 .sidebar .logo b{font:700 16px/1.1 var(--f-display);letter-spacing:.01em}
 .sidebar .logo span{display:block;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent-2);margin-top:4px;opacity:.9}
@@ -67,7 +67,7 @@ body{
 .sidebar nav a.active::before{content:"";position:absolute;left:-12px;top:9px;bottom:9px;width:3px;border-radius:0 3px 3px 0;background:linear-gradient(var(--accent-2),var(--accent))}
 .sidebar nav a.active svg{color:var(--accent-2)}
 .sidebar .who{padding:16px 18px;border-top:1px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:11px}
-.sidebar .who .av{width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,var(--accent-2),var(--accent));color:#1a1205;display:flex;align-items:center;justify-content:center;font:700 14px var(--f-display)}
+.sidebar .who .av{width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,var(--accent-2),var(--accent));color:#fff;display:flex;align-items:center;justify-content:center;font:700 14px var(--f-display)}
 .sidebar .who .nm{font-size:13.5px;font-weight:600;line-height:1.25}
 .sidebar .who .rl{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent-2);margin-top:2px}
 
