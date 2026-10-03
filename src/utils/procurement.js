@@ -58,6 +58,50 @@ export function kpis(lines) {
   return { value, paid, out, pend, over };
 }
 
+// ── PO document totals ──────────────────────────────────────────────
+// Invoice-style roll-up for one PO: sub total of its item lines, plus
+// loading & transport charges, GST (split into CGST/SGST halves like the
+// tax invoice), a round-off to the nearest rupee, and the grand total.
+// gstPct defaults to 18 (CGST 9% + SGST 9%) and is editable per PO.
+export function calcPO({ sub = 0, loading = 0, transport = 0, gstPct = 18 } = {}) {
+  sub = num(sub); loading = num(loading); transport = num(transport);
+  const rate = (gstPct === '' || gstPct === null || gstPct === undefined) ? 18 : num(gstPct);
+  const taxable = sub + loading + transport;
+  const gst = taxable * rate / 100;
+  const cgst = gst / 2, sgst = gst / 2;
+  const pre = taxable + gst;
+  const grand = Math.round(pre);
+  const roundOff = grand - pre;          // + or − a few paise, rounded to ₹1
+  return { sub, loading, transport, taxable, gstPct: rate, gst, cgst, sgst, roundOff, grand };
+}
+
+// Pull a PO's shared charge fields off any one of its lines (they are stored
+// identically on every line of the PO).
+export const poCharges = (line = {}) => ({
+  loading: num(line.loading),
+  transport: num(line.transport),
+  gstPct: (line.gstPct === '' || line.gstPct === null || line.gstPct === undefined) ? 18 : num(line.gstPct),
+});
+
+// Amount in words, Indian numbering (Crore / Lakh / Thousand). Integer rupees.
+export function amountInWords(n) {
+  n = Math.round(num(n));
+  if (n <= 0) return 'Zero Rupees Only';
+  const a = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+  const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+  const two = (x) => x < 20 ? a[x] : b[Math.floor(x / 10)] + (x % 10 ? ' ' + a[x % 10] : '');
+  const three = (x) => x >= 100 ? a[Math.floor(x / 100)] + ' Hundred' + (x % 100 ? ' ' + two(x % 100) : '') : two(x);
+  let out = '';
+  const crore = Math.floor(n / 10000000); n %= 10000000;
+  const lakh = Math.floor(n / 100000); n %= 100000;
+  const thousand = Math.floor(n / 1000); n %= 1000;
+  if (crore) out += three(crore) + ' Crore ';
+  if (lakh) out += two(lakh) + ' Lakh ';
+  if (thousand) out += two(thousand) + ' Thousand ';
+  if (n) out += three(n) + ' ';
+  return out.trim() + ' Rupees Only';
+}
+
 export const nextVid = (vendors) => {
   const n = vendors.map(v => parseInt(String(v.vid || '').replace(/\D/g, '')) || 0);
   return 'VEN-' + String((n.length ? Math.max(...n) : 0) + 1).padStart(3, '0');
