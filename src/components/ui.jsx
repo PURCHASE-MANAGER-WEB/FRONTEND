@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 
-const PILL = { Completed: 'p-ok', Paid: 'p-ok', Active: 'p-ok', Partial: 'p-warn', Pending: 'p-bad', Unpaid: 'p-bad', Blocked: 'p-bad', Inactive: 'p-mute' };
+const PILL = { Completed: 'p-ok', Paid: 'p-ok', Active: 'p-ok', Partial: 'p-warn', 'Due today': 'p-warn', Overdue: 'p-bad', Pending: 'p-mute', Unpaid: 'p-bad', Blocked: 'p-bad', Inactive: 'p-mute' };
 export const Pill = ({ s }) => <span className={`pill ${PILL[s] || 'p-mute'}`}>{s}</span>;
 
 // Slide-in drawer with a backdrop; Escape / backdrop click closes.

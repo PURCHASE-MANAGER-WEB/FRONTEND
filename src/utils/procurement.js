@@ -14,16 +14,52 @@ export const UNITS = ['MT','Kg','Nos','Sq.ft','Sq.m','Rft','Mtr','Ltr','Bag','Se
 export const TERMS = ['Advance','7 Days','15 Days','30 Days','45 Days','60 Days'];
 export const VENDOR_STATUS = ['Active','Inactive','Blocked'];
 
+// Whole-day difference (a − b) between two YYYY-MM-DD date strings.
+// Built on Date.UTC from the parsed parts, so it is immune to local-timezone
+// / DST drift (comparing date-only values, never wall-clock instants).
+export function daysDiff(aStr, bStr) {
+  if (!aStr || !bStr) return 0;
+  const [ay, am, ad] = String(aStr).split('-').map(Number);
+  const [by, bm, bd] = String(bStr).split('-').map(Number);
+  if (!ay || !by) return 0;
+  return Math.round((Date.UTC(ay, am - 1, ad) - Date.UTC(by, bm - 1, bd)) / 86400000);
+}
+
 // One PO line's derived figures.
+//  • Delivery/payment PROGRESS is received/paid vs ordered/value — the real
+//    source of truth. Nothing received ⇒ 0% (honest, never hard-coded).
+//  • The expected / due DATE vs today drives the Overdue · Due-today state and
+//    the overdue-day count. Dates are plain YYYY-MM-DD, compared as strings
+//    (chronological == lexicographic) and differenced with daysDiff — no UTC bug.
 export function calcLine(l) {
   const qty = num(l.qty), rate = num(l.rate), rec = num(l.received), paid = num(l.paid);
   const total = qty * rate, pending = Math.max(qty - rec, 0), out = total - paid;
-  const delivery = rec <= 0 ? 'Pending' : pending <= 0 ? 'Completed' : 'Partial';
-  const payment = paid <= 0 ? 'Unpaid' : out <= 0 ? 'Paid' : 'Partial';
   const t = today();
-  const lateDel = l.expDate && l.expDate < t && pending > 0;
-  const latePay = l.dueDate && l.dueDate < t && out > 0;
-  return { total, pending, out, delivery, payment, lateDel, latePay };
+
+  // Delivery
+  const delPct = qty > 0 ? Math.min(100, Math.max(0, Math.round(rec / qty * 100))) : 0;
+  const delivered = qty > 0 && rec >= qty;
+  const delOverdueDays = (!delivered && l.expDate && l.expDate < t) ? daysDiff(t, l.expDate) : 0;
+  const delDueToday = !delivered && !!l.expDate && l.expDate === t;
+  const delivery = delivered ? 'Completed'
+    : delOverdueDays > 0 ? 'Overdue'
+    : delDueToday ? 'Due today'
+    : rec > 0 ? 'Partial'
+    : 'Pending';
+
+  // Payment
+  const payPct = total > 0 ? Math.min(100, Math.max(0, Math.round(paid / total * 100))) : 0;
+  const settled = total > 0 && out <= 0;
+  const payOverdueDays = (!settled && l.dueDate && l.dueDate < t) ? daysDiff(t, l.dueDate) : 0;
+  const payDueToday = !settled && !!l.dueDate && l.dueDate === t;
+  const payment = settled ? 'Paid' : paid > 0 ? 'Partial' : 'Unpaid';
+
+  // Back-compat flags (older callers used lateDel / latePay).
+  const lateDel = delOverdueDays > 0;
+  const latePay = payOverdueDays > 0;
+
+  return { total, pending, out, delivery, payment, delPct, payPct, delivered, settled,
+    delOverdueDays, delDueToday, payOverdueDays, payDueToday, lateDel, latePay };
 }
 
 export const vendorName = (vendors, vid) => (vendors.find(v => v.vid === vid) || {}).name || 'Unknown vendor';
@@ -33,15 +69,29 @@ export function groupPOs(lines) {
   const map = new Map();
   for (const l of lines) {
     const c = calcLine(l);
-    const g = map.get(l.po) || { po: l.po, vid: l.vid, project: l.project, date: l.poDate, value: 0, paid: 0, out: 0, qty: 0, rec: 0, pend: 0, units: new Set() };
+    const g = map.get(l.po) || { po: l.po, vid: l.vid, project: l.project, date: l.poDate, value: 0, paid: 0, out: 0, qty: 0, rec: 0, pend: 0, units: new Set(), delOverdue: 0, payOverdue: 0, dueToday: false, payDueToday: false };
     g.value += c.total; g.paid += num(l.paid); g.out += c.out;
     g.qty += num(l.qty); g.rec += Math.min(num(l.received), num(l.qty)); g.pend += c.pending; g.units.add(l.unit);
+    g.delOverdue = Math.max(g.delOverdue, c.delOverdueDays);
+    g.payOverdue = Math.max(g.payOverdue, c.payOverdueDays);
+    g.dueToday = g.dueToday || c.delDueToday;
+    g.payDueToday = g.payDueToday || c.payDueToday;
     map.set(l.po, g);
   }
   return [...map.values()].map(g => {
     g.unit = g.units.size === 1 ? [...g.units][0] : 'mixed units';
-    g.delivery = g.rec <= 0 ? 'Pending' : g.pend <= 0 ? 'Completed' : 'Partial';
-    g.payment = g.paid <= 0 ? 'Unpaid' : g.out <= 0 ? 'Paid' : 'Partial';
+    const delivered = g.qty > 0 && g.rec >= g.qty;
+    const settled = g.value > 0 && g.out <= 0;
+    g.delPct = g.qty ? Math.min(100, Math.max(0, Math.round(g.rec / g.qty * 100))) : 0;
+    g.payPct = g.value ? Math.min(100, Math.max(0, Math.round(g.paid / g.value * 100))) : 0;
+    g.overdueDays = delivered ? 0 : g.delOverdue;       // only while not yet delivered
+    g.payOverdueDays = settled ? 0 : g.payOverdue;
+    g.delivery = delivered ? 'Completed'
+      : g.overdueDays > 0 ? 'Overdue'
+      : (g.dueToday && g.rec < g.qty) ? 'Due today'
+      : g.rec > 0 ? 'Partial'
+      : 'Pending';
+    g.payment = settled ? 'Paid' : g.paid > 0 ? 'Partial' : 'Unpaid';
     return g;
   }).sort((a,b) => String(a.po).localeCompare(String(b.po), undefined, { numeric: true }));
 }
@@ -53,7 +103,7 @@ export function kpis(lines) {
     const c = calcLine(l);
     value += c.total; paid += num(l.paid); out += c.out;
     if (c.pending > 0) pend++;
-    if (c.lateDel || c.latePay) over++;
+    if (c.delOverdueDays > 0 || c.payOverdueDays > 0) over++;
   }
   return { value, paid, out, pend, over };
 }

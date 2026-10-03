@@ -163,8 +163,8 @@ export default function PurchaseOrders() {
                 <td>{l.spec || '—'}</td>
                 <td className="num">{qfmt(l.qty)}</td><td>{l.unit}</td><td className="num">{inr(l.rate)}</td>
                 <td className="num calc">{inr(c.total)}</td><td className="num">{qfmt(l.received)}</td><td className="num calc">{qfmt(c.pending)}</td>
-                <td className={c.lateDel ? 'overdue' : ''}>{dfmt(l.expDate)}{c.lateDel ? ' · late' : ''}</td>
-                <td className={c.latePay ? 'overdue' : ''}>{dfmt(l.dueDate)}{c.latePay ? ' · overdue' : ''}</td>
+                <td className={c.delOverdueDays > 0 ? 'overdue' : ''}>{dfmt(l.expDate)}{c.delOverdueDays > 0 ? ` · ${c.delOverdueDays}d overdue` : (c.delDueToday ? ' · due today' : '')}</td>
+                <td className={c.payOverdueDays > 0 ? 'overdue' : ''}>{dfmt(l.dueDate)}{c.payOverdueDays > 0 ? ` · ${c.payOverdueDays}d overdue` : (c.payDueToday ? ' · due today' : '')}</td>
                 <td className="num">{inr(l.paid)}</td><td className="num calc">{inr(c.out)}</td>
                 <td className="calc"><Pill s={c.delivery} /></td><td className="calc"><Pill s={c.payment} /></td>
                 <td><button className="link" onClick={() => open(l.po)}>Edit</button></td>
@@ -209,6 +209,7 @@ export default function PurchaseOrders() {
             </div>
             {editing.items.map((it, i) => {
               const amt = num(it.qty) * num(it.rate);
+              const tc = calcLine({ qty: it.qty, rate: it.rate, received: it.received, paid: it.paid, expDate: it.expDate, dueDate: it.dueDate });
               return (
                 <div className="po-item" key={it._id}>
                   <div className="po-item-top">
@@ -234,6 +235,10 @@ export default function PurchaseOrders() {
                       <label className="pf">Expected Delivery<input type="date" value={it.expDate} onChange={e => setItem(it._id, 'expDate', e.target.value)} /></label>
                       <label className="pf">Payment Due<input type="date" value={it.dueDate} onChange={e => setItem(it._id, 'dueDate', e.target.value)} /></label>
                       <label className="pf">Paid Amount (₹)<input type="number" min="0" step="any" value={it.paid} onChange={e => setItem(it._id, 'paid', e.target.value)} /></label>
+                    </div>
+                    <div className="po-track-stat">
+                      <span>Delivery: <b>{tc.delivery}</b>{tc.delOverdueDays > 0 ? ` · ${tc.delOverdueDays} day${tc.delOverdueDays > 1 ? 's' : ''} overdue` : (tc.delDueToday ? ' · due today' : '')} · {tc.delPct}% received</span>
+                      <span>Payment: <b>{tc.payment}</b>{tc.payOverdueDays > 0 ? ` · ${tc.payOverdueDays} day${tc.payOverdueDays > 1 ? 's' : ''} overdue` : (tc.payDueToday ? ' · due today' : '')} · {tc.payPct}% paid</span>
                     </div>
                   </details>
                 </div>
@@ -300,6 +305,8 @@ export default function PurchaseOrders() {
         .po-track summary:before{content:'▸ ';color:var(--muted)}
         .po-track[open] summary:before{content:'▾ '}
         .po-track .po-fields{margin-top:10px}
+        .po-track-stat{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12px;color:var(--muted)}
+        .po-track-stat b{color:var(--fg)}
         .po-totals{margin-top:18px;border:1px solid var(--line);border-radius:12px;padding:6px 14px;background:var(--surface)}
         .po-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;font-size:13.5px;border-bottom:1px dashed var(--line)}
         .po-row:last-of-type{border-bottom:0}
