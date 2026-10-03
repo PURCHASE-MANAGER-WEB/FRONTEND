@@ -1,10 +1,11 @@
 // API client for the Purchase Manager portal.
-// Reuses the EXISTING Sales Head backend (same auth, same session, same DB).
-// Override with VITE_API_URL for local dev.
-const API_BASE = import.meta.env.VITE_API_URL || 'https://api-saleshead.tescomanagement.com/api';
+// Talks to the STANDALONE Purchase Manager backend (same MongoDB, separate
+// purchase_* collections). Set VITE_API_URL to the deployed backend, or to
+// http://localhost:5003/api for local dev.
+const API_BASE = import.meta.env.VITE_API_URL || 'https://api-purchasemanager.tescomanagement.com/api';
 
 // This portal is locked to the Purchase Manager role.
-export const APP_ROLE = 'Purchase Manager';
+export const APP_ROLE = 'purchase_manager';
 
 // Session — identical keys/mechanism to the other CRM portals.
 export const getToken = () => localStorage.getItem('crm_token');
@@ -67,14 +68,15 @@ export const authApi = {
   me: () => api('/auth/me', { auth: true }),
 };
 
-// Procurement data — the new role-guarded endpoints on the Head backend.
+// Procurement data — role-guarded endpoints on the Purchase Manager backend.
+// (suppliers → purchase_suppliers, orders → purchase_orders)
 export const purchaseApi = {
-  getVendors: () => api('/purchase/vendors', { auth: true }),
-  createVendor: (v) => api('/purchase/vendors', { method: 'POST', body: v, auth: true }),
-  updateVendor: (vid, v) => api(`/purchase/vendors/${encodeURIComponent(vid)}`, { method: 'PUT', body: v, auth: true }),
-  deleteVendor: (vid) => api(`/purchase/vendors/${encodeURIComponent(vid)}`, { method: 'DELETE', auth: true }),
-  getLines: () => api('/purchase/lines', { auth: true }),
-  createLine: (l) => api('/purchase/lines', { method: 'POST', body: l, auth: true }),
-  updateLine: (id, l) => api(`/purchase/lines/${encodeURIComponent(id)}`, { method: 'PUT', body: l, auth: true }),
-  deleteLine: (id) => api(`/purchase/lines/${encodeURIComponent(id)}`, { method: 'DELETE', auth: true }),
+  getVendors: () => api('/suppliers', { auth: true }),
+  createVendor: (v) => api('/suppliers', { method: 'POST', body: v, auth: true }),
+  updateVendor: (vid, v) => api(`/suppliers/${encodeURIComponent(vid)}`, { method: 'PUT', body: v, auth: true }),
+  deleteVendor: (vid) => api(`/suppliers/${encodeURIComponent(vid)}`, { method: 'DELETE', auth: true }),
+  getLines: () => api('/orders', { auth: true }),
+  createLine: (l) => api('/orders', { method: 'POST', body: l, auth: true }),
+  updateLine: (id, l) => api(`/orders/${encodeURIComponent(id)}`, { method: 'PUT', body: l, auth: true }),
+  deleteLine: (id) => api(`/orders/${encodeURIComponent(id)}`, { method: 'DELETE', auth: true }),
 };
