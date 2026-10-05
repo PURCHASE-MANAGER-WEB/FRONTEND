@@ -56,8 +56,8 @@ export async function api(path, { method = 'GET', body, auth = false } = {}) {
 }
 
 export const authApi = {
-  login: (role, email, password) =>
-    api('/auth/login', { method: 'POST', body: { role, email, password } }),
+  login: (role, email, password, designation) =>
+    api('/auth/login', { method: 'POST', body: { role, email, password, ...(designation ? { designation } : {}) } }),
   logout: () => api('/auth/logout', { method: 'POST', auth: true }).catch(() => {}),
   forgotPassword: (email) =>
     api('/auth/forgot-password', { method: 'POST', body: { email } }),

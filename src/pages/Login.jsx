@@ -25,6 +25,8 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
+  const ROLE_OPTIONS = ['Purchase Manager', 'Purchase Head'];
+  const [selectedRole, setSelectedRole] = useState('Purchase Manager');
 
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -54,7 +56,7 @@ export default function Login() {
     if (!email || !password) { setError('Please fill in all fields'); return; }
     setLoading(true);
     try {
-      const data = await authApi.login(APP_ROLE, email.trim(), password);
+      const data = await authApi.login(APP_ROLE, email.trim(), password, selectedRole);
       if (data.user?.role && data.user.role !== APP_ROLE) {
         clearSession();
         setBlockedMsg('This portal is for Purchase accounts only. Please use your own portal.');
@@ -210,7 +212,9 @@ export default function Login() {
                     <div>
                       <label style={labelStyle}>Role</label>
                       <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                        <div style={{ width: '100%', padding: '0.75rem 2.5rem 0.75rem 1rem', borderRadius: '0.5rem', border: '1px solid #CBD5E1', backgroundColor: '#F1F5F9', fontSize: '0.875rem', fontWeight: 600, color: '#0F172A' }}>Purchase</div>
+                        <select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)} style={{ width: '100%', padding: '0.75rem 2.5rem 0.75rem 1rem', borderRadius: '0.5rem', border: '1px solid #CBD5E1', backgroundColor: '#F1F5F9', fontSize: '0.875rem', fontWeight: 600, color: '#0F172A', appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none', cursor: 'pointer' }} onFocus={onFocus} onBlur={onBlur}>
+                          {ROLE_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                        </select>
                         <ShieldCheck size={16} color={ACCENT} style={{ position: 'absolute', right: 12, pointerEvents: 'none' }} />
                       </div>
                     </div>
