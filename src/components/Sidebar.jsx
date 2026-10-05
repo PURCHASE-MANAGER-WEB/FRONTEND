@@ -48,7 +48,7 @@ export default function Sidebar({ open, onNavigate }) {
           <div className="av">{initials}</div>
           <div>
             <div className="nm">{user.name || 'Purchase Manager'}</div>
-            <div className="rl">Purchase Manager</div>
+            <div className="rl">{user.designation || 'Purchase Manager'}</div>
           </div>
         </div>
       </aside>
@@ -58,7 +58,7 @@ export default function Sidebar({ open, onNavigate }) {
           <div className="confirm-box" role="dialog" aria-modal="true" aria-labelledby="lg-out-title">
             <div className="confirm-ic"><LogOut size={22} /></div>
             <h3 id="lg-out-title">Log out?</h3>
-            <p>Are you sure you want to log out of the Purchase Manager portal?</p>
+            <p>Are you sure you want to log out of the Purchase portal?</p>
             <div className="confirm-actions">
               <button className="btn" onClick={() => setAsk(false)}>Cancel</button>
               <button className="btn primary" onClick={doLogout}>Log out</button>

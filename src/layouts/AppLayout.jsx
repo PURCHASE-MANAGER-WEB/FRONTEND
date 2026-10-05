@@ -25,7 +25,7 @@ export default function AppLayout() {
 
   const [title, subtitle] = loc.pathname.startsWith('/purchase-orders/')
     ? ['Purchase Order Details', 'Full details, PDF and print for this purchase order']
-    : (TITLES[loc.pathname] || ['Purchase Manager', '']);
+    : (TITLES[loc.pathname] || ['Purchase Portal', '']);
 
   // Close the bell dropdown on outside click / route change.
   useEffect(() => { setBellOpen(false); }, [loc.pathname]);
@@ -111,6 +111,12 @@ export default function AppLayout() {
         .bell-days{font-size:12px;color:var(--muted)}
         .bell-all{width:100%;padding:11px 14px;border:0;background:none;color:var(--accent-ink);font:700 13px var(--f-body);cursor:pointer}
         .bell-all:hover{background:var(--accent-soft)}
+        /* mobile: pin notification dropdown to the screen's RIGHT edge so it can't spill
+           off the left. The bell is not the right-most control (Refresh sits to its right),
+           so anchoring right:0 to the bell pushed the 300px panel off-screen on phones. */
+        @media (max-width:560px){
+          .bell-pop{right:-55px;width:300px;max-width:calc(100vw - 24px)}
+        }
       `}</style>
     </ToastProvider>
   );

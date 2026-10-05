@@ -1,143 +1,345 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff, Truck, ClipboardList, ShieldCheck, ArrowRight, Boxes } from 'lucide-react';
+import { Lock, Eye, EyeOff, CheckCircle2, AtSign, Key, ShieldCheck } from 'lucide-react';
 import { authApi, setSession, clearSession, getUser, isAuthenticated, APP_ROLE } from '../api/client';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Purchase Portal login. Same layout as the Sales Manager reference login (split
+// hero card + "Welcome Back" card, feature checklist, Remember Me, OTP password
+// reset, footer). Indigo accent. One portal, two possible designations
+// (Purchase Manager / Purchase Head) — the designation is NOT chosen here; it is
+// loaded from the authenticated account after login and shown in the sidebar.
+// Router-based navigation is preserved from the original Purchase login.
+// ─────────────────────────────────────────────────────────────────────────────
+const ACCENT = '#4F46E5';
+const ACCENT_DARK = '#4338CA';
+const ACCENT_SHADOW = 'rgba(79,70,229,0.25)';
+const HERO_FROM = '#EEF2FF';
+const HERO_TO = '#E0E7FF';
+const HERO_BORDER = 'rgba(199,210,254,0.5)';
 
 export default function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
 
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [blockedMsg, setBlockedMsg] = useState('');
+
+  const [forgotStep, setForgotStep] = useState(0); // 0 = login, 1 = email, 2 = otp, 3 = new password
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Preserve the original portal behaviour: honour ?loggedout=1, and bounce an
+  // already-authenticated Purchase user straight to the dashboard.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('loggedout') === '1') { clearSession(); return; }
     if (isAuthenticated() && getUser()?.role === APP_ROLE) navigate('/dashboard', { replace: true });
   }, [navigate]);
 
-  const submit = async (e) => {
-    e.preventDefault(); setError('');
-    if (!email || !password) { setError('Please enter your email and password.'); return; }
+  const flash = (msg, isError = false) => { setError(isError ? msg : ''); setNotice(isError ? '' : msg); };
+
+  const handleLoginSubmit = async (e) => {
+    e.preventDefault();
+    setError(''); setNotice('');
+    if (!email || !password) { setError('Please fill in all fields'); return; }
     setLoading(true);
     try {
       const data = await authApi.login(APP_ROLE, email.trim(), password);
-      if (data.user?.role && data.user.role !== APP_ROLE) { clearSession(); setError('This portal is for Purchase Managers only. Please use your own portal.'); return; }
+      if (data.user?.role && data.user.role !== APP_ROLE) {
+        clearSession();
+        setBlockedMsg('This portal is for Purchase accounts only. Please use your own portal.');
+        return;
+      }
       setSession(data.token, data.user);
       navigate('/dashboard', { replace: true });
-    } catch (err) { setError(err.message || 'Invalid email or password.'); }
-    finally { setLoading(false); }
+    } catch (err) {
+      if (/deactivat/i.test(err.message || '')) {
+        clearSession();
+        setBlockedMsg(err.message || 'Your account has been deactivated. Contact the Sales Head.');
+      } else {
+        setError(err.message || 'Invalid email or password');
+      }
+    } finally { setLoading(false); }
   };
 
-  const field = (icon, props, right) => (
-    <div className="lg-field">{icon}<input {...props} />{right}</div>
+  const handleSendOTP = async (e) => {
+    e.preventDefault();
+    setError(''); setNotice('');
+    if (!forgotEmail) { setError('Please enter your email ID'); return; }
+    try {
+      const data = await authApi.forgotPassword(forgotEmail);
+      flash(data.devOtp ? `OTP sent! Your verification code is ${data.devOtp}` : 'OTP sent to your email!');
+      setForgotStep(2);
+    } catch (err) { setError(err.message); }
+  };
+
+  const handleVerifyOTP = async (e) => {
+    e.preventDefault();
+    setError(''); setNotice('');
+    if (!otpCode) { setError('Please enter the verification OTP'); return; }
+    try {
+      await authApi.verifyOtp(forgotEmail, otpCode);
+      flash('OTP verified successfully!');
+      setForgotStep(3);
+    } catch (err) { setError(err.message); }
+  };
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    setError(''); setNotice('');
+    if (!newPassword || !confirmPassword) { setError('Please fill in all password fields'); return; }
+    if (newPassword.length < 8) { setError('Password must be at least 8 characters'); return; }
+    if (newPassword !== confirmPassword) { setError('Passwords do not match!'); return; }
+    try {
+      await authApi.resetPassword(forgotEmail, otpCode, newPassword);
+      flash('Password has been reset successfully! Please sign in.');
+      setPassword('');
+      setEmail(forgotEmail);
+      setForgotStep(0);
+      setForgotEmail(''); setOtpCode(''); setNewPassword(''); setConfirmPassword('');
+    } catch (err) { setError(err.message); }
+  };
+
+  const labelStyle = { display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' };
+  const inputStyle = {
+    width: '100%', padding: '0.75rem 2.5rem 0.75rem 1rem', borderRadius: '0.5rem',
+    border: '1px solid #CBD5E1', outline: 'none', fontSize: '0.875rem', color: '#0F172A', transition: 'border-color 0.2s',
+  };
+  const onFocus = (e) => (e.target.style.borderColor = ACCENT);
+  const onBlur = (e) => (e.target.style.borderColor = '#CBD5E1');
+  const btnStyle = {
+    backgroundColor: ACCENT, color: '#FFFFFF', border: 'none', borderRadius: '0.5rem', padding: '0.875rem',
+    fontWeight: 700, fontSize: '0.875rem', cursor: 'pointer', transition: 'background-color 0.2s',
+    boxShadow: `0 4px 12px ${ACCENT_SHADOW}`, marginTop: '0.5rem',
+  };
+  const btnOver = (e) => (e.target.style.backgroundColor = ACCENT_DARK);
+  const btnOut = (e) => (e.target.style.backgroundColor = ACCENT);
+  const linkStyle = { color: ACCENT, textDecoration: 'none', fontWeight: 600 };
+
+  const Feedback = () => (
+    <>
+      {error && <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C', padding: '0.7rem 0.9rem', borderRadius: '0.5rem', fontSize: '0.82rem', marginBottom: '1rem' }}>{error}</div>}
+      {notice && <div style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', color: '#047857', padding: '0.7rem 0.9rem', borderRadius: '0.5rem', fontSize: '0.82rem', marginBottom: '1rem' }}>{notice}</div>}
+    </>
   );
 
   return (
-    <div className="lg">
-      {/* ── Hero ── */}
-      <aside className="lg-hero">
-        <div className="lg-grid-bg" aria-hidden="true" />
-        <div className="lg-glow" aria-hidden="true" />
-        <Boxes className="lg-watermark" size={420} aria-hidden="true" strokeWidth={0.6} />
-
-        <div className="lg-brand">
-          <span className="lg-mark"><img src="/logo.png" alt="Tesco Structures" /></span>
-          <div>
-            <b>Tesco Structures</b>
-            <span>Procurement</span>
-          </div>
-        </div>
-
-        <div className="lg-hero-mid">
-          <h1>Procurement,<br/>under control.</h1>
-          <p>Register vendors, raise purchase orders, and track delivery &amp; payment progress — one precise ledger for the whole supply chain.</p>
-          <div className="lg-rows">
-            {[
-              [Truck, 'Delivery tracking', "Know what's received, pending and overdue."],
-              [ClipboardList, 'PO management', 'Multi-material orders, charges, GST and PDF.'],
-              [ShieldCheck, 'Vendor credit control', 'Outstanding and credit limits at a glance.'],
-            ].map(([I, t, s], i) => (
-              <div className="lg-row" key={i} style={{ animationDelay: `${.25 + i * .08}s` }}>
-                <span className="lg-row-ic"><I size={18} /></span>
-                <div><div className="lg-row-t">{t}</div><div className="lg-row-s">{s}</div></div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="lg-foot">© {new Date().getFullYear()} Tesco Structures · Procurement</div>
-      </aside>
-
-      {/* ── Form ── */}
-      <main className="lg-form">
-        <div className="lg-form-inner">
-          <div className="lg-mark lg-mark-sm"><img src="/logo.png" alt="Tesco Structures" /></div>
-          <h2>Purchase Manager Login</h2>
-          <p className="lg-lead">Sign in to the procurement portal.</p>
-          {error && <div className="lg-alert err">{error}</div>}
-
-          <form onSubmit={submit} noValidate>
-            <label className="lg-label">Email</label>
-            {field(<Mail size={17} className="lg-ic" />, { type: 'email', value: email, onChange: e => setEmail(e.target.value), placeholder: 'you@company.com', autoComplete: 'username' })}
-            <label className="lg-label">Password</label>
-            {field(<Lock size={17} className="lg-ic" />, { type: showPassword ? 'text' : 'password', value: password, onChange: e => setPassword(e.target.value), placeholder: '••••••••', autoComplete: 'current-password' },
-              <button type="button" className="lg-eye" onClick={() => setShowPassword(s => !s)} aria-label="Toggle password">{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button>)}
-            <button className="lg-cta" disabled={loading}>{loading ? 'Signing in…' : <>Sign in <ArrowRight size={17} /></>}</button>
-          </form>
-
-          <p className="lg-note">Forgot your password? Please <b>contact the Sales Head</b> to reset it.</p>
-        </div>
-      </main>
-
+    <div className="login-page-wrapper" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#F8FAFC' }}>
       <style>{`
-        .lg{min-height:100vh;display:grid;grid-template-columns:1.05fr .95fr;
-          background:
-            linear-gradient(var(--grid) 1px,transparent 1px) 0 0/28px 28px,
-            linear-gradient(90deg,var(--grid) 1px,transparent 1px) 0 0/28px 28px,
-            var(--bg);}
-        /* hero */
-        .lg-hero{position:relative;overflow:hidden;background:linear-gradient(155deg,#0b1b3a 0%,#122c54 55%,#17386e 100%);color:#eaf0fb;padding:60px 64px;display:flex;flex-direction:column;justify-content:space-between;gap:48px}
-        .lg-grid-bg{position:absolute;inset:0;background:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px) 0 0/34px 34px,linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px) 0 0/34px 34px;mask-image:radial-gradient(130% 90% at 20% 10%,#000 40%,transparent 90%)}
-        .lg-glow{position:absolute;top:-180px;right:-140px;width:460px;height:460px;border-radius:50%;background:radial-gradient(circle,rgba(59,130,246,.42),transparent 62%);filter:blur(10px)}
-        .lg-watermark{position:absolute;right:-70px;bottom:-60px;color:rgba(96,165,250,.14)}
-        .lg-brand{position:relative;display:flex;align-items:center;gap:12px}
-        .lg-mark{width:44px;height:44px;border-radius:12px;background:#fff;padding:7px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 20px -8px rgba(0,0,0,.5),0 0 0 1px rgba(96,165,250,.5) inset}
-        .lg-mark img{width:100%;height:100%;object-fit:contain;display:block}
-        .lg-brand b{font:700 16px var(--f-display);display:block;letter-spacing:.01em}
-        .lg-brand span{font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:#93c5fd;opacity:.95}
-        .lg-hero-mid{position:relative;max-width:480px;margin:auto 0}
-        .lg-chip{display:inline-flex;align-items:center;gap:7px;background:rgba(59,130,246,.14);border:1px solid rgba(96,165,250,.4);color:#93c5fd;padding:8px 14px;border-radius:999px;font-size:12px;font-weight:600;margin-bottom:26px;animation:lgUp .5s both}
-        .lg-hero h1{font:700 48px/1.05 var(--f-display);margin:0 0 20px;letter-spacing:-.01em;animation:lgUp .5s .06s both}
-        .lg-hero p{opacity:.78;font-size:16px;line-height:1.65;margin:0;max-width:430px;animation:lgUp .5s .12s both}
-        .lg-rows{display:flex;flex-direction:column;gap:12px;margin-top:30px;max-width:430px}
-        .lg-row{display:flex;align-items:center;gap:13px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:13px;padding:13px 15px;animation:lgUp .5s both}
-        .lg-row-ic{width:38px;height:38px;flex-shrink:0;border-radius:10px;background:rgba(96,165,250,.16);display:flex;align-items:center;justify-content:center;color:#93c5fd}
-        .lg-row-t{font:700 14px var(--f-display);color:#fff}
-        .lg-row-s{font-size:12px;color:rgba(255,255,255,.65);margin-top:1px}
-        .lg-foot{position:relative;font-size:11.5px;opacity:.5;letter-spacing:.02em}
-        /* form */
-        .lg-form{display:flex;align-items:center;justify-content:center;padding:56px 44px}
-        .lg-form-inner{width:100%;max-width:400px;animation:lgUp .5s .1s both}
-        .lg-mark-sm{display:none;margin-bottom:24px}
-        .lg-form h2{font:700 27px var(--f-display);margin:0 0 7px;letter-spacing:-.005em}
-        .lg-lead{color:var(--muted);font-size:15px;margin:0 0 32px}
-        .lg-label{display:block;font-size:11.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:0 0 8px}
-        .lg-field{position:relative;margin-bottom:20px}
-        .lg-field input{width:100%;padding:13px 44px;border-radius:11px;border:1px solid var(--line);background:var(--surface);color:var(--fg);font-size:14.5px;outline:none;transition:border-color .15s,box-shadow .15s}
-        .lg-field input:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(59,130,246,.2)}
-        .lg-ic{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
-        .lg-eye{position:absolute;right:11px;top:50%;transform:translateY(-50%);background:none;border:0;cursor:pointer;color:var(--muted);display:flex}
-        .lg-cta{width:100%;margin-top:10px;display:flex;align-items:center;justify-content:center;gap:9px;background:linear-gradient(180deg,#3b82f6,#1d4ed8);color:#fff;border:none;border-radius:11px;padding:15px;font:700 14.5px var(--f-body);cursor:pointer;box-shadow:0 14px 30px -14px rgba(37,99,235,.65);transition:filter .15s,transform .05s}
-        .lg-cta:hover{filter:brightness(1.1)} .lg-cta:active{transform:translateY(1px)} .lg-cta:disabled{opacity:.65;cursor:default}
-        .lg-note{text-align:center;margin-top:22px;font-size:13.5px;color:var(--muted)}
-        .lg-note b{color:var(--accent-ink);font-weight:700}
-        .lg-alert{padding:11px 13px;border-radius:10px;font-size:13px;margin-bottom:16px}
-        .lg-alert.err{background:var(--bad-bg);color:var(--bad)}
-        @keyframes lgUp{from{opacity:0;transform:translateY(14px)}}
-        @media (max-width:880px){.lg{grid-template-columns:1fr}.lg-hero{display:none}.lg-mark-sm{display:flex}}
+        @media (min-width: 1024px) {
+          .login-page-wrapper { height: 100vh !important; min-height: 100vh !important; overflow: hidden !important; }
+          .login-container { padding: 1rem 1.5rem !important; max-height: calc(100vh - 60px) !important; }
+          .login-grid { gap: 2.5rem !important; }
+          .left-hero-card { padding: 1.75rem 2.25rem !important; gap: 1.15rem !important; }
+          .hero-title { font-size: 2rem !important; }
+          .hero-image-container { aspect-ratio: 1.45 !important; max-height: 280px !important; }
+          .right-login-card { padding: 2rem !important; }
+          .right-login-card-header { margin-bottom: 1.25rem !important; }
+        }
       `}</style>
+
+      {blockedMsg && (
+        <div onClick={() => setBlockedMsg('')} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15,23,42,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', width: '100%', maxWidth: '420px', borderRadius: '16px', padding: '2rem', textAlign: 'center', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
+            <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#FEE2E2', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+              <Lock size={26} color="#DC2626" />
+            </div>
+            <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.25rem', fontWeight: 700, color: '#111827' }}>Access Blocked</h3>
+            <p style={{ margin: '0 0 1.5rem', fontSize: '0.95rem', color: '#64748B', lineHeight: 1.5 }}>{blockedMsg}</p>
+            <button onClick={() => setBlockedMsg('')} style={{ background: ACCENT, color: '#fff', border: 'none', borderRadius: '10px', padding: '0.7rem 1.75rem', fontSize: '0.95rem', fontWeight: 600, cursor: 'pointer' }}>OK</button>
+          </div>
+        </div>
+      )}
+
+      <div className="login-container" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem 1.5rem', maxWidth: '1280px', margin: '0 auto', width: '100%' }}>
+        <div className="login-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2.5rem', width: '100%', alignItems: 'center' }}>
+
+          {/* ── Left hero ── */}
+          <div className="left-hero-card" style={{ background: `linear-gradient(135deg, ${HERO_FROM} 0%, ${HERO_TO} 100%)`, border: `1px solid ${HERO_BORDER}`, borderRadius: '1.5rem', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', boxShadow: '0 4px 20px -2px rgba(199,210,254,0.35)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+              <div style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 5, boxShadow: '0 2px 8px rgba(30,27,75,0.12)' }}>
+                <img src="/logo.png" alt="Tesco Structures" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+              </div>
+              <div>
+                <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#1E1B4B', letterSpacing: '-0.3px', lineHeight: 1 }}>Tesco Structures</div>
+                <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: ACCENT, marginTop: 3 }}>Procurement</div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <h1 className="hero-title" style={{ fontSize: '2.25rem', fontWeight: 800, color: '#1E1B4B', lineHeight: 1.2, letterSpacing: '-1px', margin: 0 }}>Manage Procurement<br />Smarter</h1>
+              <p style={{ fontSize: '0.875rem', color: '#475569', lineHeight: 1.6, margin: 0 }}>Register vendors, raise purchase orders, and track delivery &amp; payment progress — one precise ledger for your whole supply chain.</p>
+            </div>
+
+            <div className="hero-image-container" style={{ position: 'relative', borderRadius: '1rem', overflow: 'hidden', boxShadow: '0 10px 30px -5px rgba(30,27,75,0.15)', border: '1px solid rgba(255,255,255,0.8)', aspectRatio: '1.45', backgroundColor: '#1E1B4B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ position: 'absolute', color: 'rgba(255,255,255,0.55)', fontSize: '0.85rem', fontWeight: 600 }}>Purchase Portal</span>
+              <img src="/login_dashboard_preview.png" alt="Purchase dashboard preview" onError={(e) => { e.currentTarget.style.display = 'none'; }} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', position: 'relative' }} />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginTop: '0.25rem' }}>
+              {['Vendor Management', 'PO Management', 'Delivery Tracking', 'Payment Collection', 'Credit Control'].map((item, idx) => (
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', fontWeight: 600, color: '#1E1B4B' }}>
+                  <CheckCircle2 size={16} color={ACCENT} fill={HERO_TO} /><span>{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Right login card ── */}
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
+            <div className="right-login-card" style={{ width: '100%', maxWidth: '460px', backgroundColor: '#FFFFFF', borderRadius: '1.25rem', padding: '2rem', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02), 0 10px 15px -3px rgba(0,0,0,0.03)', border: '1px solid #E2E8F0' }}>
+
+              {forgotStep === 0 && (
+                <>
+                  <div className="right-login-card-header" style={{ marginBottom: '1.5rem' }}>
+                    <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0F172A', margin: '0 0 0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>Welcome Back 👋</h2>
+                    <p style={{ fontSize: '0.875rem', color: '#64748B', margin: 0 }}>Sign in to continue to the Purchase portal.</p>
+                  </div>
+                  <Feedback />
+                  <form onSubmit={handleLoginSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                    <div>
+                      <label style={labelStyle}>Role</label>
+                      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                        <div style={{ width: '100%', padding: '0.75rem 2.5rem 0.75rem 1rem', borderRadius: '0.5rem', border: '1px solid #CBD5E1', backgroundColor: '#F1F5F9', fontSize: '0.875rem', fontWeight: 600, color: '#0F172A' }}>Purchase</div>
+                        <ShieldCheck size={16} color={ACCENT} style={{ position: 'absolute', right: 12, pointerEvents: 'none' }} />
+                      </div>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Email / Employee ID</label>
+                      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                        <input required type="text" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="e.g. name@company.com" autoComplete="username" style={inputStyle} onFocus={onFocus} onBlur={onBlur} />
+                        <AtSign size={16} color="#94A3B8" style={{ position: 'absolute', right: 12, pointerEvents: 'none' }} />
+                      </div>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Password</label>
+                      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                        <input required type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter password" autoComplete="current-password" style={inputStyle} onFocus={onFocus} onBlur={onBlur} />
+                        <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: 12, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }} aria-label="Toggle password">
+                          {showPassword ? <EyeOff size={16} color="#94A3B8" /> : <Eye size={16} color="#94A3B8" />}
+                        </button>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8125rem' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#64748B' }}>
+                        <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} style={{ accentColor: ACCENT }} />
+                        Remember Me
+                      </label>
+                      <a href="#forgot" onClick={(e) => { e.preventDefault(); setError(''); setNotice(''); setForgotEmail(email); setForgotStep(1); }} style={linkStyle}>Forgot Password?</a>
+                    </div>
+                    <button type="submit" disabled={loading || !email || !password} style={{ ...btnStyle, ...((loading || !email || !password) ? { opacity: 0.55, cursor: 'not-allowed' } : {}) }} onMouseEnter={btnOver} onMouseLeave={btnOut}>{loading ? 'Signing in…' : 'Login to Dashboard'}</button>
+                  </form>
+                  <p style={{ textAlign: 'center', marginTop: '1.25rem', fontSize: '0.8125rem', color: '#94A3B8' }}>
+                    <a href="#privacy" onClick={(e) => e.preventDefault()} style={{ color: '#64748B', textDecoration: 'none', fontWeight: 600 }}>Privacy Policy</a>
+                  </p>
+                </>
+              )}
+
+              {forgotStep === 1 && (
+                <>
+                  <div className="right-login-card-header" style={{ marginBottom: '1.5rem' }}>
+                    <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0F172A', margin: '0 0 0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>Forgot Password? 🔒</h2>
+                    <p style={{ fontSize: '0.875rem', color: '#64748B', margin: 0 }}>Enter your email ID to receive a verification OTP code.</p>
+                  </div>
+                  <Feedback />
+                  <form onSubmit={handleSendOTP} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                    <div>
+                      <label style={labelStyle}>Email Address</label>
+                      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                        <input required type="email" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} placeholder="e.g. name@company.com" style={inputStyle} onFocus={onFocus} onBlur={onBlur} />
+                        <AtSign size={16} color="#94A3B8" style={{ position: 'absolute', right: 12, pointerEvents: 'none' }} />
+                      </div>
+                    </div>
+                    <button type="submit" style={btnStyle} onMouseEnter={btnOver} onMouseLeave={btnOut}>Send OTP</button>
+                    <div style={{ textAlign: 'center', marginTop: '0.5rem' }}>
+                      <a href="#back" onClick={(e) => { e.preventDefault(); setForgotStep(0); setError(''); setNotice(''); }} style={{ color: '#64748B', textDecoration: 'none', fontSize: '0.8125rem', fontWeight: 600 }}>Back to Login</a>
+                    </div>
+                  </form>
+                </>
+              )}
+
+              {forgotStep === 2 && (
+                <>
+                  <div className="right-login-card-header" style={{ marginBottom: '1.5rem' }}>
+                    <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0F172A', margin: '0 0 0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>Verify OTP 🔑</h2>
+                    <p style={{ fontSize: '0.875rem', color: '#64748B', margin: 0 }}>We sent a 6-digit verification code to <strong>{forgotEmail}</strong>.</p>
+                  </div>
+                  <Feedback />
+                  <form onSubmit={handleVerifyOTP} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                    <div>
+                      <label style={labelStyle}>Enter OTP Code</label>
+                      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                        <input required type="text" maxLength={6} value={otpCode} onChange={(e) => setOtpCode(e.target.value)} placeholder="e.g. 123456" style={{ ...inputStyle, letterSpacing: otpCode ? '4px' : 'normal', fontWeight: otpCode ? 700 : 'normal' }} onFocus={onFocus} onBlur={onBlur} />
+                        <Key size={16} color="#94A3B8" style={{ position: 'absolute', right: 12, pointerEvents: 'none' }} />
+                      </div>
+                    </div>
+                    <button type="submit" style={btnStyle} onMouseEnter={btnOver} onMouseLeave={btnOut}>Verify OTP</button>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8125rem', marginTop: '0.5rem' }}>
+                      <a href="#resend" onClick={(e) => { e.preventDefault(); handleSendOTP(e); }} style={linkStyle}>Resend Code</a>
+                      <a href="#back" onClick={(e) => { e.preventDefault(); setForgotStep(0); setError(''); setNotice(''); }} style={{ color: '#64748B', textDecoration: 'none', fontWeight: 600 }}>Back to Login</a>
+                    </div>
+                  </form>
+                </>
+              )}
+
+              {forgotStep === 3 && (
+                <>
+                  <div className="right-login-card-header" style={{ marginBottom: '1.5rem' }}>
+                    <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0F172A', margin: '0 0 0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>New Password 🛠️</h2>
+                    <p style={{ fontSize: '0.875rem', color: '#64748B', margin: 0 }}>Create a strong, new password for your account.</p>
+                  </div>
+                  <Feedback />
+                  <form onSubmit={handleResetPassword} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                    <div>
+                      <label style={labelStyle}>New Password</label>
+                      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                        <input required type={showNewPassword ? 'text' : 'password'} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="At least 8 characters" style={inputStyle} onFocus={onFocus} onBlur={onBlur} />
+                        <button type="button" onClick={() => setShowNewPassword(!showNewPassword)} style={{ position: 'absolute', right: 12, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }} aria-label="Toggle password">
+                          {showNewPassword ? <EyeOff size={16} color="#94A3B8" /> : <Eye size={16} color="#94A3B8" />}
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Confirm New Password</label>
+                      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                        <input required type={showConfirmPassword ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Re-enter password" style={inputStyle} onFocus={onFocus} onBlur={onBlur} />
+                        <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} style={{ position: 'absolute', right: 12, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }} aria-label="Toggle password">
+                          {showConfirmPassword ? <EyeOff size={16} color="#94A3B8" /> : <Eye size={16} color="#94A3B8" />}
+                        </button>
+                      </div>
+                    </div>
+                    <button type="submit" style={btnStyle} onMouseEnter={btnOver} onMouseLeave={btnOut}>Reset Password</button>
+                    <div style={{ textAlign: 'center', marginTop: '0.5rem' }}>
+                      <a href="#back" onClick={(e) => { e.preventDefault(); setForgotStep(0); setError(''); setNotice(''); }} style={{ color: '#64748B', textDecoration: 'none', fontSize: '0.8125rem', fontWeight: 600 }}>Back to Login</a>
+                    </div>
+                  </form>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ borderTop: '1px solid #E2E8F0', padding: '1.5rem', backgroundColor: '#FFFFFF' }}>
+        <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', maxWidth: '1280px', margin: '0 auto', width: '100%', fontSize: '0.75rem', color: '#64748B', flexWrap: 'wrap', gap: '1rem' }}>
+          <span>&copy; {new Date().getFullYear()} Tesco Structures · Purchase Portal. All rights reserved.</span>
+          <div style={{ display: 'flex', gap: '1.5rem', fontWeight: 500 }}>
+            <a href="#privacy" onClick={(e) => e.preventDefault()} style={{ color: 'inherit', textDecoration: 'none' }}>Privacy Policy</a>
+            <a href="#terms" onClick={(e) => e.preventDefault()} style={{ color: 'inherit', textDecoration: 'none' }}>Terms of Service</a>
+            <a href="#security" onClick={(e) => e.preventDefault()} style={{ color: 'inherit', textDecoration: 'none' }}>Security</a>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
