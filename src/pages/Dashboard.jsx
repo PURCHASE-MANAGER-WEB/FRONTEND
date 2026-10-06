@@ -17,7 +17,6 @@ export default function Dashboard() {
     { l: 'Outstanding', v: inr(k.out) },
     { l: 'Overdue POs', v: k.overdueCount, bad: k.overdueCount > 0, to: 'overdue' },
     { l: 'Overdue Amount', v: inr(k.overdueAmount), bad: k.overdueAmount > 0, to: 'overdue' },
-    { l: 'Overdue Days (max)', v: k.maxOverdueDays ? `${k.maxOverdueDays}d` : '0', bad: k.maxOverdueDays > 0, to: 'overdue' },
   ];
 
   return (

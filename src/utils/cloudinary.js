@@ -23,18 +23,29 @@ export async function uploadInvoice(file) {
   if (!isPdf) throw new Error('Please choose a PDF file.');
   if (file.size > MAX_BYTES) throw new Error('That file is larger than 15 MB. Please upload a smaller PDF.');
 
-  const fd = new FormData();
-  fd.append('file', file);
-  fd.append('upload_preset', PRESET);
+  // Upload to a given resource-type endpoint with a fresh FormData each time.
+  const post = async (kind) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('upload_preset', PRESET);
+    let res;
+    try {
+      res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD}/${kind}/upload`, { method: 'POST', body: fd });
+    } catch {
+      throw new Error('Could not reach the file server. Check your connection and try again.');
+    }
+    const body = await res.json().catch(() => ({}));
+    return { ok: res.ok, body };
+  };
 
-  let res;
-  try {
-    res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD}/auto/upload`, { method: 'POST', body: fd });
-  } catch {
-    throw new Error('Could not reach the file server. Check your connection and try again.');
-  }
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.error?.message || 'Upload failed. Please try again.');
+  // Prefer the RAW endpoint: a PDF uploaded as "raw" is delivered from /raw/upload/…
+  // and is NOT subject to Cloudinary's "allow PDF/ZIP delivery" account restriction,
+  // which otherwise returns 401 "deny or ACL failure" when the invoice link is opened.
+  // Fall back to auto (image) if the preset rejects raw, so uploads never break.
+  let out = await post('raw');
+  if (!out.ok) out = await post('auto');
+  if (!out.ok) throw new Error(out.body?.error?.message || 'Upload failed. Please try again.');
+  const data = out.body;
 
   return {
     url: data.secure_url,
