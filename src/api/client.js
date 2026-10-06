@@ -80,3 +80,18 @@ export const purchaseApi = {
   updateLine: (id, l) => api(`/orders/${encodeURIComponent(id)}`, { method: 'PUT', body: l, auth: true }),
   deleteLine: (id) => api(`/orders/${encodeURIComponent(id)}`, { method: 'DELETE', auth: true }),
 };
+
+// Invoice PDFs — stored in our own backend (Mongo), one per PO. No Cloudinary.
+export const invoicesApi = {
+  put: (po, payload) => api(`/invoices/${encodeURIComponent(po)}`, { method: 'PUT', body: payload, auth: true }),
+  meta: (po) => api(`/invoices/${encodeURIComponent(po)}/meta`, { auth: true }),
+  remove: (po) => api(`/invoices/${encodeURIComponent(po)}`, { method: 'DELETE', auth: true }),
+  // Fetch the PDF bytes WITH the auth header, as a blob (for inline view / download).
+  blob: async (po, { download = false } = {}) => {
+    const res = await fetch(`${API_BASE}/invoices/${encodeURIComponent(po)}${download ? '?download=1' : ''}`, {
+      headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {},
+    });
+    if (!res.ok) throw new Error('Could not load the invoice.');
+    return res.blob();
+  },
+};

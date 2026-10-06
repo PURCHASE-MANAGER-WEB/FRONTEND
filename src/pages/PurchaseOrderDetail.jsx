@@ -6,7 +6,7 @@ import { useToast } from '../components/Toast';
 import { Pill, StateRow } from '../components/ui';
 import { calcLine, calcPO, poCharges, amountInWords, groupPOs, vendorName, num, inr, qfmt, dfmt, formatTerms } from '../utils/procurement';
 import { downloadPoPdf } from '../utils/poPdf';
-import { downloadFile } from '../utils/cloudinary';
+import { openInvoice, downloadInvoice } from '../utils/cloudinary';
 
 const dtfmt = (s) => { if (!s) return '—'; const d = new Date(s); return isNaN(d) ? '—' : d.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }); };
 
@@ -104,8 +104,8 @@ export default function PurchaseOrderDetail() {
       <div className="pod-bar no-print">
         <button className="btn" onClick={() => navigate('/purchase-orders')}><ArrowLeft size={15} style={{ verticalAlign: '-2px' }} /> Back</button>
         <div className="pod-bar-right">
-          {h.invoice?.url && <a className="btn" href={h.invoice.url} target="_blank" rel="noreferrer"><FileText size={15} style={{ verticalAlign: '-2px' }} /> View Invoice</a>}
-          {h.invoice?.url && <button type="button" className="btn" onClick={() => downloadFile(h.invoice.url, h.invoice.name || 'invoice.pdf')}><Download size={15} style={{ verticalAlign: '-2px' }} /> Download Invoice</button>}
+          {h.invoice && <button type="button" className="btn" onClick={() => openInvoice(h.invoice)}><FileText size={15} style={{ verticalAlign: '-2px' }} /> View Invoice</button>}
+          {h.invoice && <button type="button" className="btn" onClick={() => downloadInvoice(h.invoice)}><Download size={15} style={{ verticalAlign: '-2px' }} /> Download Invoice</button>}
           <button className="btn" onClick={() => navigate(`/purchase-orders?edit=${encodeURIComponent(po)}`)}><Pencil size={15} style={{ verticalAlign: '-2px' }} /> Edit</button>
           <button className="btn" onClick={() => window.print()}><Printer size={15} style={{ verticalAlign: '-2px' }} /> Print</button>
           <button className="btn primary" onClick={onDownload} disabled={pdfBusy}><Download size={15} style={{ verticalAlign: '-2px' }} /> {pdfBusy ? 'Preparing…' : 'Download PDF'}</button>
@@ -134,11 +134,11 @@ export default function PurchaseOrderDetail() {
           <Row k="Project" v={h.project} />
           <Row k="GST Rate" v={`${totals.gstPct}%`} />
           <Row k="Payment Method" v={h.paymentMethod} />
-          <Row k="Invoice" v={h.invoice?.url ? (
+          <Row k="Invoice" v={h.invoice ? (
             <span>
-              <a href={h.invoice.url} target="_blank" rel="noreferrer" style={{ color: 'var(--accent-ink)', fontWeight: 600 }}>View</a>
+              <button type="button" onClick={() => openInvoice(h.invoice)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent-ink)', fontWeight: 600, font: 'inherit' }}>View</button>
               <span style={{ margin: '0 8px', color: 'var(--muted, #94a3b8)' }}>·</span>
-              <button type="button" onClick={() => downloadFile(h.invoice.url, h.invoice.name || 'invoice.pdf')} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent-ink)', fontWeight: 600, font: 'inherit' }}>Download</button>
+              <button type="button" onClick={() => downloadInvoice(h.invoice)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent-ink)', fontWeight: 600, font: 'inherit' }}>Download</button>
             </span>
           ) : 'Not uploaded'} />
         </div>

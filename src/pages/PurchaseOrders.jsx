@@ -6,7 +6,7 @@ import { purchaseApi } from '../api/client';
 import { useToast } from '../components/Toast';
 import { Pill, Drawer, Field, StateRow } from '../components/ui';
 import { calcLine, calcPO, poCharges, amountInWords, groupPOs, num, inr, qfmt, dfmt, today, vendorName, nextPo, UNITS, PAYMENT_METHODS } from '../utils/procurement';
-import { uploadInvoice } from '../utils/cloudinary';
+import { uploadInvoice, openInvoice, downloadInvoice } from '../utils/cloudinary';
 
 const kb = (n) => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
 
@@ -167,7 +167,7 @@ export default function PurchaseOrders() {
     e.target.value = '';
     if (!file) return;
     setInvErr(''); setInvBusy(true);
-    try { const inv = await uploadInvoice(file); setHdr('invoice', inv); toast('Invoice uploaded'); }
+    try { const inv = await uploadInvoice(file, String(editing?.po || '').trim().toUpperCase()); setHdr('invoice', inv); toast('Invoice uploaded'); }
     catch (err) { setInvErr(err.message || 'Could not upload the invoice.'); }
     finally { setInvBusy(false); }
   };
@@ -336,11 +336,12 @@ export default function PurchaseOrders() {
           {/* ── Invoice PDF ── */}
           <div className="po-charges">
             <div className="po-items-head"><span>Invoice (PDF)</span></div>
-            {editing.invoice?.url ? (
+            {editing.invoice ? (
               <div className="inv-row">
                 <FileText size={18} />
-                <a href={editing.invoice.url} target="_blank" rel="noreferrer" className="inv-name">{editing.invoice.name || 'Invoice.pdf'}</a>
+                <button type="button" className="link inv-name" onClick={() => openInvoice(editing.invoice)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit', textAlign: 'left' }}>{editing.invoice.name || 'Invoice.pdf'}</button>
                 {editing.invoice.size ? <span className="inv-size">{kb(editing.invoice.size)}</span> : null}
+                <button type="button" className="link" onClick={() => downloadInvoice(editing.invoice)}>Download</button>
                 <label className="link inv-replace">{invBusy ? 'Uploading…' : 'Replace'}<input type="file" accept="application/pdf" hidden onChange={onInvoice} disabled={invBusy} /></label>
                 <button type="button" className="link inv-remove" onClick={() => setHdr('invoice', null)}>Remove</button>
               </div>
@@ -348,7 +349,7 @@ export default function PurchaseOrders() {
               <label className={`inv-drop ${invBusy ? 'busy' : ''}`}>
                 <input type="file" accept="application/pdf" hidden onChange={onInvoice} disabled={invBusy} />
                 <Upload size={17} /> {invBusy ? 'Uploading…' : 'Upload invoice PDF'}
-                <span className="inv-hint">PDF only · up to 15 MB</span>
+                <span className="inv-hint">PDF only · up to 12 MB</span>
               </label>
             )}
             {invErr && <div className="err" style={{ marginTop: 8 }}>{invErr}</div>}
