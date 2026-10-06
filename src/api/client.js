@@ -81,6 +81,14 @@ export const purchaseApi = {
   deleteLine: (id) => api(`/orders/${encodeURIComponent(id)}`, { method: 'DELETE', auth: true }),
 };
 
+// Purchase payment ledger — purchase_payments collection.
+export const paymentsApi = {
+  list: () => api('/payments', { auth: true }),
+  create: (p) => api('/payments', { method: 'POST', body: p, auth: true }),
+  update: (id, p) => api(`/payments/${encodeURIComponent(id)}`, { method: 'PUT', body: p, auth: true }),
+  remove: (id) => api(`/payments/${encodeURIComponent(id)}`, { method: 'DELETE', auth: true }),
+};
+
 // Invoice PDFs — stored in our own backend (Mongo), one per PO. No Cloudinary.
 export const invoicesApi = {
   put: (po, payload) => api(`/invoices/${encodeURIComponent(po)}`, { method: 'PUT', body: payload, auth: true }),

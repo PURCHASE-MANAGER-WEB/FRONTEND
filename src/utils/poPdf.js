@@ -91,12 +91,22 @@ export async function downloadPoPdf(data) {
   };
   metaRow('PO Date', data.poDateFmt);
   metaRow('Delivery Date', data.deliveryDateFmt);
+  if (data.status) metaRow('Status', data.status);
   metaRow('Project', data.project);
   metaRow('Delivery', data.delivery + (data.overdueDays > 0 ? ` (${data.overdueDays}d overdue)` : '') + ` · ${data.delPct}%`);
   metaRow('Payment', data.payment);
   if (data.paymentMethod) metaRow('Payment Method', data.paymentMethod);
 
   y = Math.max(ly, ry) + 10;
+
+  // Delivery address (full width) when provided on the PO.
+  if (data.deliveryAddress) {
+    doc.setFont('helvetica', 'bold').setFontSize(8).setTextColor(...MUTE);
+    doc.text('DELIVERY ADDRESS', M, y); y += 13;
+    doc.setFont('helvetica', 'normal').setFontSize(9.5).setTextColor(...INK);
+    const dl = doc.splitTextToSize(String(data.deliveryAddress), CW - 10);
+    doc.text(dl, M, y); y += 12 * dl.length + 8;
+  }
 
   // ── Item table (manual) ──
   const cols = [

@@ -15,6 +15,15 @@ export const TERMS = ['Advance','7 Days','15 Days','30 Days','45 Days','60 Days'
 export const VENDOR_STATUS = ['Active','Inactive','Blocked'];
 export const PAYMENT_METHODS = ['UPI','Cash','Cheque','Bank Transfer','Card','Other'];
 
+// Canonical materials list — shared by the Vendor form and the Purchase Order form so the
+// material choices stay consistent across the portal. Edit this one list to manage them.
+export const MATERIALS = ['MS Round Tube','MS Square Tube','MS Rectangular Tube','MS Plate','MS Angle','MS Channel','MS Beam','MS Flat','MS Sheet','GI Sheet','Roofing Sheet','Steel Rod / TMT','Cement','Fasteners / Bolts','Hardware & Fittings','Paint','Welding Consumables','Fabrication','Transport / Logistics','Other'];
+
+// Purchase-order approval workflow statuses. An existing/older PO with no stored status is
+// treated as 'Approved' (it is an active order).
+export const PO_STATUSES = ['Draft','Pending Approval','Approved','Completed','Cancelled'];
+export const poStatusOf = (v) => { const s = String(v == null ? '' : v).trim(); return PO_STATUSES.includes(s) ? s : 'Approved'; };
+
 // Is a single PO line overdue (delivery date passed & not received, or payment
 // due date passed & still owed)?
 export const isLineOverdue = (l) => { const c = calcLine(l); return c.delOverdueDays > 0 || c.payOverdueDays > 0; };
@@ -76,7 +85,7 @@ export function groupPOs(lines) {
   const map = new Map();
   for (const l of lines) {
     const c = calcLine(l);
-    const g = map.get(l.po) || { po: l.po, vid: l.vid, project: l.project, date: l.poDate, value: 0, paid: 0, out: 0, qty: 0, rec: 0, pend: 0, units: new Set(), delOverdue: 0, payOverdue: 0, dueToday: false, payDueToday: false, count: 0, exps: [], dues: [] };
+    const g = map.get(l.po) || { po: l.po, vid: l.vid, project: l.project, date: l.poDate, status: l.status, value: 0, paid: 0, out: 0, qty: 0, rec: 0, pend: 0, units: new Set(), delOverdue: 0, payOverdue: 0, dueToday: false, payDueToday: false, count: 0, exps: [], dues: [] };
     g.value += c.total; g.paid += num(l.paid); g.out += c.out;
     g.qty += num(l.qty); g.rec += Math.min(num(l.received), num(l.qty)); g.pend += c.pending; g.units.add(l.unit);
     g.delOverdue = Math.max(g.delOverdue, c.delOverdueDays);
@@ -98,6 +107,7 @@ export function groupPOs(lines) {
     g.payPct = g.value ? (settled ? 100 : Math.min(99, Math.max(0, Math.round(g.paid / g.value * 100)))) : 0;
     g.overdueDays = delivered ? 0 : g.delOverdue;       // only while not yet delivered
     g.payOverdueDays = settled ? 0 : g.payOverdue;
+    g.status = poStatusOf(g.status);
     g.delivery = delivered ? 'Completed'
       : g.overdueDays > 0 ? 'Overdue'
       : (g.dueToday && g.rec < g.qty) ? 'Due today'

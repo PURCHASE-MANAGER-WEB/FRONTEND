@@ -31,11 +31,11 @@ export default function PurchaseProgress() {
           <thead><tr>
             <th>PO Number</th><th>Vendor</th><th>Project</th><th className="num">PO Value</th>
             <th className="num">Ordered</th><th className="num">Received</th><th className="num">Pending</th>
-            <th>Delivery progress</th><th>Payment progress</th><th>Delivery</th><th>Payment</th>
+            <th>Delivery progress</th><th>Payment</th>
           </tr></thead>
           <tbody>
             {loading || error || rows.length === 0 ? (
-              <StateRow cols={11} loading={loading} error={error}
+              <StateRow cols={9} loading={loading} error={error}
                 empty={groups.length ? 'No POs match this filter.' : 'No purchase orders yet. Add PO lines to see progress here.'} />
             ) : rows.map(g => {
               const dp = g.delPct, pp = g.payPct;
@@ -52,8 +52,6 @@ export default function PurchaseProgress() {
                   <td className="num">{qfmt(g.rec)}{u}</td>
                   <td className="num">{qfmt(g.pend)}{u}</td>
                   <td><span className="bar"><i style={{ width: dp + '%' }} /></span><span className={`sub ${g.overdueDays > 0 ? 'overdue' : ''}`}>{dp}%{delNote}</span></td>
-                  <td><span className="bar pay"><i style={{ width: pp + '%' }} /></span><span className={`sub ${g.payOverdueDays > 0 ? 'overdue' : ''}`}>{pp}% · {inr(g.out)} due{payNote}</span></td>
-                  <td><Pill s={g.delivery} /></td>
                   <td><Pill s={g.payment} /></td>
                 </tr>
               );

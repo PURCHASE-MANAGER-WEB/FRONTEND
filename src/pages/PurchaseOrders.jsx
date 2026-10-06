@@ -5,7 +5,7 @@ import { usePurchaseData } from '../context/PurchaseData';
 import { purchaseApi } from '../api/client';
 import { useToast } from '../components/Toast';
 import { Pill, Drawer, Field, StateRow } from '../components/ui';
-import { calcLine, calcPO, poCharges, amountInWords, groupPOs, num, inr, qfmt, dfmt, today, vendorName, nextPo, UNITS, PAYMENT_METHODS } from '../utils/procurement';
+import { calcLine, calcPO, poCharges, amountInWords, groupPOs, num, inr, qfmt, dfmt, today, vendorName, nextPo, UNITS, PAYMENT_METHODS, PO_STATUSES, MATERIALS } from '../utils/procurement';
 import { uploadInvoice, openInvoice, downloadInvoice } from '../utils/cloudinary';
 
 const kb = (n) => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
@@ -24,6 +24,7 @@ const blankPO = (lines, vendors) => ({
   isNew: true,
   po: nextPo(lines), poDate: today(), vid: vendors[0]?.vid || '', project: '',
   loading: '', transport: '', gstPct: 18, notes: '', paymentMethod: '', terms: '', invoice: null,
+  deliveryDate: '', deliveryAddress: '', status: 'Approved',
   items: [blankItem()], origIds: [],
 });
 
@@ -61,6 +62,13 @@ export default function PurchaseOrders() {
   const totals = rows.reduce((s, { g }) => ({ total: s.total + g.value, paid: s.paid + g.paid, out: s.out + g.out }), { total: 0, paid: 0, out: 0 });
   const poNums = [...new Set(lines.map(l => l.po))];
 
+  // Summary cards — counts by approval status, from the real PO records.
+  const poStats = useMemo(() => {
+    const gs = groupPOs(lines);
+    const by = (s) => gs.filter(g => g.status === s).length;
+    return { total: gs.length, draft: by('Draft'), pendingApproval: by('Pending Approval'), approved: by('Approved'), completed: by('Completed'), cancelled: by('Cancelled'), totalValue: gs.reduce((a, g) => a + g.value, 0), pendingValue: gs.filter(g => g.status !== 'Cancelled').reduce((a, g) => a + g.out, 0) };
+  }, [lines]);
+
   // Open the whole PO (all its material lines) in one editor. poKey === null → new PO.
   const open = (poKey) => {
     if (!vendors.length) { toast('Add a vendor first'); return; }
@@ -74,6 +82,7 @@ export default function PurchaseOrders() {
       po: h.po || poKey, poDate: h.poDate || today(), vid: h.vid || vendors[0]?.vid || '', project: h.project || '',
       loading: ch.loading || '', transport: ch.transport || '', gstPct: ch.gstPct, notes: h.notes || '',
       paymentMethod: h.paymentMethod || '', terms: h.terms || '', invoice: h.invoice || null,
+      deliveryDate: h.deliveryDate || '', deliveryAddress: h.deliveryAddress || '', status: h.status || 'Approved',
       items: group.map(l => ({
         _id: l.id, isNew: false,
         material: l.material || '', description: l.description || '', spec: l.spec || '', hsn: l.hsn || '',
@@ -124,7 +133,7 @@ export default function PurchaseOrders() {
 
     const loading = num(d.loading), transport = num(d.transport);
     const gstPct = (d.gstPct === '' || d.gstPct === null || d.gstPct === undefined) ? 18 : num(d.gstPct);
-    const shared = { po, poDate: d.poDate, vid: d.vid, project: d.project.trim(), loading, transport, gstPct, notes: String(d.notes || '').trim(), paymentMethod: d.paymentMethod || '', terms: String(d.terms || '').trim(), invoice: d.invoice || null };
+    const shared = { po, poDate: d.poDate, vid: d.vid, project: d.project.trim(), loading, transport, gstPct, notes: String(d.notes || '').trim(), paymentMethod: d.paymentMethod || '', terms: String(d.terms || '').trim(), invoice: d.invoice || null, deliveryDate: d.deliveryDate || '', deliveryAddress: String(d.deliveryAddress || '').trim(), status: d.status || 'Approved' };
 
     setBusy(true);
     try {
@@ -176,6 +185,16 @@ export default function PurchaseOrders() {
 
   return (
     <section>
+      <section className="kpis" aria-label="Purchase order summary" style={{ marginBottom: 16 }}>
+        <div className="kpi"><div className="l">Total POs</div><div className="v">{poStats.total}</div></div>
+        <div className="kpi"><div className="l">Draft</div><div className="v">{poStats.draft}</div></div>
+        <div className="kpi"><div className="l">Pending Approval</div><div className="v">{poStats.pendingApproval}</div></div>
+        <div className="kpi"><div className="l">Approved</div><div className="v">{poStats.approved}</div></div>
+        <div className="kpi"><div className="l">Completed</div><div className="v">{poStats.completed}</div></div>
+        <div className="kpi"><div className="l">Cancelled</div><div className="v">{poStats.cancelled}</div></div>
+        <div className="kpi"><div className="l">Total PO Value</div><div className="v">{inr(poStats.totalValue)}</div></div>
+        <div className="kpi"><div className="l">Pending PO Value</div><div className="v">{inr(poStats.pendingValue)}</div></div>
+      </section>
       <div className="toolbar">
         <h2>Purchase Order &amp; Material Tracking</h2>
         <div className="right">
@@ -199,13 +218,13 @@ export default function PurchaseOrders() {
       <div className="tbl" style={{ marginTop: 10 }}>
         <table>
           <thead><tr>
-            <th>PO Number</th><th>PO Date</th><th>Vendor</th><th>Project</th><th className="num">Items</th>
+            <th>PO Number</th><th>PO Date</th><th>Vendor</th><th>Project</th><th>Status</th><th className="num">Items</th>
             <th className="num">Ordered</th><th className="num">PO Value</th><th className="num">Received</th><th className="num">Pending</th>
             <th>Exp. Delivery</th><th className="num">Paid</th><th className="num">Outstanding</th><th>Delivery</th><th>Payment</th><th></th>
           </tr></thead>
           <tbody>
             {loading || error || rows.length === 0 ? (
-              <StateRow cols={15} loading={loading} error={error}
+              <StateRow cols={16} loading={loading} error={error}
                 empty={lines.length ? 'No purchase orders match your search.' : (vendors.length ? 'No purchase orders yet. Add a PO to start tracking.' : 'Add a vendor first, then raise purchase orders against them.')} />
             ) : rows.map(({ g, vn }) => {
               const u = g.unit === 'mixed units' ? '' : ' ' + g.unit;
@@ -213,6 +232,7 @@ export default function PurchaseOrders() {
                 <tr key={g.po}>
                   <td className="id"><Link className="po-link" to={`/purchase-orders/${encodeURIComponent(g.po)}`}>{g.po}</Link></td>
                   <td>{dfmt(g.date)}</td><td>{vn}</td><td>{g.project || '—'}</td>
+                  <td className="calc"><Pill s={g.status} /></td>
                   <td className="num">{g.count}</td>
                   <td className="num">{qfmt(g.qty)}{u}</td>
                   <td className="num calc">{inr(g.value)}</td>
@@ -228,7 +248,7 @@ export default function PurchaseOrders() {
           </tbody>
           {rows.length > 0 && (
             <tfoot><tr>
-              <td colSpan={6}>Total ({rows.length} PO{rows.length > 1 ? 's' : ''})</td>
+              <td colSpan={7}>Total ({rows.length} PO{rows.length > 1 ? 's' : ''})</td>
               <td className="num">{inr(totals.total)}</td><td colSpan={3}></td>
               <td className="num">{inr(totals.paid)}</td><td className="num">{inr(totals.out)}</td><td colSpan={3}></td>
             </tr></tfoot>
@@ -254,6 +274,13 @@ export default function PurchaseOrders() {
               </select>
             </Field>
             <Field label="Project Name *" full><input value={editing.project} onChange={e => setHdr('project', e.target.value)} /></Field>
+            <Field label="Status">
+              <select value={editing.status || 'Approved'} onChange={e => setHdr('status', e.target.value)}>
+                {PO_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </Field>
+            <Field label="Delivery Date"><input type="date" value={editing.deliveryDate || ''} onChange={e => setHdr('deliveryDate', e.target.value)} /></Field>
+            <Field label="Delivery Address" full><textarea rows={2} value={editing.deliveryAddress || ''} onChange={e => setHdr('deliveryAddress', e.target.value)} placeholder="Complete delivery / site address for this order" /></Field>
           </div>
 
           {/* ── Item rows ── */}
@@ -274,7 +301,11 @@ export default function PurchaseOrders() {
                     )}
                   </div>
                   <div className="po-fields">
-                    <label className="pf wide">Material *<input value={it.material} onChange={e => setItem(it._id, 'material', e.target.value)} placeholder="e.g. TMT Steel Bar" /></label>
+                    <label className="pf wide">Material *<select value={it.material || ''} onChange={e => setItem(it._id, 'material', e.target.value)}>
+                      <option value="">Select material</option>
+                      {MATERIALS.map(m => <option key={m} value={m}>{m}</option>)}
+                      {it.material && !MATERIALS.includes(it.material) && <option value={it.material}>{it.material}</option>}
+                    </select></label>
                     <label className="pf">Specification<input value={it.spec} onChange={e => setItem(it._id, 'spec', e.target.value)} placeholder="e.g. Fe 500D, 16mm" /></label>
                     <label className="pf">HSN / SAC<input value={it.hsn} onChange={e => setItem(it._id, 'hsn', e.target.value)} placeholder="e.g. 7214" /></label>
                     <label className="pf full">Description of goods<input value={it.description} onChange={e => setItem(it._id, 'description', e.target.value)} placeholder="Longer description as it should read on the order / invoice" /></label>

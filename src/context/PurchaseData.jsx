@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { purchaseApi } from '../api/client';
+import { purchaseApi, paymentsApi } from '../api/client';
 
 // Shared procurement data (vendors + PO lines) fetched once from the backend and
 // shared across all pages. Exposes loading / error so each page can render proper
@@ -10,15 +10,17 @@ export const usePurchaseData = () => useContext(Ctx);
 export function PurchaseDataProvider({ children }) {
   const [vendors, setVendors] = useState([]);
   const [lines, setLines] = useState([]);
+  const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const [v, l] = await Promise.all([purchaseApi.getVendors(), purchaseApi.getLines()]);
+      const [v, l, p] = await Promise.all([purchaseApi.getVendors(), purchaseApi.getLines(), paymentsApi.list().catch(() => [])]);
       setVendors(Array.isArray(v) ? v : []);
       setLines(Array.isArray(l) ? l : []);
+      setPayments(Array.isArray(p) ? p : []);
     } catch (e) {
       setError(e.message || 'Could not load procurement data.');
     } finally {
@@ -30,7 +32,9 @@ export function PurchaseDataProvider({ children }) {
 
   // Mutations refresh from the server so every page stays in sync.
   const value = {
-    vendors, lines, loading, error, reload: load,
+    vendors, lines, payments, loading, error, reload: load,
+    savePayment: async (isNew, id, data) => { if (isNew) await paymentsApi.create(data); else await paymentsApi.update(id, data); await load(); },
+    deletePayment: async (id) => { await paymentsApi.remove(id); await load(); },
     saveVendor: async (isNew, vid, data) => {
       if (isNew) await purchaseApi.createVendor(data);
       else await purchaseApi.updateVendor(vid, data);

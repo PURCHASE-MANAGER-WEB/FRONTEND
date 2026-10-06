@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { usePurchaseData } from '../context/PurchaseData';
 import { useToast } from '../components/Toast';
 import { Pill, Drawer, Field, StateRow } from '../components/ui';
-import { calcLine, num, inr, nextVid, TERMS, VENDOR_STATUS } from '../utils/procurement';
+import { calcLine, num, inr, nextVid, TERMS, VENDOR_STATUS, kpis, groupPOs, MATERIALS } from '../utils/procurement';
 
 const blank = (vendors) => ({ vid: nextVid(vendors), name: '', contact: '', mobile: '', email: '', address: '', gst: '', material: '', creditLimit: '', terms: '30 Days', status: 'Active' });
 
@@ -16,6 +16,11 @@ export default function Vendors() {
   const [busy, setBusy] = useState(false);
 
   const outstandingFor = (vid) => lines.filter(l => l.vid === vid).reduce((s, l) => s + calcLine(l).out, 0);
+
+  // Summary cards — all figures derived from real vendor + PO records.
+  const k = useMemo(() => kpis(lines), [lines]);
+  const pendingPayments = useMemo(() => groupPOs(lines).filter(g => g.payment !== 'Paid').length, [lines]);
+  const activeVendors = vendors.filter(v => String(v.status || 'Active') === 'Active').length;
 
   const rows = useMemo(() => vendors
     .filter(v => !q || Object.values(v).join(' ').toLowerCase().includes(q.toLowerCase()))
@@ -55,6 +60,14 @@ export default function Vendors() {
 
   return (
     <section>
+      <section className="kpis" aria-label="Vendor summary" style={{ marginBottom: 16 }}>
+        <div className="kpi"><div className="l">Total Vendors</div><div className="v">{vendors.length}</div></div>
+        <div className="kpi"><div className="l">Active Vendors</div><div className="v">{activeVendors}</div></div>
+        <div className="kpi"><div className="l">Total Purchase Value</div><div className="v">{inr(k.value)}</div></div>
+        <div className="kpi"><div className="l">Paid Amount</div><div className="v">{inr(k.paid)}</div></div>
+        <div className="kpi"><div className="l">Outstanding</div><div className="v">{inr(k.out)}</div></div>
+        <div className="kpi"><div className="l">Pending Payments</div><div className="v">{pendingPayments}</div></div>
+      </section>
       <div className="toolbar">
         <h2>Vendor Registration</h2>
         <div className="right">
@@ -111,7 +124,11 @@ export default function Vendors() {
             <Field label="Email" full><input type="email" value={editing.data.email} onChange={e => set('email', e.target.value)} /></Field>
             <Field label="Address" full><input value={editing.data.address} onChange={e => set('address', e.target.value)} /></Field>
             <Field label="GST Number"><input value={editing.data.gst} maxLength={15} style={{ textTransform: 'uppercase' }} onChange={e => set('gst', e.target.value)} placeholder="15-character GSTIN" /></Field>
-            <Field label="Material / Service"><input value={editing.data.material} onChange={e => set('material', e.target.value)} /></Field>
+            <Field label="Material / Service"><select value={editing.data.material || ''} onChange={e => set('material', e.target.value)}>
+              <option value="">Select material</option>
+              {MATERIALS.map(m => <option key={m} value={m}>{m}</option>)}
+              {editing.data.material && !MATERIALS.includes(editing.data.material) && <option value={editing.data.material}>{editing.data.material}</option>}
+            </select></Field>
             <Field label="Credit Limit (₹)"><input type="number" min="0" step="1000" value={editing.data.creditLimit} onChange={e => set('creditLimit', e.target.value)} /></Field>
             <Field label="Payment Terms"><select value={editing.data.terms} onChange={e => set('terms', e.target.value)}>{TERMS.map(t => <option key={t}>{t}</option>)}</select></Field>
           </div>
