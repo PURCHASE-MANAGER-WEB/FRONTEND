@@ -197,9 +197,9 @@ export async function downloadPoPdf(data) {
   cols.forEach((c, i) => { if (i > 0) { const x = xOf(i); doc.line(x, y, x, y + fh); } });
   doc.setFont('helvetica', 'bold').setFontSize(9.5).setTextColor(...INK);
   cellText(cols[1], 1, `Total (${data.items.length} item${data.items.length > 1 ? 's' : ''})`, y + 6);
-  cellText(cols[3], 3, qn(totQty), y + 6);
-  if (tUnit) cellText(cols[4], 4, tUnit, y + 6);
-  cellText(cols[6], 6, rs(totAmt), y + 6);
+  cellText(cols[2], 2, qn(totQty), y + 6);
+  if (tUnit) cellText(cols[3], 3, tUnit, y + 6);
+  cellText(cols[5], 5, rs(totAmt), y + 6);
   y += fh;
 
   y += 20;
