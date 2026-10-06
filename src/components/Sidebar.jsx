@@ -27,7 +27,7 @@ export default function Sidebar({ open, onNavigate }) {
       <aside className={`sidebar ${open ? 'open' : ''}`}>
         <div className="logo">
           <div className="mark">
-            <span className="tile"><img src="/logo.png" alt="Tesco Structures" /></span>
+            <span className="tile"><img src="/logo2-_21iriWQ.png" alt="Tesco Structures" /></span>
             <div>
               <b>Tesco Structures</b>
               <span>Procurement Portal</span>
