@@ -43,22 +43,33 @@ export async function downloadPoPdf(data) {
   const CW = W - 2 * M;
 
   const logo = await loadLogo();
+  let logoDims = null;
+  if (logo) { try { const p = doc.getImageProperties(logo); logoDims = { w: p.width, h: p.height }; } catch { logoDims = null; } }
 
   // ── Header ──
-  let y = 46;
-  if (logo) { try { doc.addImage(logo, 'PNG', M, y - 8, 34, 34); } catch { /* ignore */ } }
-  doc.setTextColor(...INK).setFont('helvetica', 'bold').setFontSize(16);
-  doc.text('Tesco Structures', logo ? M + 44 : M, y + 6);
-  doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(...MUTE);
-  doc.text('Procurement Portal', logo ? M + 44 : M, y + 20);
+  let y = 44;
+  const LOGO_W = 162;
+  let logoH = 0;
+  if (logo && logoDims) {
+    logoH = Math.min(58, LOGO_W * logoDims.h / logoDims.w);
+    try { doc.addImage(logo, 'PNG', M, y, LOGO_W, logoH); } catch { /* ignore */ }
+    doc.setFont('helvetica', 'normal').setFontSize(8.5).setTextColor(...MUTE);
+    doc.text('Procurement Portal', M + 2, y + logoH + 12);
+  } else {
+    doc.setTextColor(...INK).setFont('helvetica', 'bold').setFontSize(17);
+    doc.text('Tesco Structures', M, y + 18);
+    doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(...MUTE);
+    doc.text('Procurement Portal', M, y + 32);
+    logoH = 24;
+  }
 
-  doc.setFont('helvetica', 'bold').setFontSize(18).setTextColor(...TEAL);
-  doc.text('PURCHASE ORDER', W - M, y + 4, { align: 'right' });
-  doc.setFont('helvetica', 'bold').setFontSize(11).setTextColor(...INK);
-  doc.text(String(data.po || ''), W - M, y + 22, { align: 'right' });
+  doc.setFont('helvetica', 'bold').setFontSize(20).setTextColor(...TEAL);
+  doc.text('PURCHASE ORDER', W - M, y + 18, { align: 'right' });
+  doc.setFont('helvetica', 'bold').setFontSize(11.5).setTextColor(...INK);
+  doc.text(String(data.po || ''), W - M, y + 37, { align: 'right' });
 
-  y += 42;
-  doc.setDrawColor(...LINE).setLineWidth(1).line(M, y, W - M, y);
+  y += Math.max(logoH + 20, 56);
+  doc.setDrawColor(...TEAL).setLineWidth(1.4).line(M, y, W - M, y);
   y += 22;
 
   // ── Supplier (left) + meta (right) ──

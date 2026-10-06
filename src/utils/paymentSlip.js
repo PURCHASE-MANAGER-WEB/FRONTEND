@@ -23,19 +23,30 @@ export async function downloadPaymentSlip(data) {
   const H = doc.internal.pageSize.getHeight();
   const M = 44, CW = W - 2 * M;
   const logo = await loadLogo();
+  let logoDims = null;
+  if (logo) { try { const p = doc.getImageProperties(logo); logoDims = { w: p.width, h: p.height }; } catch { logoDims = null; } }
 
-  let y = 50;
-  if (logo) { try { doc.addImage(logo, 'PNG', M, y - 10, 36, 36); } catch { /* ignore */ } }
-  doc.setTextColor(...INK).setFont('helvetica', 'bold').setFontSize(16);
-  doc.text('Tesco Structures', logo ? M + 46 : M, y + 6);
-  doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(...MUTE);
-  doc.text('Procurement Portal', logo ? M + 46 : M, y + 20);
-  doc.setFont('helvetica', 'bold').setFontSize(15).setTextColor(...ACCENT);
-  doc.text('PAYMENT RECEIPT', W - M, y + 4, { align: 'right' });
-  doc.setFont('helvetica', 'normal').setFontSize(10).setTextColor(...MUTE);
-  doc.text(String(data.id || ''), W - M, y + 22, { align: 'right' });
-  y += 44;
-  doc.setDrawColor(...LINE).setLineWidth(1).line(M, y, W - M, y); y += 24;
+  let y = 46;
+  const LOGO_W = 162;
+  let logoH = 0;
+  if (logo && logoDims) {
+    logoH = Math.min(58, LOGO_W * logoDims.h / logoDims.w);
+    try { doc.addImage(logo, 'PNG', M, y, LOGO_W, logoH); } catch { /* ignore */ }
+    doc.setFont('helvetica', 'normal').setFontSize(8.5).setTextColor(...MUTE);
+    doc.text('Procurement Portal', M + 2, y + logoH + 12);
+  } else {
+    doc.setTextColor(...INK).setFont('helvetica', 'bold').setFontSize(16);
+    doc.text('Tesco Structures', M, y + 16);
+    doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(...MUTE);
+    doc.text('Procurement Portal', M, y + 30);
+    logoH = 24;
+  }
+  doc.setFont('helvetica', 'bold').setFontSize(17).setTextColor(...ACCENT);
+  doc.text('PAYMENT RECEIPT', W - M, y + 18, { align: 'right' });
+  doc.setFont('helvetica', 'bold').setFontSize(10.5).setTextColor(...INK);
+  doc.text(String(data.id || ''), W - M, y + 36, { align: 'right' });
+  y += Math.max(logoH + 20, 56);
+  doc.setDrawColor(...ACCENT).setLineWidth(1.4).line(M, y, W - M, y); y += 24;
 
   const col2 = M + CW * 0.52;
   const field = (label, val, x, yy) => {
