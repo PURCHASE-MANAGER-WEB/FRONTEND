@@ -112,11 +112,11 @@ export default function PaymentProgress() {
         <table>
           <thead><tr>
             <th>PO Number</th><th>Vendor</th><th>Project</th><th className="num">PO Amount</th>
-            <th className="num">Paid</th><th className="num">Pending</th><th>Due Date</th><th>Status</th><th className="num">Payments</th><th></th>
+            <th className="num">Paid</th><th className="num">Pending</th><th>Due Date</th><th>Status</th><th>Method</th><th className="num">Payments</th><th></th>
           </tr></thead>
           <tbody>
             {loading || error || rows.length === 0 ? (
-              <StateRow cols={10} loading={loading} error={error}
+              <StateRow cols={11} loading={loading} error={error}
                 empty={groups.length ? 'No POs match your search.' : 'No purchase orders yet. Raise a PO to record payments against it.'} />
             ) : rows.map(({ g, vn }) => (
               <tr key={g.po}>
@@ -128,6 +128,7 @@ export default function PaymentProgress() {
                 <td className="num calc">{inr(g.out)}</td>
                 <td className={g.payOverdueDays > 0 ? 'overdue' : ''}>{g.dueDate ? dfmt(g.dueDate) : '—'}{g.payOverdueDays > 0 ? ` · ${g.payOverdueDays}d overdue` : ''}</td>
                 <td className="calc"><Pill s={g.payment} /></td>
+                <td>{(() => { const ps = paysOf(g.po); return ps.length ? (ps[0].method || '—') : '—'; })()}</td>
                 <td className="num">{paysOf(g.po).length}</td>
                 <td><button className="link" onClick={() => openManage(g)}>Manage</button></td>
               </tr>

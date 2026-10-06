@@ -301,13 +301,22 @@ export default function PurchaseOrders() {
                     )}
                   </div>
                   <div className="po-fields">
-                    <label className="pf wide">Material *<select value={it.material || ''} onChange={e => setItem(it._id, 'material', e.target.value)}>
-                      <option value="">Select material</option>
-                      {MATERIALS.map(m => <option key={m} value={m}>{m}</option>)}
-                      {it.material && !MATERIALS.includes(it.material) && <option value={it.material}>{it.material}</option>}
-                    </select></label>
+                    <label className="pf wide">Material *
+                      {(() => {
+                        const KNOWN = MATERIALS.filter(m => m !== 'Other');
+                        const mat = it.material || '';
+                        const isOther = mat === 'Other' || (mat !== '' && !KNOWN.includes(mat));
+                        return (<>
+                          <select value={isOther ? 'Other' : mat} onChange={e => setItem(it._id, 'material', e.target.value)}>
+                            <option value="">Select material</option>
+                            {KNOWN.map(m => <option key={m} value={m}>{m}</option>)}
+                            <option value="Other">Other</option>
+                          </select>
+                          {isOther && <input placeholder="Enter material" value={mat === 'Other' ? '' : mat} onChange={e => setItem(it._id, 'material', e.target.value)} style={{ marginTop: 6 }} />}
+                        </>);
+                      })()}
+                    </label>
                     <label className="pf">Specification<input value={it.spec} onChange={e => setItem(it._id, 'spec', e.target.value)} placeholder="e.g. Fe 500D, 16mm" /></label>
-                    <label className="pf">HSN / SAC<input value={it.hsn} onChange={e => setItem(it._id, 'hsn', e.target.value)} placeholder="e.g. 7214" /></label>
                     <label className="pf full">Description of goods<input value={it.description} onChange={e => setItem(it._id, 'description', e.target.value)} placeholder="Longer description as it should read on the order / invoice" /></label>
                     <label className="pf">Qty *<input type="number" min="0" step="any" value={it.qty} onChange={e => setItem(it._id, 'qty', e.target.value)} /></label>
                     <label className="pf">Unit (Per)<select value={it.unit} onChange={e => setItem(it._id, 'unit', e.target.value)}>{UNITS.map(u => <option key={u}>{u}</option>)}</select></label>

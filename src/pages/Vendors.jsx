@@ -124,11 +124,21 @@ export default function Vendors() {
             <Field label="Email" full><input type="email" value={editing.data.email} onChange={e => set('email', e.target.value)} /></Field>
             <Field label="Address" full><input value={editing.data.address} onChange={e => set('address', e.target.value)} /></Field>
             <Field label="GST Number"><input value={editing.data.gst} maxLength={15} style={{ textTransform: 'uppercase' }} onChange={e => set('gst', e.target.value)} placeholder="15-character GSTIN" /></Field>
-            <Field label="Material / Service"><select value={editing.data.material || ''} onChange={e => set('material', e.target.value)}>
-              <option value="">Select material</option>
-              {MATERIALS.map(m => <option key={m} value={m}>{m}</option>)}
-              {editing.data.material && !MATERIALS.includes(editing.data.material) && <option value={editing.data.material}>{editing.data.material}</option>}
-            </select></Field>
+            <Field label="Material / Service">
+              {(() => {
+                const KNOWN = MATERIALS.filter(m => m !== 'Other');
+                const mat = editing.data.material || '';
+                const isOther = mat === 'Other' || (mat !== '' && !KNOWN.includes(mat));
+                return (<>
+                  <select value={isOther ? 'Other' : mat} onChange={e => set('material', e.target.value)}>
+                    <option value="">Select material</option>
+                    {KNOWN.map(m => <option key={m} value={m}>{m}</option>)}
+                    <option value="Other">Other</option>
+                  </select>
+                  {isOther && <input placeholder="Enter material / service" value={mat === 'Other' ? '' : mat} onChange={e => set('material', e.target.value)} style={{ marginTop: 6 }} />}
+                </>);
+              })()}
+            </Field>
             <Field label="Credit Limit (₹)"><input type="number" min="0" step="1000" value={editing.data.creditLimit} onChange={e => set('creditLimit', e.target.value)} /></Field>
             <Field label="Payment Terms"><select value={editing.data.terms} onChange={e => set('terms', e.target.value)}>{TERMS.map(t => <option key={t}>{t}</option>)}</select></Field>
           </div>

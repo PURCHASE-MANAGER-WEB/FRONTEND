@@ -17,15 +17,17 @@ export function PurchaseDataProvider({ children }) {
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const [v, l, p] = await Promise.all([purchaseApi.getVendors(), purchaseApi.getLines(), paymentsApi.list().catch(() => [])]);
+      const [v, l] = await Promise.all([purchaseApi.getVendors(), purchaseApi.getLines()]);
       setVendors(Array.isArray(v) ? v : []);
       setLines(Array.isArray(l) ? l : []);
-      setPayments(Array.isArray(p) ? p : []);
     } catch (e) {
       setError(e.message || 'Could not load procurement data.');
     } finally {
-      setLoading(false);
+      setLoading(false);   // show vendors + POs immediately
     }
+    // Payments are not needed for the first paint — load them in the background so the
+    // main tables appear as soon as vendors + POs arrive.
+    try { const p = await paymentsApi.list(); setPayments(Array.isArray(p) ? p : []); } catch { /* ignore */ }
   }, []);
 
   useEffect(() => { load(); }, [load]);

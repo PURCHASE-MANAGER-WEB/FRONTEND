@@ -111,8 +111,7 @@ export async function downloadPoPdf(data) {
   // ── Item table (manual) ──
   const cols = [
     { k: 'sno', w: 24, align: 'center', title: '#' },
-    { k: 'desc', w: CW - 24 - 52 - 48 - 34 - 70 - 82, align: 'left', title: 'Description of goods' },
-    { k: 'hsn', w: 52, align: 'center', title: 'HSN' },
+    { k: 'desc', w: CW - 24 - 48 - 34 - 70 - 82, align: 'left', title: 'Description of goods' },
     { k: 'qty', w: 48, align: 'right', title: 'Qty' },
     { k: 'per', w: 34, align: 'center', title: 'Per' },
     { k: 'rate', w: 70, align: 'right', title: 'Rate' },
@@ -158,11 +157,10 @@ export async function downloadPoPdf(data) {
     doc.setTextColor(...INK);
     doc.setFont('helvetica', 'normal');
     cellText(cols[0], 0, String(idx + 1), top);
-    cellText(cols[2], 2, String(it.hsn || '-'), top);
-    cellText(cols[3], 3, qn(it.qty), top);
-    cellText(cols[4], 4, String(it.unit || ''), top);
-    cellText(cols[5], 5, rs(it.rate), top);
-    cellText(cols[6], 6, rs(it.amount), top);
+    cellText(cols[2], 2, qn(it.qty), top);
+    cellText(cols[3], 3, String(it.unit || ''), top);
+    cellText(cols[4], 4, rs(it.rate), top);
+    cellText(cols[5], 5, rs(it.amount), top);
 
     // description block (material bold, then spec/desc muted)
     let dy = top;
