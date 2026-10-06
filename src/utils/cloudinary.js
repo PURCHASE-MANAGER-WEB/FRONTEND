@@ -11,6 +11,31 @@ const PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
 
 export const cloudinaryReady = () => !!(CLOUD && PRESET);
 
+// Download a file (e.g. an invoice) to the device, preserving its filename. Fetches the
+// bytes and saves them, so it works for Cloudinary RAW delivery URLs (new uploads). If the
+// URL is blocked (an OLDER invoice stored as an image-type PDF returns 401 until it's
+// re-uploaded, or PDF delivery is enabled in Cloudinary), it falls back to opening the URL.
+export async function downloadFile(url, filename = 'invoice.pdf') {
+  if (!url) return false;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('blocked');
+    const blob = await res.blob();
+    const href = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = href;
+    a.download = filename || 'invoice.pdf';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(href), 2000);
+    return true;
+  } catch {
+    window.open(url, '_blank', 'noopener');
+    return false;
+  }
+}
+
 const MAX_BYTES = 15 * 1024 * 1024; // 15 MB
 
 // Upload a single PDF invoice. Returns the attachment object to save on the PO.
