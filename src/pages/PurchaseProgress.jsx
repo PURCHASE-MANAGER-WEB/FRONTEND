@@ -9,12 +9,30 @@ export default function PurchaseProgress() {
   const [filter, setFilter] = useState('');
 
   const groups = useMemo(() => groupPOs(lines), [lines]);
+
+  // Delivery-focused summary cards — all counts derived from the real PO records.
+  const stats = useMemo(() => ({
+    total: groups.length,
+    delivered: groups.filter(g => g.delivery === 'Completed').length,
+    partial: groups.filter(g => g.rec > 0 && g.delivery !== 'Completed').length,
+    pending: groups.filter(g => g.rec === 0).length,
+    overdue: groups.filter(g => g.overdueDays > 0).length,
+    totalValue: groups.reduce((a, g) => a + g.value, 0),
+  }), [groups]);
   const rows = groups.filter(g => !filter || (filter === 'done'
     ? (g.delivery === 'Completed' && g.payment === 'Paid')
     : !(g.delivery === 'Completed' && g.payment === 'Paid')));
 
   return (
     <section>
+      <section className="kpis" aria-label="Purchase progress summary" style={{ marginBottom: 16 }}>
+        <div className="kpi"><div className="l">Total Orders</div><div className="v">{stats.total}</div></div>
+        <div className="kpi"><div className="l">Delivered</div><div className="v">{stats.delivered}</div></div>
+        <div className="kpi"><div className="l">Partially Received</div><div className="v">{stats.partial}</div></div>
+        <div className="kpi"><div className="l">Pending Delivery</div><div className="v">{stats.pending}</div></div>
+        <div className="kpi"><div className="l">Overdue Deliveries</div><div className="v">{stats.overdue}</div></div>
+        <div className="kpi"><div className="l">Total PO Value</div><div className="v">{inr(stats.totalValue)}</div></div>
+      </section>
       <div className="toolbar">
         <h2>Purchase Progress</h2>
         <div className="right">
