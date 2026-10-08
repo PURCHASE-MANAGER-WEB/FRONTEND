@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { invoicesApi } from '../../api/client';
 import { usePurchaseData } from '../../context/PurchaseData';
 import { inr, groupPOs } from '../../utils/procurement';
+import { openInvoice } from '../../utils/cloudinary';
 
 export default function AccountsVerification() {
   const [invoices, setInvoices] = useState([]);
@@ -55,7 +56,7 @@ export default function AccountsVerification() {
                   </td>
                   <td><span style={{ padding: '4px 8px', background: 'var(--warn-bg, #fef3c7)', color: 'var(--warn, #d97706)', borderRadius: '4px', fontSize: '12px', fontWeight: 600 }}>{inv.status || 'Pending'}</span></td>
                   <td>
-                    <button className="btn small" onClick={() => invoicesApi.blob(inv.po, { download: true })}>View PDF</button>
+                    <button className="btn small" onClick={() => openInvoice(inv)}>View PDF</button>
                     <button className="btn small primary" style={{ marginLeft: 8 }} onClick={() => verifyInvoice(inv.po)}>Mark Verified</button>
                   </td>
                 </tr>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { invoicesApi } from '../../api/client';
 import { usePurchaseData } from '../../context/PurchaseData';
 import { inr } from '../../utils/procurement';
+import { downloadInvoice } from '../../utils/cloudinary';
 
 export default function AccountsInvoices() {
   const [invoices, setInvoices] = useState([]);
@@ -32,7 +33,7 @@ export default function AccountsInvoices() {
                 <td>{inv.po}</td>
                 <td>{inv.status || 'Pending Verification'}</td>
                 <td>
-                  <button className="btn small" onClick={() => invoicesApi.blob(inv.po, { download: true })}>Download PDF</button>
+                  <button className="btn small" onClick={() => downloadInvoice(inv)}>Download PDF</button>
                 </td>
               </tr>
             ))}

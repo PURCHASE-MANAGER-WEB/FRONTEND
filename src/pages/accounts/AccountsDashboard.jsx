@@ -91,7 +91,7 @@ export default function AccountsDashboard() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '16px' }}>
         <div className="card" style={{ padding: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>Monthly Spend</h3>
+            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>Monthly Spent</h3>
             <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 500 }}>₹ In lakhs • last 6 months</span>
           </div>
           <div style={{ height: '220px' }}>
@@ -106,7 +106,7 @@ export default function AccountsDashboard() {
         </div>
         <div className="card" style={{ padding: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>Spend by Category</h3>
+            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>Spent by Category</h3>
             <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 500 }}>All time</span>
           </div>
           <div style={{ height: '220px', display: 'flex', alignItems: 'center' }}>
