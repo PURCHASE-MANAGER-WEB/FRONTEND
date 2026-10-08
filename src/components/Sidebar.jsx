@@ -11,7 +11,7 @@ const NAV = [
   { to: '/payment-progress', label: 'Payment Progress', icon: Wallet },
   { separator: true, label: 'Accounts Department' },
   { to: '/accounts/dashboard', label: 'Accounts Dashboard', icon: LayoutDashboard },
-  { to: '/accounts/invoices', label: 'Invoice Mgmt', icon: FileText },
+  { to: '/accounts/invoices', label: 'Invoice Management', icon: FileText },
   { to: '/accounts/verification', label: 'Verification', icon: CheckSquare },
   { to: '/accounts/payments', label: 'Payments Tracker', icon: Wallet },
   { to: '/accounts/vendors', label: 'Vendor Accounts', icon: Users },
