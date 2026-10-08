@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Store, ClipboardList, TrendingUp, Wallet, LogOut } from 'lucide-react';
+import { LayoutDashboard, Store, ClipboardList, TrendingUp, Wallet, LogOut, FileText, CheckSquare, Users } from 'lucide-react';
 import { getUser, clearSession, authApi } from '../api/client';
 
 const NAV = [
@@ -9,6 +9,14 @@ const NAV = [
   { to: '/purchase-orders', label: 'Purchase Orders', icon: ClipboardList },
   { to: '/purchase-progress', label: 'Purchase Progress', icon: TrendingUp },
   { to: '/payment-progress', label: 'Payment Progress', icon: Wallet },
+  { separator: true, label: 'Accounts Department' },
+  { to: '/accounts/dashboard', label: 'Accounts Dashboard', icon: LayoutDashboard },
+  { to: '/accounts/invoices', label: 'Invoice Mgmt', icon: FileText },
+  { to: '/accounts/verification', label: 'Verification', icon: CheckSquare },
+  { to: '/accounts/payments', label: 'Payments Tracker', icon: Wallet },
+  { to: '/accounts/vendors', label: 'Vendor Accounts', icon: Users },
+  { to: '/accounts/fabricators', label: 'Fabricator Accounts', icon: Users },
+  { to: '/accounts/projects', label: 'Project Accounts', icon: ClipboardList },
 ];
 
 export default function Sidebar({ open, onNavigate }) {
@@ -36,9 +44,11 @@ export default function Sidebar({ open, onNavigate }) {
           </div>
         </div>
         <nav>
-          {NAV.map(({ to, label, icon: Icon }) => (
-            <NavLink key={to} to={to} onClick={onNavigate} className={({ isActive }) => isActive ? 'active' : ''}>
-              <Icon size={18} /> {label}
+          {NAV.map((item, idx) => item.separator ? (
+            <div key={idx} className="nav-separator" style={{ marginTop: '16px', marginBottom: '8px', paddingLeft: '14px', fontSize: '11px', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 700, letterSpacing: '0.05em' }}>{item.label}</div>
+          ) : (
+            <NavLink key={item.to} to={item.to} onClick={onNavigate} className={({ isActive }) => isActive ? 'active' : ''}>
+              <item.icon size={18} /> {item.label}
             </NavLink>
           ))}
           <button className="link" onClick={() => setAsk(true)} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '11px 13px', color: 'var(--brand-fg)', opacity: .72, fontWeight: 500, fontSize: '14.5px', marginTop: 'auto' }}>

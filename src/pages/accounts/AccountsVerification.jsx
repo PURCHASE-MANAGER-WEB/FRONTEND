@@ -1,0 +1,2 @@
+import React from 'react';
+export default function AccountsVerification() { return <section><div className="card"><h3>AccountsVerification</h3><p>Under construction. Integrates with existing DB.</p></div></section>; }

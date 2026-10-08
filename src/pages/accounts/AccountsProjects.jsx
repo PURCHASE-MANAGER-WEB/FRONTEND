@@ -1,0 +1,2 @@
+import React from 'react';
+export default function AccountsProjects() { return <section><div className="card"><h3>AccountsProjects</h3><p>Under construction. Integrates with existing DB.</p></div></section>; }

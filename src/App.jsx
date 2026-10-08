@@ -11,6 +11,14 @@ import PurchaseOrderDetail from './pages/PurchaseOrderDetail';
 import PurchaseProgress from './pages/PurchaseProgress';
 import PaymentProgress from './pages/PaymentProgress';
 
+import AccountsDashboard from './pages/accounts/AccountsDashboard';
+import AccountsInvoices from './pages/accounts/AccountsInvoices';
+import AccountsVerification from './pages/accounts/AccountsVerification';
+import AccountsPayments from './pages/accounts/AccountsPayments';
+import AccountsVendors from './pages/accounts/AccountsVendors';
+import AccountsFabricators from './pages/accounts/AccountsFabricators';
+import AccountsProjects from './pages/accounts/AccountsProjects';
+
 // This application is LOCKED to the Purchase Manager role. A token carried over
 // from another portal, or a hand-edited URL, cannot reach these pages.
 const ProtectedRoute = ({ children }) => {
@@ -44,6 +52,15 @@ export default function App() {
           <Route path="/purchase-orders/:poId" element={<PurchaseOrderDetail />} />
           <Route path="/purchase-progress" element={<PurchaseProgress />} />
           <Route path="/payment-progress" element={<PaymentProgress />} />
+          
+          {/* Accounts Module */}
+          <Route path="/accounts/dashboard" element={<AccountsDashboard />} />
+          <Route path="/accounts/invoices" element={<AccountsInvoices />} />
+          <Route path="/accounts/verification" element={<AccountsVerification />} />
+          <Route path="/accounts/payments" element={<AccountsPayments />} />
+          <Route path="/accounts/vendors" element={<AccountsVendors />} />
+          <Route path="/accounts/fabricators" element={<AccountsFabricators />} />
+          <Route path="/accounts/projects" element={<AccountsProjects />} />
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

@@ -11,6 +11,14 @@ const TITLES = {
   '/vendors': ['Vendor Registration', 'Register and manage your supplier master'],
   '/purchase-orders': ['Purchase Orders', 'Material-wise ordering, delivery and payment tracking'],
   '/purchase-progress': ['Purchase Progress', 'Delivery & payment progress across every PO'],
+  '/payment-progress': ['Payment Progress', 'Payment progress across every PO'],
+  '/accounts/dashboard': ['Accounts Dashboard', 'Financial overview across all purchase orders'],
+  '/accounts/invoices': ['Invoice Management', 'Verify and manage PO invoices'],
+  '/accounts/verification': ['Invoice Verification', 'Verify invoices and prepare for payment'],
+  '/accounts/payments': ['Payment Tracking', 'Track and approve payments'],
+  '/accounts/vendors': ['Vendor Accounts', 'Vendor-wise financial tracking'],
+  '/accounts/fabricators': ['Fabricator Accounts', 'Fabricator-wise and project-wise tracking'],
+  '/accounts/projects': ['Project Accounts', 'Project-wise financial view'],
 };
 
 export default function AppLayout() {

@@ -91,6 +91,8 @@ export const paymentsApi = {
 
 // Invoice PDFs — stored in our own backend (Mongo), one per PO. No Cloudinary.
 export const invoicesApi = {
+  list: () => api('/invoices', { auth: true }),
+  updateDetails: (po, payload) => api(`/invoices/${encodeURIComponent(po)}/details`, { method: 'PUT', body: payload, auth: true }),
   put: (po, payload) => api(`/invoices/${encodeURIComponent(po)}`, { method: 'PUT', body: payload, auth: true }),
   meta: (po) => api(`/invoices/${encodeURIComponent(po)}/meta`, { auth: true }),
   remove: (po) => api(`/invoices/${encodeURIComponent(po)}`, { method: 'DELETE', auth: true }),
