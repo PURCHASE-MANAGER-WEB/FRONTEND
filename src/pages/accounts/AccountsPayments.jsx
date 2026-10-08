@@ -10,6 +10,7 @@ export default function AccountsPayments() {
   const navigate = useNavigate();
 
   const [payForm, setPayForm] = useState(null);
+  const [confirmPo, setConfirmPo] = useState(null);
   const [form, setForm] = useState({ amount: '', date: new Date().toISOString().split('T')[0], method: '', refNo: '', remarks: '' });
   const PAYMENT_METHODS = ['Bank Transfer', 'NEFT', 'RTGS', 'UPI', 'Cheque', 'Cash'];
 
@@ -19,10 +20,11 @@ export default function AccountsPayments() {
   const groups = groupPOs(lines);
   const poMap = new Map(groups.map(g => [g.po, g]));
 
-  const approvePayment = async (po) => {
-    if (!window.confirm(`Approve payment for ${po}?`)) return;
+  const approvePayment = async () => {
+    if (!confirmPo) return;
     try {
-      await invoicesApi.updateDetails(po, { status: 'Accounts Approved' });
+      await invoicesApi.updateDetails(confirmPo, { status: 'Accounts Approved' });
+      setConfirmPo(null);
       load();
     } catch (e) { alert(e.message); }
   };
@@ -73,7 +75,7 @@ export default function AccountsPayments() {
                   <td style={{ color: out > 0 ? 'var(--bad)' : 'inherit' }}>{inr(out)}</td>
                   <td>
                     {inv.status !== 'Accounts Approved' ? (
-                      <button className="btn small primary" onClick={() => approvePayment(inv.po)}>Approve Payment</button>
+                      <button className="btn small primary" onClick={() => setConfirmPo(inv.po)}>Approve Payment</button>
                     ) : (
                       <button className="btn small" style={{ background: 'var(--good, #10b981)', color: '#fff', borderColor: 'var(--good, #10b981)' }} onClick={() => setPayForm(inv)}>Record Payment</button>
                     )}
@@ -85,6 +87,20 @@ export default function AccountsPayments() {
           </tbody>
         </table>
       </div>
+
+      {confirmPo && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+          <div className="card" style={{ width: 400, padding: 24, textAlign: 'center' }}>
+            <div style={{ width: 48, height: 48, background: 'var(--accent-soft)', color: 'var(--accent-ink)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: 24 }}>🛡️</div>
+            <h3 style={{ margin: '0 0 8px', fontSize: '18px', fontWeight: 700 }}>Approve Payment</h3>
+            <p style={{ margin: '0 0 24px', color: 'var(--muted)', fontSize: '14px' }}>Are you sure you want to approve the payment for <b>{confirmPo}</b>?</p>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+              <button className="btn" style={{ padding: '8px 24px' }} onClick={() => setConfirmPo(null)}>Cancel</button>
+              <button className="btn primary" style={{ padding: '8px 24px' }} onClick={approvePayment}>Yes, Approve</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {payForm && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
