@@ -24,7 +24,7 @@ import AccountsProjects from './pages/accounts/AccountsProjects';
 const ProtectedRoute = ({ children }) => {
   if (!isAuthenticated()) return <Navigate to="/login" replace />;
   const role = getUser()?.role;
-  if (role && role !== APP_ROLE) {
+  if (role && role !== APP_ROLE && role !== 'accounts_manager') {
     clearSession();
     return <Navigate to="/login" replace />;
   }

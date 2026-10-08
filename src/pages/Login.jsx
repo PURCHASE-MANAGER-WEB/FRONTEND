@@ -25,7 +25,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
-  const ROLE_OPTIONS = ['Purchase Manager', 'Purchase Head'];
+  const ROLE_OPTIONS = ['Purchase Manager', 'Accounts Manager'];
   const [selectedRole, setSelectedRole] = useState('Purchase Manager');
 
   const [error, setError] = useState('');
@@ -45,7 +45,11 @@ export default function Login() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('loggedout') === '1') { clearSession(); return; }
-    if (isAuthenticated() && getUser()?.role === APP_ROLE) navigate('/dashboard', { replace: true });
+    if (isAuthenticated()) {
+      const r = getUser()?.role;
+      if (r === 'accounts_manager') navigate('/accounts/dashboard', { replace: true });
+      else if (r === APP_ROLE) navigate('/dashboard', { replace: true });
+    }
   }, [navigate]);
 
   const flash = (msg, isError = false) => { setError(isError ? msg : ''); setNotice(isError ? '' : msg); };
@@ -56,14 +60,23 @@ export default function Login() {
     if (!email || !password) { setError('Please fill in all fields'); return; }
     setLoading(true);
     try {
-      const data = await authApi.login(APP_ROLE, email.trim(), password, selectedRole);
-      if (data.user?.role && data.user.role !== APP_ROLE) {
-        clearSession();
-        setBlockedMsg('This portal is for Purchase accounts only. Please use your own portal.');
-        return;
+      if (selectedRole === 'Accounts Manager') {
+        if (email.trim() === 'accounts@tesco.com' && password === '123456') {
+          setSession('dummy_token_accounts', { role: 'accounts_manager', name: 'Accounts Manager' });
+          navigate('/accounts/dashboard', { replace: true });
+        } else {
+          setError('Invalid dummy credentials. Use accounts@tesco.com / 123456');
+        }
+      } else {
+        const data = await authApi.login(APP_ROLE, email.trim(), password, selectedRole);
+        if (data.user?.role && data.user.role !== APP_ROLE) {
+          clearSession();
+          setBlockedMsg('This portal is for Purchase accounts only. Please use your own portal.');
+          return;
+        }
+        setSession(data.token, data.user);
+        navigate('/dashboard', { replace: true });
       }
-      setSession(data.token, data.user);
-      navigate('/dashboard', { replace: true });
     } catch (err) {
       if (/deactivat/i.test(err.message || '')) {
         clearSession();

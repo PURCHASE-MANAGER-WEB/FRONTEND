@@ -22,7 +22,8 @@ const NAV = [
 export default function Sidebar({ open, onNavigate }) {
   const navigate = useNavigate();
   const user = getUser() || {};
-  const initials = (user.name || 'PM').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+  const isAccounts = user.role === 'accounts_manager';
+  const initials = (user.name || (isAccounts ? 'AM' : 'PM')).split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
   const [ask, setAsk] = useState(false);
 
   const doLogout = async () => {
@@ -30,6 +31,14 @@ export default function Sidebar({ open, onNavigate }) {
     clearSession();
     navigate('/login?loggedout=1', { replace: true });
   };
+
+  const filteredNav = NAV.filter(item => {
+    if (isAccounts) {
+      return item.to?.startsWith('/accounts'); // omit separator for Accounts Manager
+    } else {
+      return !item.to?.startsWith('/accounts') && !item.separator;
+    }
+  });
 
   return (
     <>
@@ -39,12 +48,12 @@ export default function Sidebar({ open, onNavigate }) {
             <span className="tile"><img src="/logo2-_21iriWQ.png" alt="Tesco Structures" /></span>
             <div>
               <b>Tesco Structures</b>
-              <span>Procurement Portal</span>
+              <span>{isAccounts ? 'Accounts Portal' : 'Procurement Portal'}</span>
             </div>
           </div>
         </div>
         <nav>
-          {NAV.map((item, idx) => item.separator ? (
+          {filteredNav.map((item, idx) => item.separator ? (
             <div key={idx} className="nav-separator" style={{ marginTop: '16px', marginBottom: '8px', paddingLeft: '14px', fontSize: '11px', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 700, letterSpacing: '0.05em' }}>{item.label}</div>
           ) : (
             <NavLink key={item.to} to={item.to} onClick={onNavigate} className={({ isActive }) => isActive ? 'active' : ''}>
@@ -58,8 +67,8 @@ export default function Sidebar({ open, onNavigate }) {
         <div className="who">
           <div className="av">{initials}</div>
           <div>
-            <div className="nm">{user.name || 'Purchase Manager'}</div>
-            <div className="rl">{user.designation || 'Purchase Manager'}</div>
+            <div className="nm">{user.name || (isAccounts ? 'Accounts Manager' : 'Purchase Manager')}</div>
+            <div className="rl">{user.designation || (isAccounts ? 'Accounts Manager' : 'Purchase Manager')}</div>
           </div>
         </div>
       </aside>
