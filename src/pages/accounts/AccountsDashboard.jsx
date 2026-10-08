@@ -2,9 +2,11 @@ import React, { useMemo } from 'react';
 import { usePurchaseData } from '../../context/PurchaseData';
 import { groupPOs, inr, calcLine, vendorName } from '../../utils/procurement';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+import { useNavigate } from 'react-router-dom';
 
 export default function AccountsDashboard() {
   const { lines, vendors } = usePurchaseData();
+  const navigate = useNavigate();
   
   const stats = useMemo(() => {
     const groups = groupPOs(lines);
@@ -37,10 +39,9 @@ export default function AccountsDashboard() {
       catMap[mat] = (catMap[mat] || 0) + c.total;
     });
 
-    // Format monthly data (last 6 months with data, sorted properly if possible. 
-    // For simplicity, just sort chronologically if parsing is okay, or just take top 6.)
+    // Format monthly data (last 6 months with data)
     const monthlyData = Object.entries(monthMap).map(([name, val]) => ({ name, value: val / 100000 })) // in lakhs
-      .slice(-6); // naive slice for now
+      .slice(-6);
 
     // Format category data (top 4, rest in others)
     const sortedCats = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
@@ -51,7 +52,6 @@ export default function AccountsDashboard() {
 
     // Recent POs
     const recentPOs = [...groups].sort((a, b) => {
-      // Assuming PO numbers have numeric sequence like PO-001
       const numA = parseInt((a.po || '').replace(/\D/g, '')) || 0;
       const numB = parseInt((b.po || '').replace(/\D/g, '')) || 0;
       return numB - numA;
@@ -60,204 +60,106 @@ export default function AccountsDashboard() {
     return { totalPOs, pendingPOs, deliveredPOs, outstandingAmount, overdueCount, deliveredRate, monthlyData, pieData, recentPOs };
   }, [lines]);
 
-  const COLORS = ['#6366f1', '#14b8a6', '#f59e0b', '#f43f5e', '#8b5cf6'];
+  const COLORS = ['var(--accent)', '#10b981', '#f59e0b', '#f43f5e', '#8b5cf6'];
   const formatLakhs = (val) => `₹${(val / 100000).toFixed(2)}L`;
 
   return (
-    <div className="dark-dash">
-      <div className="dash-row top-cards">
-        <div className="d-card">
-          <div className="d-title">TOTAL POS</div>
-          <div className="d-val">{stats.totalPOs}</div>
-          <div className="d-sub good">▲ All time</div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+        <div className="card" style={{ padding: '20px' }}>
+          <div style={{ fontSize: '11px', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--muted)', marginBottom: '8px' }}>TOTAL POS</div>
+          <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--fg)', lineHeight: 1.1, marginBottom: '6px' }}>{stats.totalPOs}</div>
+          <div style={{ fontSize: '12px', color: 'var(--good, #10b981)', fontWeight: 600 }}>▲ All time</div>
         </div>
-        <div className="d-card">
-          <div className="d-title">PENDING</div>
-          <div className="d-val">{stats.pendingPOs}</div>
-          <div className="d-sub">⏳ {stats.pendingPOs} awaiting delivery</div>
+        <div className="card" style={{ padding: '20px' }}>
+          <div style={{ fontSize: '11px', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--muted)', marginBottom: '8px' }}>PENDING</div>
+          <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--fg)', lineHeight: 1.1, marginBottom: '6px' }}>{stats.pendingPOs}</div>
+          <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 500 }}>⏳ {stats.pendingPOs} awaiting delivery</div>
         </div>
-        <div className="d-card">
-          <div className="d-title">DELIVERED</div>
-          <div className="d-val">{stats.deliveredPOs}</div>
-          <div className="d-sub good">▲ {stats.deliveredRate}% rate</div>
+        <div className="card" style={{ padding: '20px' }}>
+          <div style={{ fontSize: '11px', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--muted)', marginBottom: '8px' }}>DELIVERED</div>
+          <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--fg)', lineHeight: 1.1, marginBottom: '6px' }}>{stats.deliveredPOs}</div>
+          <div style={{ fontSize: '12px', color: 'var(--good, #10b981)', fontWeight: 600 }}>▲ {stats.deliveredRate}% rate</div>
         </div>
-        <div className="d-card">
-          <div className="d-title">OUTSTANDING</div>
-          <div className="d-val">{formatLakhs(stats.outstandingAmount * 100000)}</div>
-          <div className="d-sub bad">▼ {stats.overdueCount} overdue</div>
+        <div className="card" style={{ padding: '20px' }}>
+          <div style={{ fontSize: '11px', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--muted)', marginBottom: '8px' }}>OUTSTANDING</div>
+          <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--fg)', lineHeight: 1.1, marginBottom: '6px' }}>{formatLakhs(stats.outstandingAmount * 100000)}</div>
+          <div style={{ fontSize: '12px', color: 'var(--bad, #ef4444)', fontWeight: 600 }}>▼ {stats.overdueCount} overdue</div>
         </div>
       </div>
 
-      <div className="dash-row charts">
-        <div className="d-card chart-card">
-          <div className="d-title chart-title">Monthly Spend <span className="d-hint">₹ In lakhs • last 6 months</span></div>
-          <div className="chart-wrap">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '16px' }}>
+        <div className="card" style={{ padding: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>Monthly Spend</h3>
+            <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 500 }}>₹ In lakhs • last 6 months</span>
+          </div>
+          <div style={{ height: '220px' }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={stats.monthlyData}>
-                <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                <Tooltip cursor={{ fill: '#334155' }} contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: 8, color: '#f8fafc' }} />
-                <Bar dataKey="value" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                <XAxis dataKey="name" stroke="var(--muted)" fontSize={12} tickLine={false} axisLine={false} />
+                <Tooltip cursor={{ fill: 'var(--line)' }} contentStyle={{ backgroundColor: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, color: 'var(--fg)' }} />
+                <Bar dataKey="value" fill="var(--accent)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
-        <div className="d-card chart-card">
-          <div className="d-title chart-title">Spend by Category <span className="d-hint">All time</span></div>
-          <div className="chart-wrap" style={{ display: 'flex', alignItems: 'center' }}>
+        <div className="card" style={{ padding: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>Spend by Category</h3>
+            <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 500 }}>All time</span>
+          </div>
+          <div style={{ height: '220px', display: 'flex', alignItems: 'center' }}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie data={stats.pieData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value" stroke="none">
                   {stats.pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                 </Pie>
-                <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: 8, color: '#f8fafc' }} itemStyle={{ color: '#fff' }} />
-                <Legend verticalAlign="middle" align="right" layout="vertical" iconType="circle" wrapperStyle={{ fontSize: 12, color: '#cbd5e1' }} />
+                <Tooltip contentStyle={{ backgroundColor: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, color: 'var(--fg)' }} itemStyle={{ color: 'var(--fg)' }} />
+                <Legend verticalAlign="middle" align="right" layout="vertical" iconType="circle" wrapperStyle={{ fontSize: 12, color: 'var(--fg)' }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
         </div>
       </div>
 
-      <div className="d-card bottom-list">
-        <div className="d-title chart-title">Recent Purchase Orders <span className="d-hint">{stats.recentPOs.length} of {stats.totalPOs}</span></div>
-        <table className="d-table">
+      <div className="card tbl">
+        <div style={{ padding: '16px 18px', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>Recent Purchase Orders</h3>
+          <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 500 }}>{stats.recentPOs.length} of {stats.totalPOs}</span>
+        </div>
+        <table>
           <thead>
             <tr>
-              <th>PO</th>
-              <th>VENDOR</th>
-              <th>STATUS</th>
-              <th style={{ textAlign: 'right' }}>VALUE</th>
+              <th>PO Number</th>
+              <th>Vendor</th>
+              <th>Status</th>
+              <th style={{ textAlign: 'right' }}>Value</th>
             </tr>
           </thead>
           <tbody>
             {stats.recentPOs.map(po => (
               <tr key={po.po}>
-                <td style={{ color: '#818cf8', fontWeight: 600 }}>{po.po}</td>
+                <td>
+                  <button onClick={() => navigate(`/purchase-orders/${encodeURIComponent(po.po)}`)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent-ink)', fontWeight: 600 }}>{po.po}</button>
+                </td>
                 <td>{vendorName(vendors, po.vid)}</td>
                 <td>
-                  <span className={`d-pill ${po.delivery === 'Completed' ? 'good' : po.delivery === 'Overdue' ? 'bad' : 'warn'}`}>
+                  <span style={{ 
+                    padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 600,
+                    background: po.delivery === 'Completed' ? 'var(--good-bg, #ecfdf5)' : po.delivery === 'Overdue' ? 'var(--bad-bg, #fef2f2)' : 'var(--warn-bg, #fffbeb)',
+                    color: po.delivery === 'Completed' ? 'var(--good, #10b981)' : po.delivery === 'Overdue' ? 'var(--bad, #ef4444)' : 'var(--warn, #f59e0b)'
+                  }}>
                     {po.delivery}
                   </span>
                 </td>
                 <td style={{ textAlign: 'right', fontWeight: 600 }}>{inr(po.value)}</td>
               </tr>
             ))}
+            {stats.recentPOs.length === 0 && <tr><td colSpan="4">No recent purchase orders.</td></tr>}
           </tbody>
         </table>
       </div>
-
-      <style>{`
-        .dark-dash {
-          background-color: #0f172a;
-          color: #f8fafc;
-          padding: 20px;
-          border-radius: 16px;
-          font-family: system-ui, -apple-system, sans-serif;
-          min-height: calc(100vh - 100px);
-        }
-        .dash-row {
-          display: grid;
-          gap: 16px;
-          margin-bottom: 16px;
-        }
-        .top-cards {
-          grid-template-columns: repeat(4, 1fr);
-        }
-        .charts {
-          grid-template-columns: 3fr 2fr;
-        }
-        .d-card {
-          background-color: #1e293b;
-          border: 1px solid #334155;
-          border-radius: 12px;
-          padding: 20px;
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        }
-        .d-title {
-          font-size: 11px;
-          text-transform: uppercase;
-          font-weight: 700;
-          letter-spacing: 0.05em;
-          color: #94a3b8;
-          margin-bottom: 12px;
-        }
-        .d-val {
-          font-size: 32px;
-          font-weight: 800;
-          color: #f8fafc;
-          line-height: 1.1;
-          margin-bottom: 8px;
-        }
-        .d-sub {
-          font-size: 12px;
-          color: #94a3b8;
-          font-weight: 500;
-        }
-        .d-sub.good { color: #10b981; }
-        .d-sub.bad { color: #ef4444; }
-        
-        .chart-title {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 16px;
-          color: #f8fafc;
-          font-size: 14px;
-          text-transform: none;
-          letter-spacing: normal;
-        }
-        .d-hint {
-          font-size: 11px;
-          color: #64748b;
-          font-weight: 500;
-          text-transform: lowercase;
-        }
-        .chart-wrap {
-          height: 220px;
-        }
-        
-        .d-table {
-          width: 100%;
-          border-collapse: collapse;
-          font-size: 13px;
-        }
-        .d-table th {
-          text-align: left;
-          padding: 12px 0;
-          color: #64748b;
-          font-weight: 600;
-          font-size: 11px;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          border-bottom: 1px solid #334155;
-        }
-        .d-table td {
-          padding: 14px 0;
-          border-bottom: 1px solid #334155;
-          color: #e2e8f0;
-        }
-        .d-table tr:last-child td {
-          border-bottom: none;
-        }
-        .d-pill {
-          padding: 4px 10px;
-          border-radius: 20px;
-          font-size: 11px;
-          font-weight: 600;
-          background: #334155;
-          color: #cbd5e1;
-        }
-        .d-pill.good { background: rgba(16, 185, 129, 0.15); color: #34d399; }
-        .d-pill.bad { background: rgba(239, 68, 68, 0.15); color: #f87171; }
-        .d-pill.warn { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
-
-        @media (max-width: 1024px) {
-          .top-cards { grid-template-columns: repeat(2, 1fr); }
-          .charts { grid-template-columns: 1fr; }
-        }
-        @media (max-width: 640px) {
-          .top-cards { grid-template-columns: 1fr; }
-        }
-      `}</style>
     </div>
   );
 }
