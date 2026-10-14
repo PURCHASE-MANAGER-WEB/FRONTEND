@@ -25,7 +25,11 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
-  const ROLE_OPTIONS = ['Purchase Manager', 'Accounts Manager'];
+  const ROLE_OPTIONS = [
+    { value: 'Purchase Manager', label: 'Purchase Manager' },
+    { value: 'Purchase Head', label: 'Head' },
+    { value: 'Accounts Manager', label: 'Accounts Manager' },
+  ];
   const [selectedRole, setSelectedRole] = useState('Purchase Manager');
 
   const [error, setError] = useState('');
@@ -226,7 +230,7 @@ export default function Login() {
                       <label style={labelStyle}>Role</label>
                       <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                         <select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)} style={{ width: '100%', padding: '0.75rem 2.5rem 0.75rem 1rem', borderRadius: '0.5rem', border: '1px solid #CBD5E1', backgroundColor: '#F1F5F9', fontSize: '0.875rem', fontWeight: 600, color: '#0F172A', appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none', cursor: 'pointer' }} onFocus={onFocus} onBlur={onBlur}>
-                          {ROLE_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                          {ROLE_OPTIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
                         </select>
                         <ShieldCheck size={16} color={ACCENT} style={{ position: 'absolute', right: 12, pointerEvents: 'none' }} />
                       </div>
