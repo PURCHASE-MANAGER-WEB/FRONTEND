@@ -15,6 +15,7 @@ import ProjectDetail from './pages/ProjectDetail';
 import ProjectPayments from './pages/ProjectPayments';
 import Budget from './pages/Budget';
 import DeliveryChallan from './pages/DeliveryChallan';
+import PaymentHistory from './pages/PaymentHistory';
 
 import AccountsDashboard from './pages/accounts/AccountsDashboard';
 import AccountsInvoices from './pages/accounts/AccountsInvoices';
@@ -62,6 +63,7 @@ export default function App() {
           <Route path="/project-payments" element={<ProjectPayments />} />
           <Route path="/budget" element={<Budget />} />
           <Route path="/delivery-challan" element={<DeliveryChallan />} />
+          <Route path="/payment-history" element={<PaymentHistory />} />
           
           {/* Accounts Module */}
           <Route path="/accounts/dashboard" element={<AccountsDashboard />} />

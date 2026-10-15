@@ -16,6 +16,7 @@ const TITLES = {
   '/delivery-challan': ['Delivery Challan', 'Material delivery challans linked to vendors, projects and POs'],
   '/purchase-progress': ['Purchase Progress', 'Delivery & payment progress across every PO'],
   '/payment-progress': ['Payment Progress', 'Payment progress across every PO'],
+  '/payment-history': ['Payment History', 'Chronological record of every PO payment'],
   '/accounts/dashboard': ['Accounts Dashboard', 'Financial overview across all purchase orders'],
   '/accounts/invoices': ['Invoice Management', 'Verify and manage PO invoices'],
   '/accounts/verification': ['Invoice Verification', 'Verify invoices and prepare for payment'],

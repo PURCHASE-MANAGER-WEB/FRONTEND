@@ -213,20 +213,32 @@ export const nextPo = (lines) => {
   return 'PO-' + String((n.length ? Math.max(...n) : 0) + 1).padStart(3, '0');
 };
 
-// ── Project payment schedule helpers (the "Payment Pending Cases" tracker) ──
-// A row has up to five installments (p1..p5 each an amount + date) and a terms
-// string like "50%,40%,10%". Status is derived from installments paid vs. the
-// number of milestones in the terms.
-export const ppInstallments = (r = {}) =>
-  [1, 2, 3, 4, 5].map((i) => ({ amount: num(r['p' + i]), date: r['p' + i + 'Date'] || '' }));
-export const ppTotal = (r) => ppInstallments(r).reduce((s, x) => s + x.amount, 0);
-export const ppTermsCount = (terms) => String(terms || '').split(',').map((s) => s.trim()).filter(Boolean).length;
-export const ppStatus = (r) => {
-  const paid = ppInstallments(r).filter((x) => x.amount > 0).length;
-  const tc = ppTermsCount(r && r.terms);
-  if (paid === 0) return 'Pending';
-  return (tc > 0 && paid >= tc) ? 'Completed' : 'Partial';
+// ── Project payment schedule helpers (milestone-based, like the Order Confirmation form) ──
+// A schedule has a quoted/order value and payment-term milestones, each a term, a
+// percentage, the value (quoted × %/100) and a paid date/flag. Legacy flat records
+// (p1..p5) are read as milestones too, so nothing stored earlier is lost.
+export const ppMilestones = (r = {}) => {
+  if (Array.isArray(r.milestones) && r.milestones.length) {
+    return r.milestones.map((m) => ({ term: m.term || '', percentage: num(m.percentage), value: num(m.value), date: m.date || '', paid: !!m.paid }));
+  }
+  const out = [];
+  for (const i of [1, 2, 3, 4, 5]) { const v = num(r['p' + i]); const d = r['p' + i + 'Date']; if (v || d) out.push({ term: 'Payment ' + i, percentage: 0, value: v, date: d || '', paid: v > 0 }); }
+  return out;
 };
+export const ppQuoted = (r) => { const q = num(r && r.quotedValue); return q || ppMilestones(r).reduce((s, m) => s + m.value, 0); };
+export const ppScheduled = (r) => ppMilestones(r).reduce((s, m) => s + num(m.value), 0);
+export const ppPaidAmount = (r) => ppMilestones(r).filter((m) => m.paid).reduce((s, m) => s + num(m.value), 0);
+export const ppOutstanding = (r) => Math.max(ppQuoted(r) - ppPaidAmount(r), 0);
+export const ppPercentTotal = (ms) => (ms || []).reduce((s, m) => s + (parseFloat(m.percentage) || 0), 0);
+export const ppStatus = (r) => {
+  const ms = ppMilestones(r); const paid = ms.filter((m) => m.paid).length;
+  if (!ms.length || paid === 0) return 'Pending';
+  return paid >= ms.length ? 'Completed' : 'Partial';
+};
+// Back-compat aliases (older callers).
+export const ppInstallments = ppMilestones;
+export const ppTotal = ppScheduled;
+export const ppTermsCount = (terms) => String(terms || '').split(',').map((s) => s.trim()).filter(Boolean).length;
 
 // ── Project budget helper ───────────────────────────────────────────
 // Allocated budget lives on the project (project.budget). "Utilized" is the

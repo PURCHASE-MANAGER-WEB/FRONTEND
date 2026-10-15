@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { usePurchaseData } from '../context/PurchaseData';
 import { Pill } from '../components/ui';
-import { num, inr, dfmt, qfmt, groupPOs, vendorName, ppInstallments, ppTotal, ppStatus } from '../utils/procurement';
+import { num, inr, dfmt, qfmt, groupPOs, vendorName, ppMilestones, ppQuoted, ppScheduled, ppPaidAmount, ppOutstanding, ppStatus } from '../utils/procurement';
 import { openChallanDoc } from '../utils/challanDoc';
 
 const TABS = ['Overview', 'Purchase Orders', 'Payments', 'Budget', 'Delivery Challans'];
@@ -119,17 +119,21 @@ export default function ProjectDetail() {
           <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--line)', font: '700 14px var(--f-body)' }}>Milestone Payment Schedule</div>
           <div className="tbl" style={{ border: 0 }}>
             <table>
-              <thead><tr><th>Customer / Terms</th><th className="num">P1</th><th className="num">P2</th><th className="num">P3</th><th className="num">P4</th><th className="num">P5</th><th className="num">Total</th><th>Status</th></tr></thead>
+              <thead><tr><th>Customer</th><th className="num">Quoted</th><th className="num">Scheduled</th><th className="num">Received</th><th className="num">Outstanding</th><th>Milestones</th><th>Status</th></tr></thead>
               <tbody>
                 {schedule.length === 0 ? (
-                  <tr><td colSpan={8} className="state">No milestone payment schedule for this project yet. Add one under Project Payments.</td></tr>
+                  <tr><td colSpan={7} className="state">No milestone payment schedule for this project yet. Add one under Project Payments.</td></tr>
                 ) : schedule.map((r) => {
-                  const inst = ppInstallments(r);
+                  const ms = ppMilestones(r);
+                  const paidCount = ms.filter((m) => m.paid).length;
                   return (
                     <tr key={r.id}>
-                      <td><b>{r.customerName}</b><div className="id" style={{ fontSize: 11 }}>{r.terms || '—'}</div></td>
-                      {inst.map((x, idx) => <td key={idx} className="num">{x.amount ? inr(x.amount) : '—'}</td>)}
-                      <td className="num calc"><b>{inr(ppTotal(r))}</b></td>
+                      <td><b>{r.customerName}</b></td>
+                      <td className="num">{inr(ppQuoted(r))}</td>
+                      <td className="num calc">{inr(ppScheduled(r))}</td>
+                      <td className="num calc">{inr(ppPaidAmount(r))}</td>
+                      <td className="num calc">{inr(ppOutstanding(r))}</td>
+                      <td>{paidCount}/{ms.length} paid</td>
                       <td><Pill s={ppStatus(r)} /></td>
                     </tr>
                   );

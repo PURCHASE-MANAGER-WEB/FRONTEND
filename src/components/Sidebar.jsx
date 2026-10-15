@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Store, ClipboardList, TrendingUp, Wallet, LogOut, FileText, CheckSquare, Users, FolderKanban, ReceiptIndianRupee, PiggyBank, Truck } from 'lucide-react';
+import { LayoutDashboard, Store, ClipboardList, TrendingUp, Wallet, LogOut, FileText, CheckSquare, Users, FolderKanban, ReceiptIndianRupee, PiggyBank, Truck, History } from 'lucide-react';
 import { getUser, clearSession, authApi } from '../api/client';
 
 const NAV = [
@@ -13,6 +13,7 @@ const NAV = [
   { to: '/delivery-challan', label: 'Delivery Challan', icon: Truck },
   { to: '/purchase-progress', label: 'Purchase Progress', icon: TrendingUp },
   { to: '/payment-progress', label: 'Payment Progress', icon: Wallet },
+  { to: '/payment-history', label: 'Payment History', icon: History },
   { separator: true, label: 'Accounts Department' },
   { to: '/accounts/dashboard', label: 'Accounts Dashboard', icon: LayoutDashboard },
   { to: '/accounts/invoices', label: 'Invoice Management', icon: FileText },
