@@ -3,6 +3,7 @@ import { Plus, X, ReceiptIndianRupee, IndianRupee, Wallet, Clock } from 'lucide-
 import { usePurchaseData } from '../context/PurchaseData';
 import { useToast } from '../components/Toast';
 import { Pill, Drawer, Field, StateRow } from '../components/ui';
+import ComboBox from '../components/ComboBox';
 import { num, inr, ppMilestones, ppQuoted, ppScheduled, ppPaidAmount, ppOutstanding, ppStatus, ppPercentTotal } from '../utils/procurement';
 
 const STATUS = ['Pending', 'Partial', 'Completed'];
@@ -146,8 +147,7 @@ export default function ProjectPayments() {
           <p className="hint">Set the quoted value, then split it into payment-term milestones. Milestone amounts are auto-calculated from the percentage; the total must be 100%.</p>
           <div className="grid">
             <Field label="Customer / Project Name *" full>
-              <input list="pp-projects" value={editing.data.customerName} onChange={(e) => set('customerName', e.target.value)} placeholder="Type or pick a project" />
-              <datalist id="pp-projects">{projects.map((p) => <option key={p.id} value={p.name} />)}</datalist>
+              <ComboBox value={editing.data.customerName} onChange={(v) => set('customerName', v)} options={projects.map((p) => p.name)} placeholder="Type or pick a project" />
             </Field>
             <Field label="Quoted / Project Value (₹) *" full><input type="number" min="0" step="1" value={editing.data.quotedValue} onChange={(e) => set('quotedValue', e.target.value)} placeholder="Total order value" /></Field>
           </div>

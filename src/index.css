@@ -171,3 +171,12 @@ label.fld input,label.fld select{font-size:14px;font-weight:400;text-transform:n
   .btn-label{display:none}          /* Refresh becomes an icon-only button so it never gets clipped */
   .refresh-btn{padding:10px 12px}
 }
+
+/* ───────── combobox (professional project dropdown) ───────── */
+.combo{position:relative;width:100%}
+.combo-input{width:100%;box-sizing:border-box;padding-right:34px!important}
+.combo-caret{position:absolute;right:11px;top:50%;transform:translateY(-50%);color:var(--muted);cursor:pointer}
+.combo-menu{position:absolute;left:0;right:0;top:calc(100% + 5px);z-index:60;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-sm);box-shadow:var(--shadow-lg);max-height:252px;overflow:auto;padding:5px}
+.combo-opt{display:block;width:100%;text-align:left;border:0;background:none;padding:9px 11px;border-radius:8px;font:500 14px var(--f-body);color:var(--fg);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.combo-opt:hover,.combo-opt.active{background:var(--accent-soft);color:var(--accent-ink)}
+.combo-opt.sel{font-weight:700;color:var(--accent-ink)}

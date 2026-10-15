@@ -5,6 +5,7 @@ import { usePurchaseData } from '../context/PurchaseData';
 import { purchaseApi } from '../api/client';
 import { useToast } from '../components/Toast';
 import { Pill, Drawer, Field, StateRow } from '../components/ui';
+import ComboBox from '../components/ComboBox';
 import { calcLine, calcPO, poCharges, amountInWords, groupPOs, num, inr, qfmt, dfmt, today, vendorName, nextPo, UNITS, PAYMENT_METHODS, PO_STATUSES, MATERIALS } from '../utils/procurement';
 import { uploadInvoice, openInvoice, downloadInvoice } from '../utils/cloudinary';
 
@@ -312,8 +313,7 @@ export default function PurchaseOrders() {
           <p className="hint">A quick PO with just the essentials. Quantities, rates, tax and terms can be added later via the detailed Edit.</p>
           <div className="grid">
             <Field label="Project Name *" full>
-              <input list="simple-projects" value={simple.project} onChange={(e) => setSimple((s) => ({ ...s, project: e.target.value }))} placeholder="Select or type a project" />
-              <datalist id="simple-projects">{projects.map((p) => <option key={p.id} value={p.name} />)}</datalist>
+              <ComboBox value={simple.project} onChange={(v) => setSimple((s) => ({ ...s, project: v }))} options={projects.map((p) => p.name)} placeholder="Select or type a project" />
             </Field>
             <Field label="Vendor *" full>
               <select value={simple.vid} onChange={(e) => setSimple((s) => ({ ...s, vid: e.target.value }))}>

@@ -3,6 +3,7 @@ import { usePurchaseData } from '../context/PurchaseData';
 import { useToast } from '../components/Toast';
 import { Truck, CheckCircle2, Clock, AlertTriangle } from 'lucide-react';
 import { Drawer, Field, StateRow } from '../components/ui';
+import ComboBox from '../components/ComboBox';
 import { num, qfmt, dfmt, today, groupPOs, vendorName, MATERIALS, UNITS } from '../utils/procurement';
 import { readFileBase64, openChallanDoc, downloadChallanDoc, DOC_MAX_BYTES } from '../utils/challanDoc';
 
@@ -159,8 +160,7 @@ export default function DeliveryChallan() {
             <Field label="Delivery Status"><select value={editing.data.status} onChange={(e) => set('status', e.target.value)}>{DC_STATUS.map((s) => <option key={s}>{s}</option>)}</select></Field>
             <Field label="Vendor"><select value={editing.data.vid} onChange={(e) => set('vid', e.target.value)}><option value="">— Select vendor —</option>{vendors.map((v) => <option key={v.vid} value={v.vid}>{v.name}</option>)}</select></Field>
             <Field label="Project">
-              <input list="dc-projects" value={editing.data.project} onChange={(e) => set('project', e.target.value)} placeholder="Type or pick a project" />
-              <datalist id="dc-projects">{projects.map((p) => <option key={p.id} value={p.name} />)}</datalist>
+              <ComboBox value={editing.data.project} onChange={(v) => set('project', v)} options={projects.map((p) => p.name)} placeholder="Type or pick a project" />
             </Field>
             <Field label="Related PO"><select value={editing.data.po} onChange={(e) => onPO(e.target.value)}><option value="">— None —</option>{poList.map((g) => <option key={g.po} value={g.po}>{g.po}</option>)}</select></Field>
           </div>
