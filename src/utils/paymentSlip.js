@@ -30,7 +30,7 @@ export async function downloadPaymentSlip(data) {
   const LOGO_W = 162;
   let logoH = 0;
   if (logo && logoDims) {
-    const sc = Math.min(190 / logoDims.w, 64 / logoDims.h); const lw = logoDims.w * sc; logoH = logoDims.h * sc;
+    const sc = Math.min(162 / logoDims.w, 54 / logoDims.h); const lw = logoDims.w * sc; logoH = logoDims.h * sc;
     try { doc.addImage(logo, 'PNG', M, y, lw, logoH); } catch { /* ignore */ }
     doc.setFont('helvetica', 'normal').setFontSize(8.5).setTextColor(...MUTE);
     doc.text('Procurement Portal', M + 2, y + logoH + 12);
