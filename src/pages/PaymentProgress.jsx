@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, FileDown, Trash2, HandCoins, Wallet } from 'lucide-react';
+import { Plus, FileDown, Trash2, HandCoins, Wallet, ReceiptIndianRupee } from 'lucide-react';
 import { usePurchaseData } from '../context/PurchaseData';
 import { getUser } from '../api/client';
 import { useToast } from '../components/Toast';
@@ -234,7 +234,7 @@ export default function PaymentProgress() {
       <div className="ptabs">
         {TABS.map((t) => (
           <button key={t} className={`ptab ${tab === t ? 'active' : ''}`} onClick={() => { setTab(t); setQ(''); }}>
-            {t === 'Client Payment' ? <HandCoins size={15} /> : <Wallet size={15} />} {t}
+            {t === 'Client Payment' ? <ReceiptIndianRupee size={15} /> : <Wallet size={15} />} {t}
           </button>
         ))}
       </div>

@@ -121,7 +121,6 @@ export default function PurchaseOrderDetail() {
           <div className="pod-sub">Purchase order · raised on {dfmt(h.poDate)}</div>
         </div>
         <div className="pod-pills">
-          <Pill s={h.status || 'Approved'} />
           <Pill s={g.delivery} />{g.overdueDays > 0 ? <span className="pod-od">{g.overdueDays}d overdue</span> : null}
           <Pill s={g.payment} />
         </div>
@@ -133,7 +132,6 @@ export default function PurchaseOrderDetail() {
           <h3>Order</h3>
           <Row k="PO Number" v={po} />
           <Row k="PO Date" v={dfmt(h.poDate)} />
-          <Row k="Status" v={<Pill s={h.status || 'Approved'} />} />
           <Row k="Delivery Date" v={h.deliveryDate ? dfmt(h.deliveryDate) : model.deliveryDateFmt} />
           <Row k="Delivery Address" v={h.deliveryAddress || '—'} />
           <Row k="Project" v={h.project} />
