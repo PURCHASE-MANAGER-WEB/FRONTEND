@@ -143,9 +143,9 @@ tfoot td{font-weight:700;background:var(--sunk);border-top:2px solid var(--line)
 @keyframes slide{from{transform:translateX(40px);opacity:.4}}
 .drawer h3{font:700 22px var(--f-display);margin:0 0 5px}
 .drawer .hint{color:var(--muted);font-size:13px;margin:0 0 20px}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:13px 15px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px 16px}
 .grid .full{grid-column:1/-1}
-label.fld{display:grid;gap:6px;font-size:11.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+label.fld{display:grid;gap:7px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.055em}
 label.fld input,label.fld select,label.fld textarea{font-size:14px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--fg);font-family:var(--f-body);line-height:1.5;resize:vertical}
 .calcbox{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:11px;background:linear-gradient(180deg,var(--sunk),color-mix(in srgb,var(--sunk) 70%,var(--surface)));border:1px solid var(--line);border-radius:var(--radius-sm);padding:14px}
 .calcbox .l{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}

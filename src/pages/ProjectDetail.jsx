@@ -273,14 +273,12 @@ export default function ProjectDetail() {
               )}
             </div>
 
-            <div className="card pd-card">
-              <h3>Confirmations &amp; Declarations</h3>
-              <div className="ov-grid">
-                <div><span className="ov-l">Site Engineer Visit</span><span className="ov-v">{project.siteEngineerVisit ? 'Completed' : 'Pending'}</span></div>
-                <div><span className="ov-l">Salesperson Declaration</span><span className="ov-v">{project.salespersonDeclaration ? 'Confirmed' : 'Not confirmed'}</span></div>
+            {project.notes && (
+              <div className="card pd-card">
+                <h3>Notes</h3>
+                <p className="sub" style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{project.notes}</p>
               </div>
-              {project.notes && <p className="sub" style={{ marginTop: 14, whiteSpace: 'pre-wrap' }}>{project.notes}</p>}
-            </div>
+            )}
           </>
         );
       })()}
@@ -519,7 +517,7 @@ export default function ProjectDetail() {
         .ov-l{display:block;font-size:12px;color:var(--muted);margin-bottom:3px}
         .ov-v{display:block;font:700 15px var(--f-body);color:var(--fg)}
         .pd-card{padding:20px;margin-bottom:16px}
-        .pd-card h3{margin:0 0 14px;font:800 15px var(--f-display);color:var(--fg)}
+        .pd-card h3{margin:0 0 14px;font:700 12px var(--f-body);text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
         .ov-full{grid-column:1/-1}
         .bar{height:10px;border-radius:6px;background:var(--sunk,#e5e7eb);overflow:hidden}
         .bar-fill{height:100%;border-radius:6px;transition:width .3s}

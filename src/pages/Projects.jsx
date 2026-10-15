@@ -281,9 +281,12 @@ export default function Projects() {
 
       <style>{`
         .row-click{cursor:pointer}.row-click:hover{background:var(--sunk,var(--accent-soft))}
-        .pj-chips{display:flex;gap:18px 26px;flex-wrap:wrap;align-items:center;margin-top:12px}
+        .pj-sec{font:700 12px var(--f-body);text-transform:uppercase;letter-spacing:.06em;color:var(--accent-ink);margin:28px 0 16px;padding-bottom:9px;border-bottom:1px solid var(--line)}
+        .pj-sec:first-of-type{margin-top:18px}
+        .po-items-head{display:flex;justify-content:space-between;align-items:center;font:700 12px var(--f-body);color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
+        .pj-chips{display:flex;gap:16px 28px;flex-wrap:wrap;align-items:center;margin-top:2px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
         .pj-chk{display:inline-flex;align-items:center;gap:8px;font:600 13.5px var(--f-body);color:var(--fg);cursor:pointer}
-        .pj-seg{display:inline-flex;align-items:center;gap:10px}
+        .pj-seg{display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap}
         .pj-seg-l{font:700 11px var(--f-body);text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
         .pj-rad{display:inline-flex;align-items:center;gap:5px;font:600 13px var(--f-body);color:var(--fg);cursor:pointer}
         .pp-sched{margin-top:12px;border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--surface)}
