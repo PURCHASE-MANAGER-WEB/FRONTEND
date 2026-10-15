@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Store, ClipboardList, TrendingUp, Wallet, LogOut, FileText, CheckSquare, Users } from 'lucide-react';
+import { LayoutDashboard, Store, ClipboardList, TrendingUp, Wallet, LogOut, FileText, CheckSquare, Users, FolderKanban, ReceiptIndianRupee, PiggyBank, Truck } from 'lucide-react';
 import { getUser, clearSession, authApi } from '../api/client';
 
 const NAV = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/vendors', label: 'Vendors', icon: Store },
   { to: '/purchase-orders', label: 'Purchase Orders', icon: ClipboardList },
+  { to: '/vendors', label: 'Vendors', icon: Store },
+  { to: '/projects', label: 'Projects', icon: FolderKanban },
+  { to: '/project-payments', label: 'Project Payments', icon: ReceiptIndianRupee },
+  { to: '/budget', label: 'Budget', icon: PiggyBank },
+  { to: '/delivery-challan', label: 'Delivery Challan', icon: Truck },
   { to: '/purchase-progress', label: 'Purchase Progress', icon: TrendingUp },
   { to: '/payment-progress', label: 'Payment Progress', icon: Wallet },
   { separator: true, label: 'Accounts Department' },

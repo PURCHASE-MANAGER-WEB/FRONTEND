@@ -212,3 +212,39 @@ export const nextPo = (lines) => {
   const n = lines.map(l => parseInt(String(l.po || '').replace(/\D/g, '')) || 0);
   return 'PO-' + String((n.length ? Math.max(...n) : 0) + 1).padStart(3, '0');
 };
+
+// ── Project payment schedule helpers (the "Payment Pending Cases" tracker) ──
+// A row has up to five installments (p1..p5 each an amount + date) and a terms
+// string like "50%,40%,10%". Status is derived from installments paid vs. the
+// number of milestones in the terms.
+export const ppInstallments = (r = {}) =>
+  [1, 2, 3, 4, 5].map((i) => ({ amount: num(r['p' + i]), date: r['p' + i + 'Date'] || '' }));
+export const ppTotal = (r) => ppInstallments(r).reduce((s, x) => s + x.amount, 0);
+export const ppTermsCount = (terms) => String(terms || '').split(',').map((s) => s.trim()).filter(Boolean).length;
+export const ppStatus = (r) => {
+  const paid = ppInstallments(r).filter((x) => x.amount > 0).length;
+  const tc = ppTermsCount(r && r.terms);
+  if (paid === 0) return 'Pending';
+  return (tc > 0 && paid >= tc) ? 'Completed' : 'Partial';
+};
+
+// ── Project budget helper ───────────────────────────────────────────
+// Allocated budget lives on the project (project.budget). "Utilized" is the
+// COMMITTED spend = total PO value raised against the project (paid + outstanding
+// are sub-parts of it, shown separately — never subtracted again). Pass the
+// pre-grouped POs (groupPOs(lines)) so the figures match every other screen.
+export const BUDGET_STATUS_CLS = { 'On Track': 'p-ok', 'Near Limit': 'p-warn', 'Over Budget': 'p-bad', 'No Budget': 'p-mute' };
+export function budgetFor(project, groups) {
+  const allocated = num(project && project.budget);
+  const g = (groups || []).filter((x) => (x.project || '') === (project && project.name));
+  const utilized = g.reduce((s, x) => s + x.value, 0);   // committed PO value
+  const paid = g.reduce((s, x) => s + x.paid, 0);
+  const out = g.reduce((s, x) => s + x.out, 0);
+  const remaining = allocated - utilized;
+  const utilPct = allocated > 0 ? Math.round((utilized / allocated) * 100) : 0;
+  const status = allocated <= 0 ? 'No Budget'
+    : utilized > allocated ? 'Over Budget'
+    : utilPct >= 85 ? 'Near Limit'
+    : 'On Track';
+  return { allocated, utilized, paid, out, remaining, utilPct, status, poCount: g.length };
+}

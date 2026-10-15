@@ -105,3 +105,28 @@ export const invoicesApi = {
     return res.blob();
   },
 };
+
+// Procurement projects master — purchase_projects collection.
+export const projectsApi = {
+  list: () => api('/projects', { auth: true }),
+  create: (p) => api('/projects', { method: 'POST', body: p, auth: true }),
+  update: (id, p) => api(`/projects/${encodeURIComponent(id)}`, { method: 'PUT', body: p, auth: true }),
+  remove: (id) => api(`/projects/${encodeURIComponent(id)}`, { method: 'DELETE', auth: true }),
+};
+
+// Project payment schedules — purchase_project_payments collection.
+export const projectPaymentsApi = {
+  list: () => api('/project-payments', { auth: true }),
+  create: (p) => api('/project-payments', { method: 'POST', body: p, auth: true }),
+  update: (id, p) => api(`/project-payments/${encodeURIComponent(id)}`, { method: 'PUT', body: p, auth: true }),
+  remove: (id) => api(`/project-payments/${encodeURIComponent(id)}`, { method: 'DELETE', auth: true }),
+};
+
+// Delivery Challans — purchase_challans collection.
+export const challansApi = {
+  list: () => api('/challans', { auth: true }),
+  create: (c) => api('/challans', { method: 'POST', body: c, auth: true }),
+  update: (id, c) => api(`/challans/${encodeURIComponent(id)}`, { method: 'PUT', body: c, auth: true }),
+  remove: (id) => api(`/challans/${encodeURIComponent(id)}`, { method: 'DELETE', auth: true }),
+  doc: (id) => api(`/challans/${encodeURIComponent(id)}/doc`, { auth: true }),
+};

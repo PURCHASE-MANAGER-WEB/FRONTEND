@@ -10,6 +10,11 @@ import PurchaseOrders from './pages/PurchaseOrders';
 import PurchaseOrderDetail from './pages/PurchaseOrderDetail';
 import PurchaseProgress from './pages/PurchaseProgress';
 import PaymentProgress from './pages/PaymentProgress';
+import Projects from './pages/Projects';
+import ProjectDetail from './pages/ProjectDetail';
+import ProjectPayments from './pages/ProjectPayments';
+import Budget from './pages/Budget';
+import DeliveryChallan from './pages/DeliveryChallan';
 
 import AccountsDashboard from './pages/accounts/AccountsDashboard';
 import AccountsInvoices from './pages/accounts/AccountsInvoices';
@@ -52,6 +57,11 @@ export default function App() {
           <Route path="/purchase-orders/:poId" element={<PurchaseOrderDetail />} />
           <Route path="/purchase-progress" element={<PurchaseProgress />} />
           <Route path="/payment-progress" element={<PaymentProgress />} />
+          <Route path="/projects" element={<Projects />} />
+          <Route path="/projects/:id" element={<ProjectDetail />} />
+          <Route path="/project-payments" element={<ProjectPayments />} />
+          <Route path="/budget" element={<Budget />} />
+          <Route path="/delivery-challan" element={<DeliveryChallan />} />
           
           {/* Accounts Module */}
           <Route path="/accounts/dashboard" element={<AccountsDashboard />} />

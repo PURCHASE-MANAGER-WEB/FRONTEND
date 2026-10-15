@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Plus, Trash2, FileText, Upload } from 'lucide-react';
 import { usePurchaseData } from '../context/PurchaseData';
@@ -29,7 +29,7 @@ const blankPO = (lines, vendors) => ({
 });
 
 export default function PurchaseOrders() {
-  const { vendors, lines, loading, error, reload } = usePurchaseData();
+  const { vendors, lines, projects, loading, error, reload } = usePurchaseData();
   const toast = useToast();
   const [q, setQ] = useState('');
   const [editing, setEditing] = useState(null);
@@ -37,6 +37,11 @@ export default function PurchaseOrders() {
   const [busy, setBusy] = useState(false);
   const [invBusy, setInvBusy] = useState(false);
   const [invErr, setInvErr] = useState('');
+  const [newMenu, setNewMenu] = useState(false);
+  const newMenuRef = useRef(null);
+  const [simple, setSimple] = useState(null);
+  const [simpleErr, setSimpleErr] = useState('');
+  const [simpleBusy, setSimpleBusy] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
 
   const filter = searchParams.get('filter') || 'all';
@@ -93,6 +98,38 @@ export default function PurchaseOrders() {
     });
   };
   const close = () => { setEditing(null); setFormErr(''); };
+
+  // ── Simple (quick) PO: project + vendor + material + optional invoice ──
+  const openSimple = () => {
+    if (!vendors.length) { toast('Add a vendor first'); return; }
+    setSimpleErr('');
+    setSimple({ project: '', vid: vendors[0]?.vid || '', material: '', file: null });
+  };
+  const onSimpleFile = (file) => {
+    setSimpleErr('');
+    if (!file) { setSimple((s) => ({ ...s, file: null })); return; }
+    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
+    if (!isPdf) { setSimpleErr('Invoice must be a PDF.'); return; }
+    if (file.size > 12 * 1024 * 1024) { setSimpleErr('Invoice is larger than 12 MB.'); return; }
+    setSimple((s) => ({ ...s, file }));
+  };
+  const submitSimple = async () => {
+    const d = simple;
+    if (!String(d.project).trim()) { setSimpleErr('Select or enter a project.'); return; }
+    if (!d.vid) { setSimpleErr('Select a vendor.'); return; }
+    if (!String(d.material).trim()) { setSimpleErr('Enter the material description.'); return; }
+    const po = nextPo(lines);
+    setSimpleBusy(true);
+    try {
+      await purchaseApi.createLine({ id: newId(), po, poDate: today(), vid: d.vid, project: d.project.trim(), material: d.material.trim(), description: d.material.trim(), qty: 0, unit: 'Nos', rate: 0, received: 0, paid: 0, status: 'Approved' });
+      let invMsg = '';
+      if (d.file) { try { await uploadInvoice(d.file, po); } catch { invMsg = ' (invoice upload failed \u2014 add it later)'; } }
+      await reload();
+      setSimple(null);
+      toast(`Purchase order ${po} created${invMsg}`);
+    } catch (e) { setSimpleErr(e.message || 'Could not create the purchase order.'); }
+    finally { setSimpleBusy(false); }
+  };
 
   const setHdr = (k, val) => setEditing(e => ({ ...e, [k]: val }));
   const setItem = (id, k, val) => setEditing(e => ({ ...e, items: e.items.map(it => it._id === id ? { ...it, [k]: val } : it) }));
@@ -171,6 +208,14 @@ export default function PurchaseOrders() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, vendors, lines]);
 
+  // Close the New-PO menu on an outside click.
+  useEffect(() => {
+    if (!newMenu) return;
+    const onDoc = (e) => { if (newMenuRef.current && !newMenuRef.current.contains(e.target)) setNewMenu(false); };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [newMenu]);
+
   const onInvoice = async (e) => {
     const file = e.target.files?.[0];
     e.target.value = '';
@@ -205,7 +250,15 @@ export default function PurchaseOrders() {
             <option value="overdue">Overdue</option>
           </select>
           <input className="search" value={q} onChange={e => setQ(e.target.value)} placeholder="Search PO, vendor, material…" aria-label="Search purchase orders" />
-          <button className="btn primary" onClick={() => open(null)}>+ New PO</button>
+          <div className="newpo-wrap" ref={newMenuRef}>
+            <button className="btn primary" onClick={() => setNewMenu((o) => !o)} aria-haspopup="true" aria-expanded={newMenu}>+ New PO ▾</button>
+            {newMenu && (
+              <div className="newpo-menu" role="menu">
+                <button role="menuitem" onClick={() => { setNewMenu(false); openSimple(); }}><b>Simple Form</b><span>Quick PO — project, material, invoice</span></button>
+                <button role="menuitem" onClick={() => { setNewMenu(false); open(null); }}><b>Detailed Form</b><span>Full PO — items, quantities, tax &amp; terms</span></button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
       {filter !== 'all' && (
@@ -255,6 +308,40 @@ export default function PurchaseOrders() {
           )}
         </table>
       </div>
+
+      {simple && (
+        <Drawer onClose={() => setSimple(null)}>
+          <h3>New purchase order — Simple</h3>
+          <p className="hint">A quick PO with just the essentials. Quantities, rates, tax and terms can be added later via the detailed Edit.</p>
+          <div className="grid">
+            <Field label="Project Name *" full>
+              <input list="simple-projects" value={simple.project} onChange={(e) => setSimple((s) => ({ ...s, project: e.target.value }))} placeholder="Select or type a project" />
+              <datalist id="simple-projects">{projects.map((p) => <option key={p.id} value={p.name} />)}</datalist>
+            </Field>
+            <Field label="Vendor *" full>
+              <select value={simple.vid} onChange={(e) => setSimple((s) => ({ ...s, vid: e.target.value }))}>
+                {vendors.map((v) => <option key={v.vid} value={v.vid}>{v.vid} · {v.name}</option>)}
+              </select>
+            </Field>
+            <Field label="Material Description *" full><textarea rows={3} value={simple.material} onChange={(e) => setSimple((s) => ({ ...s, material: e.target.value }))} placeholder="What is being ordered" /></Field>
+            <Field label="Invoice (PDF, optional)" full>
+              {simple.file ? (
+                <div className="inv-row"><FileText size={18} /><span className="inv-name">{simple.file.name}</span><span className="inv-size">{kb(simple.file.size)}</span><button type="button" className="link" onClick={() => setSimple((s) => ({ ...s, file: null }))}>Remove</button></div>
+              ) : (
+                <label className="inv-drop"><input type="file" accept="application/pdf" hidden onChange={(e) => { onSimpleFile(e.target.files && e.target.files[0]); e.target.value = ''; }} /><Upload size={17} /> Upload invoice PDF<span className="inv-hint">PDF · up to 12 MB</span></label>
+              )}
+            </Field>
+          </div>
+          {simpleErr && <div className="err">{simpleErr}</div>}
+          <div className="actions">
+            <div />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn" onClick={() => setSimple(null)}>Cancel</button>
+              <button className="btn primary" onClick={submitSimple} disabled={simpleBusy}>{simpleBusy ? 'Creating\u2026' : 'Save PO'}</button>
+            </div>
+          </div>
+        </Drawer>
+      )}
 
       {editing && (
         <Drawer onClose={close}>
@@ -472,6 +559,13 @@ export default function PurchaseOrders() {
         .po-row.strong .l{color:var(--fg);font-weight:700;font-size:14.5px}
         .po-row.strong .v{color:var(--accent-ink);font-weight:800;font-size:16px}
         .po-words{padding:9px 0 4px;font-size:12.5px;font-style:italic;color:var(--muted);border-top:1px solid var(--line);margin-top:2px}
+        .newpo-wrap{position:relative}
+        .newpo-menu{position:absolute;right:0;top:46px;z-index:30;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 40px -16px rgba(0,0,0,.4);overflow:hidden;min-width:250px}
+        .newpo-menu button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:left;border:0;background:none;padding:11px 14px;cursor:pointer;border-bottom:1px solid var(--line)}
+        .newpo-menu button:last-child{border-bottom:0}
+        .newpo-menu button:hover{background:var(--accent-soft)}
+        .newpo-menu button b{font:700 13.5px var(--f-body);color:var(--fg)}
+        .newpo-menu button span{font-size:11.5px;color:var(--muted)}
         @media (max-width:720px){.po-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.pf.wide{grid-column:1/-1}}
       `}</style>
     </section>

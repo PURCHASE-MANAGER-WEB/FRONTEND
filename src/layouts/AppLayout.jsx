@@ -10,6 +10,10 @@ const TITLES = {
   '/dashboard': ['Procurement Dashboard', 'Vendors, purchase orders and delivery & payment progress'],
   '/vendors': ['Vendor Registration', 'Register and manage your supplier master'],
   '/purchase-orders': ['Purchase Orders', 'Material-wise ordering, delivery and payment tracking'],
+  '/projects': ['Projects', 'Project-wise budget, orders and payments'],
+  '/project-payments': ['Project Payments', 'Milestone payment schedule and installment tracking'],
+  '/budget': ['Budget', 'Project-wise budget allocation and utilization'],
+  '/delivery-challan': ['Delivery Challan', 'Material delivery challans linked to vendors, projects and POs'],
   '/purchase-progress': ['Purchase Progress', 'Delivery & payment progress across every PO'],
   '/payment-progress': ['Payment Progress', 'Payment progress across every PO'],
   '/accounts/dashboard': ['Accounts Dashboard', 'Financial overview across all purchase orders'],
@@ -33,6 +37,8 @@ export default function AppLayout() {
 
   const [title, subtitle] = loc.pathname.startsWith('/purchase-orders/')
     ? ['Purchase Order Details', 'Full details, PDF and print for this purchase order']
+    : loc.pathname.startsWith('/projects/')
+    ? ['Project Details', 'Overview, orders, payments and budget for this project']
     : (TITLES[loc.pathname] || ['Purchase Portal', '']);
 
   // Close the bell dropdown on outside click / route change.
