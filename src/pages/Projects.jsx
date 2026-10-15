@@ -187,7 +187,7 @@ export default function Projects() {
           <h3>{editing.isNew ? 'New Project File' : `Edit ${d.name || 'project'}`}</h3>
           <p className="hint">Sales → Project Handover. Fields marked * are required. PO value, payments and outstanding are calculated from the purchase orders linked to this project.</p>
 
-          <div className="po-items-head"><span>1. Client &amp; Project Details</span></div>
+          <div className="pj-sec">1. Client &amp; Project Details</div>
           <div className="grid">
             <Field label="Project Name *" full><input value={d.name} onChange={(e) => set('name', e.target.value)} placeholder="Link key for purchase orders" /></Field>
             <Field label="Project Code"><input value={d.code} onChange={(e) => set('code', e.target.value)} placeholder="e.g. PRJ-SITE-01" /></Field>
@@ -209,7 +209,7 @@ export default function Projects() {
             <Field label="Allocated Budget (₹)"><input type="number" min="0" step="1000" value={d.budget} onChange={(e) => set('budget', e.target.value)} /></Field>
           </div>
 
-          <div className="po-items-head" style={{ marginTop: 14 }}><span>2. Scope of Work</span></div>
+          <div className="pj-sec">2. Scope of Work</div>
           <div className="grid">
             <Field label="Type of Project"><input value={d.typeOfProject} onChange={(e) => set('typeOfProject', e.target.value)} placeholder="e.g. PU Sheet Roof with wall panel cladding" /></Field>
             <Field label="Project Size / Area"><input value={d.projectSize} onChange={(e) => set('projectSize', e.target.value)} placeholder="e.g. 760 Sqft." /></Field>
@@ -226,14 +226,14 @@ export default function Projects() {
             </span>
           </div>
 
-          <div className="po-items-head" style={{ marginTop: 14 }}><span>3. Timeline &amp; Delivery Commitment</span></div>
+          <div className="pj-sec">3. Timeline &amp; Delivery Commitment</div>
           <div className="grid">
             <Field label="Tentative Start Date"><input type="date" value={d.startDate} onChange={(e) => set('startDate', e.target.value)} /></Field>
             <Field label="Tentative Completion Date"><input type="date" value={d.tentativeCompletionDate} onChange={(e) => set('tentativeCompletionDate', e.target.value)} /></Field>
             <Field label="Lead Time Promised"><input value={leadTime === '' ? '' : `${leadTime} days`} readOnly tabIndex={-1} className="ro" placeholder="Auto-calculated" /></Field>
           </div>
 
-          <div className="po-items-head" style={{ marginTop: 14 }}><span>4. Pricing &amp; Payment Terms</span></div>
+          <div className="pj-sec">4. Pricing &amp; Payment Terms</div>
           <div className="grid">
             <Field label="Quoted Price (₹)"><input type="number" min="0" step="any" value={d.quotedPrice} onChange={(e) => set('quotedPrice', e.target.value)} placeholder="Amount" /></Field>
           </div>
@@ -256,12 +256,8 @@ export default function Projects() {
           </div>
           {!pctValid && <p style={{ margin: '8px 0 0', color: 'var(--bad)', fontSize: 12.5, fontWeight: 600 }}>Total payment percentage must be 100%.</p>}
 
-          <div className="po-items-head" style={{ marginTop: 14 }}><span>5 &amp; 6. Confirmations &amp; Declarations</span></div>
-          <div className="pj-chips">
-            <label className="pj-chk"><input type="checkbox" checked={d.siteEngineerVisit} onChange={(e) => set('siteEngineerVisit', e.target.checked)} /> Site Engineer Visit Completed</label>
-            <label className="pj-chk"><input type="checkbox" checked={d.salespersonDeclaration} onChange={(e) => set('salespersonDeclaration', e.target.checked)} /> Salesperson Declaration confirmed</label>
-          </div>
-          <div className="grid" style={{ marginTop: 10 }}>
+          <div className="pj-sec">5. Notes</div>
+          <div className="grid">
             <Field label="Notes" full><input value={d.notes} onChange={(e) => set('notes', e.target.value)} /></Field>
           </div>
 
