@@ -10,6 +10,10 @@ const TABS = ['Overview', 'Purchase Orders', 'Payments', 'Budget', 'Delivery Cha
 const CONDITIONS = ['Payment Pending', 'Ongoing', 'Completed'];
 const PAY_SLOTS = [0, 1, 2, 3, 4]; // Payment 1..5
 
+// Default rows for the Project Budget Planning Sheet (used when a project has none yet).
+const DEFAULT_HEADS = ['Structural Steel Materials', 'Roofing Materials', 'Bending', 'Fabrication Work', 'Civil Work', 'Roofing Installation', 'Painting Work', 'Labour Charges', 'Machinery & Equipment', 'Transport & Logistics', 'Site Expenses', 'Subcontractor Work', 'Miscellaneous'];
+const bhId = () => Math.random().toString(36).slice(2, 9);
+
 // Balance to pay = Total Order Value − Collection so Far (derived, like the sheet formula).
 const ppBalance = (r) => num(r.totalOrderValue) - num(r.collectionSoFar);
 const ppPaymentsOf = (r) => {
@@ -57,6 +61,16 @@ export default function ProjectDetail() {
   const [bBusy, setBBusy] = useState(false);
   useEffect(() => { if (project) setBudgetInput(project.budget != null ? String(project.budget) : ''); }, [project && project.id, project && project.budget]);
 
+  // ── Project Budget Planning Sheet (budget heads) ──
+  const [heads, setHeads] = useState([]);
+  const [bhBusy, setBhBusy] = useState(false);
+  useEffect(() => {
+    if (!project) return;
+    const existing = Array.isArray(project.budgetHeads) ? project.budgetHeads : [];
+    const seed = existing.length ? existing : DEFAULT_HEADS.map((h) => ({ head: h }));
+    setHeads(seed.map((h) => ({ _id: bhId(), head: h.head || '', performa: h.performa ?? '', approved: h.approved ?? '', poValue: h.poValue ?? '', actual: h.actual ?? '', remarks: h.remarks || '' })));
+  }, [project && project.id]);
+
   if (!project) {
     return (
       <section className="card" style={{ padding: 24 }}>
@@ -74,8 +88,8 @@ export default function ProjectDetail() {
   const remaining = budget - value;
 
   const blankRow = () => ({
-    condition: 'Payment Pending', totalOrderValue: '', collectionSoFar: '', budget: project.budget != null ? String(project.budget) : '',
-    afterBudgetOutstanding: '', collectionAmount: '', collectionDate: '', update: '', paymentTerms: '',
+    condition: 'Payment Pending', totalOrderValue: '', collectionSoFar: '',
+    collectionAmount: '', collectionDate: '', update: '', paymentTerms: '',
     payments: PAY_SLOTS.map(() => ({ amount: '', date: '' })), notes: '',
   });
   const openSched = (r) => {
@@ -85,8 +99,6 @@ export default function ProjectDetail() {
         condition: r.condition || 'Payment Pending',
         totalOrderValue: r.totalOrderValue != null ? String(r.totalOrderValue) : '',
         collectionSoFar: r.collectionSoFar != null ? String(r.collectionSoFar) : '',
-        budget: r.budget != null ? String(r.budget) : '',
-        afterBudgetOutstanding: r.afterBudgetOutstanding != null ? String(r.afterBudgetOutstanding) : '',
         collectionAmount: r.collectionAmount != null ? String(r.collectionAmount) : '',
         collectionDate: r.collectionDate || '',
         update: r.update || '',
@@ -118,8 +130,6 @@ export default function ProjectDetail() {
         condition: d.condition || 'Payment Pending',
         totalOrderValue: num(d.totalOrderValue),
         collectionSoFar: num(d.collectionSoFar),
-        budget: num(d.budget),
-        afterBudgetOutstanding: num(d.afterBudgetOutstanding),
         collectionAmount: num(d.collectionAmount),
         collectionDate: d.collectionDate || '',
         update: String(d.update || '').trim(),
@@ -146,6 +156,23 @@ export default function ProjectDetail() {
     try { await saveProject(false, project.id, { budget: v }); toast('Budget updated'); }
     catch (e) { toast(e.message || 'Could not update budget'); }
     finally { setBBusy(false); }
+  };
+
+  const setHead = (id, k, v) => setHeads((hs) => hs.map((h) => h._id === id ? { ...h, [k]: v } : h));
+  const addHead = () => setHeads((hs) => [...hs, { _id: bhId(), head: '', performa: '', approved: '', poValue: '', actual: '', remarks: '' }]);
+  const removeHead = (id) => setHeads((hs) => hs.filter((h) => h._id !== id));
+  const bhTotals = heads.reduce((t, h) => ({ performa: t.performa + num(h.performa), approved: t.approved + num(h.approved), poValue: t.poValue + num(h.poValue), actual: t.actual + num(h.actual) }), { performa: 0, approved: 0, poValue: 0, actual: 0 });
+  const bhUtil = bhTotals.approved > 0 ? Math.round((bhTotals.actual / bhTotals.approved) * 100) : 0;
+  const saveHeads = async () => {
+    setBhBusy(true);
+    try {
+      const payload = heads
+        .filter((h) => String(h.head).trim() || num(h.performa) || num(h.approved) || num(h.poValue) || num(h.actual) || String(h.remarks).trim())
+        .map((h) => ({ head: String(h.head).trim(), performa: num(h.performa), approved: num(h.approved), poValue: num(h.poValue), actual: num(h.actual), remarks: String(h.remarks || '').trim() }));
+      await saveProject(false, project.id, { budgetHeads: payload });
+      toast('Budget sheet saved');
+    } catch (e) { toast(e.message || 'Could not save budget sheet'); }
+    finally { setBhBusy(false); }
   };
 
   return (
@@ -222,8 +249,6 @@ export default function ProjectDetail() {
                   <th className="num">Total Order Value</th>
                   <th className="num">Collection so Far</th>
                   <th className="num">Balance to Pay</th>
-                  <th className="num">Budget</th>
-                  <th className="num">After Budget Final O/S</th>
                   <th className="num">Collection Amount</th>
                   <th>Collection Date</th>
                   <th>Update</th>
@@ -233,7 +258,7 @@ export default function ProjectDetail() {
                 </tr>
               </thead>
               <tbody>
-                {schedule.length === 0 ? (<tr><td colSpan={12 + PAY_SLOTS.length * 2} className="state">No payment records for this project yet. Click "Add payment record" to create one.</td></tr>
+                {schedule.length === 0 ? (<tr><td colSpan={10 + PAY_SLOTS.length * 2} className="state">No payment records for this project yet. Click "Add payment record" to create one.</td></tr>
                 ) : schedule.map((r) => {
                   const pays = ppPaymentsOf(r);
                   return (
@@ -243,8 +268,6 @@ export default function ProjectDetail() {
                       <td className="num">{inr(r.totalOrderValue)}</td>
                       <td className="num calc">{inr(r.collectionSoFar)}</td>
                       <td className={`num calc ${ppBalance(r) > 0 ? 'overdue' : ''}`}>{inr(ppBalance(r))}</td>
-                      <td className="num">{r.budget ? inr(r.budget) : '—'}</td>
-                      <td className="num calc">{r.afterBudgetOutstanding ? inr(r.afterBudgetOutstanding) : '—'}</td>
                       <td className="num">{r.collectionAmount ? inr(r.collectionAmount) : '—'}</td>
                       <td>{r.collectionDate ? dfmt(r.collectionDate) : '—'}</td>
                       <td>{r.update || '—'}</td>
@@ -281,25 +304,67 @@ export default function ProjectDetail() {
       )}
 
       {tab === 'Budget' && (
-        <div className="card" style={{ padding: 20 }}>
-          <div className="ov-grid">
-            <div><span className="ov-l">Allocated Budget</span><span className="ov-v">{inr(budget)}</span></div>
-            <div><span className="ov-l">Utilized (PO Value)</span><span className="ov-v">{inr(value)}</span></div>
-            <div><span className="ov-l">Remaining Budget</span><span className="ov-v" style={remaining < 0 ? { color: 'var(--bad)' } : null}>{budget > 0 ? inr(remaining) : '—'}</span></div>
-            <div><span className="ov-l">Utilization</span><span className="ov-v">{budget > 0 ? `${util}%` : '—'}</span></div>
-          </div>
-          {budget > 0 && (
-            <div className="bar" style={{ marginTop: 16 }}>
-              <div className="bar-fill" style={{ width: `${Math.min(util, 100)}%`, background: util > 100 ? 'var(--bad)' : util >= 85 ? 'var(--warn,#d97706)' : 'var(--accent)' }} />
+        <>
+          <div className="toolbar" style={{ marginBottom: 12 }}>
+            <h2 style={{ fontSize: 17 }}>Project Budget Planning Sheet</h2>
+            <div className="right" style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+              <label className="fld" style={{ maxWidth: 210 }}>Allocated Budget (₹)
+                <input type="number" min="0" step="1000" value={budgetInput} onChange={(e) => setBudgetInput(e.target.value)} />
+              </label>
+              <button className="btn" onClick={saveBudget} disabled={bBusy}>{bBusy ? 'Saving…' : 'Save allocated'}</button>
             </div>
-          )}
-          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap', marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--line)' }}>
-            <label className="fld" style={{ maxWidth: 240, flex: '1 1 180px' }}>Allocated Budget (₹)
-              <input type="number" min="0" step="1000" value={budgetInput} onChange={(e) => setBudgetInput(e.target.value)} />
-            </label>
-            <button className="btn primary" onClick={saveBudget} disabled={bBusy}>{bBusy ? 'Saving…' : 'Save budget'}</button>
           </div>
-        </div>
+
+          <section className="kpis" aria-label="Budget summary" style={{ marginBottom: 14 }}>
+            <div className="kpi"><div className="l">Allocated Budget</div><div className="v">{inr(num(budgetInput))}</div></div>
+            <div className="kpi"><div className="l">Total Approved</div><div className="v">{inr(bhTotals.approved)}</div></div>
+            <div className="kpi"><div className="l">Total Actual Cost</div><div className="v">{inr(bhTotals.actual)}</div></div>
+            <div className="kpi"><div className="l">Balance</div><div className={`v ${bhTotals.approved - bhTotals.actual < 0 ? 'bad' : ''}`}>{inr(bhTotals.approved - bhTotals.actual)}</div></div>
+            <div className="kpi"><div className="l">Budget Utilised</div><div className="v">{bhTotals.approved > 0 ? `${bhUtil}%` : '—'}</div></div>
+          </section>
+
+          <div className="tbl bh-scroll">
+            <table>
+              <thead><tr>
+                <th>Sl. No</th><th>Budget Head</th><th className="num">Performa Invoice (₹)</th><th className="num">Budget Approved (₹)</th>
+                <th className="num">PO / WO Value (₹)</th><th className="num">Actual Cost (₹)</th><th className="num">Balance (₹)</th><th>Remarks</th><th></th>
+              </tr></thead>
+              <tbody>
+                {heads.map((h, i) => {
+                  const bal = num(h.approved) - num(h.actual);
+                  return (
+                    <tr key={h._id}>
+                      <td>{i + 1}</td>
+                      <td><input className="bh-in bh-head" value={h.head} onChange={(e) => setHead(h._id, 'head', e.target.value)} placeholder="Budget head" /></td>
+                      <td><input className="bh-in bh-num" type="number" min="0" step="any" value={h.performa} onChange={(e) => setHead(h._id, 'performa', e.target.value)} /></td>
+                      <td><input className="bh-in bh-num" type="number" min="0" step="any" value={h.approved} onChange={(e) => setHead(h._id, 'approved', e.target.value)} /></td>
+                      <td><input className="bh-in bh-num bh-blue" type="number" min="0" step="any" value={h.poValue} onChange={(e) => setHead(h._id, 'poValue', e.target.value)} /></td>
+                      <td><input className="bh-in bh-num" type="number" min="0" step="any" value={h.actual} onChange={(e) => setHead(h._id, 'actual', e.target.value)} /></td>
+                      <td className="num" style={{ fontWeight: 700, color: bal < 0 ? 'var(--bad)' : 'var(--fg)' }}>{(num(h.approved) || num(h.actual)) ? inr(bal) : '—'}</td>
+                      <td><input className="bh-in" value={h.remarks} onChange={(e) => setHead(h._id, 'remarks', e.target.value)} placeholder="—" /></td>
+                      <td><button className="link danger" onClick={() => removeHead(h._id)} title="Remove">✕</button></td>
+                    </tr>
+                  );
+                })}
+                <tr className="bh-total">
+                  <td></td><td>TOTAL PROJECT BUDGET</td>
+                  <td className="num">{inr(bhTotals.performa)}</td>
+                  <td className="num">{inr(bhTotals.approved)}</td>
+                  <td className="num">{inr(bhTotals.poValue)}</td>
+                  <td className="num">{inr(bhTotals.actual)}</td>
+                  <td className="num" style={{ color: bhTotals.approved - bhTotals.actual < 0 ? 'var(--bad)' : 'var(--fg)' }}>{inr(bhTotals.approved - bhTotals.actual)}</td>
+                  <td colSpan={2}>Budget Utilised: {bhTotals.approved > 0 ? `${bhUtil}%` : '—'}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div className="actions" style={{ marginTop: 14 }}>
+            <div><button className="btn" onClick={addHead}>+ Add budget head</button></div>
+            <button className="btn primary" onClick={saveHeads} disabled={bhBusy}>{bhBusy ? 'Saving…' : 'Save budget sheet'}</button>
+          </div>
+          <p className="hint" style={{ marginTop: 10 }}>Balance auto-calculates as Budget Approved − Actual Cost; a negative balance (red) means the head is over budget. The TOTAL and Budget Utilised % update as you type.</p>
+        </>
       )}
 
       {tab === 'Delivery Challans' && (
@@ -343,8 +408,6 @@ export default function ProjectDetail() {
             <Field label="Total Order Value (₹) *"><input type="number" min="0" step="1" value={sched.data.totalOrderValue} onChange={(e) => setSD('totalOrderValue', e.target.value)} /></Field>
             <Field label="Collection so Far (₹)"><input type="number" min="0" step="1" value={sched.data.collectionSoFar} onChange={(e) => setSD('collectionSoFar', e.target.value)} /></Field>
             <Field label="Balance to Pay (₹)"><input value={inr(liveBalance)} readOnly tabIndex={-1} className="ro" /></Field>
-            <Field label="Budget (₹)"><input type="number" min="0" step="1" value={sched.data.budget} onChange={(e) => setSD('budget', e.target.value)} /></Field>
-            <Field label="After Budget Final Outstanding (₹)"><input type="number" step="1" value={sched.data.afterBudgetOutstanding} onChange={(e) => setSD('afterBudgetOutstanding', e.target.value)} /></Field>
             <Field label="Collection Amount (₹)"><input type="number" min="0" step="1" value={sched.data.collectionAmount} onChange={(e) => setSD('collectionAmount', e.target.value)} /></Field>
             <Field label="Collection Date"><input type="date" value={sched.data.collectionDate} onChange={(e) => setSD('collectionDate', e.target.value)} /></Field>
             <Field label="Payment Terms" full><input value={sched.data.paymentTerms} onChange={(e) => setSD('paymentTerms', e.target.value)} placeholder="e.g. 50% advance, balance on delivery" /></Field>
@@ -393,6 +456,14 @@ export default function ProjectDetail() {
         .bar-fill{height:100%;border-radius:6px;transition:width .3s}
         .pp-scroll{overflow-x:auto}
         .pp-scroll table{min-width:1500px}
+        .bh-scroll{overflow-x:auto}
+        .bh-scroll table{min-width:980px}
+        .bh-in{width:100%;box-sizing:border-box;font:400 13px var(--f-body);padding:7px 8px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--fg);outline:none;min-width:0}
+        .bh-in:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+        .bh-num{text-align:right;font-variant-numeric:tabular-nums}
+        .bh-head{font-weight:600}
+        .bh-blue{color:#1d4ed8}
+        tr.bh-total td{background:var(--accent-soft);font-weight:800;color:var(--fg);border-top:2px solid var(--accent)}
         .pp-sched{margin-top:14px;border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--surface)}
         .pp-head,.pp-row{display:grid;grid-template-columns:110px 1fr 160px;gap:8px;align-items:center}
         .pp-head{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);padding:0 2px 8px}
