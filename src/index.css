@@ -4,7 +4,7 @@
    Display: Bricolage Grotesque · Body: IBM Plex Sans · Numerics: IBM Plex Mono
    ───────────────────────────────────────────────────────────────────────── */
 :root{
-  --bg:#eef3fa; --surface:#ffffff; --sunk:#eef2f8; --line:#dbe3ef; --line-soft:#eaeff7;
+  --bg:#f5f6fb; --surface:#ffffff; --sunk:#eef2f8; --line:#dbe3ef; --line-soft:#eaeff7;
   --fg:#0b1526; --muted:#44506a;
   --brand:#0f2147; --brand-2:#163360; --brand-fg:#e8eefb; --brand-dim:#9fb2d4;
   --accent:#2563eb; --accent-2:#3b82f6; --accent-soft:#dbeafe; --accent-ink:#1d4ed8;
@@ -43,10 +43,7 @@
 html,body,#root{height:100%}
 body{
   margin:0;color:var(--fg);font:15px/1.55 var(--f-body);
-  background:
-    linear-gradient(var(--grid) 1px,transparent 1px) 0 0/28px 28px,
-    linear-gradient(90deg,var(--grid) 1px,transparent 1px) 0 0/28px 28px,
-    var(--bg);
+  background:var(--bg);
   -webkit-font-smoothing:antialiased;
   text-rendering:optimizeLegibility;
 }
@@ -86,6 +83,15 @@ body{
 .kpi .v{font:600 27px/1.05 var(--f-mono);margin-top:auto;padding-top:12px;font-variant-numeric:tabular-nums;letter-spacing:-.015em;color:var(--fg)}
 .kpi .v.bad{color:var(--bad)}
 .kpi-ic{position:absolute;top:15px;right:15px;width:34px;height:34px;border-radius:10px;background:var(--accent-soft);color:var(--accent-ink);display:flex;align-items:center;justify-content:center}
+.kpis .kpi:nth-child(4n+1){background:color-mix(in srgb,var(--accent-soft) 50%,var(--surface));border-color:color-mix(in srgb,var(--accent) 16%,var(--line))}
+.kpis .kpi:nth-child(4n+1) .kpi-ic{background:var(--accent-soft);color:var(--accent-ink)}
+.kpis .kpi:nth-child(4n+2){background:color-mix(in srgb,var(--warn-bg) 55%,var(--surface));border-color:color-mix(in srgb,var(--warn) 16%,var(--line))}
+.kpis .kpi:nth-child(4n+2) .kpi-ic{background:var(--warn-bg);color:var(--warn)}
+.kpis .kpi:nth-child(4n+3){background:color-mix(in srgb,var(--ok-bg) 58%,var(--surface));border-color:color-mix(in srgb,var(--ok) 16%,var(--line))}
+.kpis .kpi:nth-child(4n+3) .kpi-ic{background:var(--ok-bg);color:var(--ok)}
+.kpis .kpi:nth-child(4n+4){background:var(--surface)}
+.kpis .kpi:nth-child(4n+4) .kpi-ic{background:var(--sunk);color:var(--muted)}
+
 .kpi:hover{box-shadow:var(--shadow);border-color:color-mix(in srgb,var(--accent) 20%,var(--line));transform:translateY(-1px)}
 
 /* ───────── toolbar + inputs ───────── */

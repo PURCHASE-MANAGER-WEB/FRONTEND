@@ -1,21 +1,21 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Plus, X } from 'lucide-react';
 import { usePurchaseData } from '../context/PurchaseData';
 import { useToast } from '../components/Toast';
 import { Pill, Drawer, Field } from '../components/ui';
-import { num, inr, dfmt, qfmt, groupPOs, vendorName, ppMilestones, ppQuoted, ppScheduled, ppPaidAmount, ppOutstanding, ppStatus, ppPercentTotal } from '../utils/procurement';
+import { num, inr, dfmt, qfmt, groupPOs, vendorName } from '../utils/procurement';
 import { openChallanDoc } from '../utils/challanDoc';
 
 const TABS = ['Overview', 'Purchase Orders', 'Payments', 'Budget', 'Delivery Challans'];
-const mid = () => Math.random().toString(36).slice(2, 9);
-const DEFAULT_MS = () => [
-  { _id: mid(), term: 'Advance with PO', percentage: '10', date: '', paid: false },
-  { _id: mid(), term: 'After Drawing Approval', percentage: '30', date: '', paid: false },
-  { _id: mid(), term: 'After Structure Work', percentage: '40', date: '', paid: false },
-  { _id: mid(), term: 'After Completion', percentage: '20', date: '', paid: false },
-];
-const msAmount = (quoted, pct) => { const p = parseFloat(pct); return Number.isNaN(p) ? 0 : Math.round(num(quoted) * p / 100); };
+const CONDITIONS = ['Payment Pending', 'Ongoing', 'Completed'];
+const PAY_SLOTS = [0, 1, 2, 3, 4]; // Payment 1..5
+
+// Balance to pay = Total Order Value − Collection so Far (derived, like the sheet formula).
+const ppBalance = (r) => num(r.totalOrderValue) - num(r.collectionSoFar);
+const ppPaymentsOf = (r) => {
+  const arr = Array.isArray(r.payments) ? r.payments : [];
+  return PAY_SLOTS.map((i) => ({ amount: arr[i] ? (arr[i].amount ?? '') : '', date: arr[i] ? (arr[i].date || '') : '' }));
+};
 
 export default function ProjectDetail() {
   const { id } = useParams();
@@ -46,7 +46,7 @@ export default function ProjectDetail() {
     [challans, project]
   );
 
-  // ── Milestone payment-schedule editor (lives inside the project) ──
+  // ── Payment-tracker editor (Excel-style columns, lives inside the project) ──
   const [sched, setSched] = useState(null);
   const [schedErr, setSchedErr] = useState('');
   const [schedBusy, setSchedBusy] = useState(false);
@@ -73,44 +73,68 @@ export default function ProjectDetail() {
   const util = budget > 0 ? Math.round((value / budget) * 100) : 0;
   const remaining = budget - value;
 
+  const blankRow = () => ({
+    condition: 'Payment Pending', totalOrderValue: '', collectionSoFar: '', budget: project.budget != null ? String(project.budget) : '',
+    afterBudgetOutstanding: '', collectionAmount: '', collectionDate: '', update: '', paymentTerms: '',
+    payments: PAY_SLOTS.map(() => ({ amount: '', date: '' })), notes: '',
+  });
   const openSched = (r) => {
     setSchedErr(''); setConfirmDel(false);
     if (r) {
-      const ms = ppMilestones(r).map((m) => ({ _id: mid(), term: m.term, percentage: m.percentage ? String(m.percentage) : '', date: m.date || '', paid: !!m.paid }));
-      setSched({ isNew: false, id: r.id, data: { quotedValue: r.quotedValue ?? ppScheduled(r) ?? '', milestones: ms.length ? ms : DEFAULT_MS(), notes: r.notes || '' } });
+      setSched({ isNew: false, id: r.id, data: {
+        condition: r.condition || 'Payment Pending',
+        totalOrderValue: r.totalOrderValue != null ? String(r.totalOrderValue) : '',
+        collectionSoFar: r.collectionSoFar != null ? String(r.collectionSoFar) : '',
+        budget: r.budget != null ? String(r.budget) : '',
+        afterBudgetOutstanding: r.afterBudgetOutstanding != null ? String(r.afterBudgetOutstanding) : '',
+        collectionAmount: r.collectionAmount != null ? String(r.collectionAmount) : '',
+        collectionDate: r.collectionDate || '',
+        update: r.update || '',
+        paymentTerms: r.paymentTerms || '',
+        payments: ppPaymentsOf(r).map((p) => ({ amount: p.amount === '' ? '' : String(p.amount), date: p.date || '' })),
+        notes: r.notes || '',
+      } });
     } else {
-      setSched({ isNew: true, id: undefined, data: { quotedValue: '', milestones: DEFAULT_MS(), notes: '' } });
+      setSched({ isNew: true, id: undefined, data: blankRow() });
     }
   };
   const closeSched = () => { setSched(null); setConfirmDel(false); };
   const setSD = (k, v) => setSched((e) => ({ ...e, data: { ...e.data, [k]: v } }));
-  const setMs = (mId, k, v) => setSched((e) => ({ ...e, data: { ...e.data, milestones: e.data.milestones.map((m) => m._id === mId ? { ...m, [k]: v } : m) } }));
-  const addMs = () => setSched((e) => ({ ...e, data: { ...e.data, milestones: [...e.data.milestones, { _id: mid(), term: '', percentage: '', date: '', paid: false }] } }));
-  const removeMs = (mId) => setSched((e) => ({ ...e, data: { ...e.data, milestones: e.data.milestones.filter((m) => m._id !== mId) } }));
-  const setPct = (mId, raw) => {
-    let v = String(raw).replace(/[^0-9.]/g, '');
-    const dot = v.indexOf('.'); if (dot !== -1) v = v.slice(0, dot + 1) + v.slice(dot + 1).replace(/\./g, '').slice(0, 2);
-    if (v !== '' && parseFloat(v) > 100) v = '100';
-    setMs(mId, 'percentage', v);
-  };
-  const pctTotal = sched ? ppPercentTotal(sched.data.milestones) : 0;
-  const pctValid = Math.abs(pctTotal - 100) <= 0.1;
-  const amtTotal = sched ? sched.data.milestones.reduce((s, m) => s + msAmount(sched.data.quotedValue, m.percentage), 0) : 0;
+  const setPay = (i, k, v) => setSched((e) => ({ ...e, data: { ...e.data, payments: e.data.payments.map((p, idx) => idx === i ? { ...p, [k]: v } : p) } }));
+
+  const liveBalance = sched ? (num(sched.data.totalOrderValue) - num(sched.data.collectionSoFar)) : 0;
 
   const submitSched = async () => {
     const d = sched.data;
-    if (num(d.quotedValue) <= 0) { setSchedErr('Enter the quoted / project value.'); return; }
-    if (!pctValid) { setSchedErr('Total payment percentage must be 100%.'); return; }
-    const milestones = d.milestones.filter((m) => String(m.term).trim() || m.percentage)
-      .map((m) => ({ term: String(m.term).trim(), percentage: num(m.percentage), value: msAmount(d.quotedValue, m.percentage), date: m.date || '', paid: !!m.paid }));
+    if (num(d.totalOrderValue) <= 0) { setSchedErr('Enter the total order value.'); return; }
+    const payLines = (d.payments || [])
+      .map((p) => ({ amount: num(p.amount), date: p.date || '' }))
+      .filter((p) => p.amount > 0 || p.date);
     setSchedBusy(true);
-    try { await saveProjectPayment(sched.isNew, sched.id, { customerName: project.name, project: project.name, quotedValue: num(d.quotedValue), milestones, notes: String(d.notes || '').trim() }); closeSched(); toast(sched.isNew ? 'Payment schedule added' : 'Schedule saved'); }
-    catch (e) { setSchedErr(e.message || 'Could not save.'); }
+    try {
+      await saveProjectPayment(sched.isNew, sched.id, {
+        customerName: project.name,
+        project: project.name,
+        condition: d.condition || 'Payment Pending',
+        totalOrderValue: num(d.totalOrderValue),
+        collectionSoFar: num(d.collectionSoFar),
+        budget: num(d.budget),
+        afterBudgetOutstanding: num(d.afterBudgetOutstanding),
+        collectionAmount: num(d.collectionAmount),
+        collectionDate: d.collectionDate || '',
+        update: String(d.update || '').trim(),
+        paymentTerms: String(d.paymentTerms || '').trim(),
+        payments: payLines,
+        notes: String(d.notes || '').trim(),
+      });
+      closeSched();
+      toast(sched.isNew ? 'Payment record added' : 'Payment record saved');
+    } catch (e) { setSchedErr(e.message || 'Could not save.'); }
     finally { setSchedBusy(false); }
   };
   const doDeleteSched = async () => {
     setSchedBusy(true);
-    try { await deleteProjectPayment(sched.id); closeSched(); toast('Schedule deleted'); }
+    try { await deleteProjectPayment(sched.id); closeSched(); toast('Payment record deleted'); }
     catch (e) { setSchedErr(e.message || 'Could not delete.'); }
     finally { setSchedBusy(false); }
   };
@@ -156,6 +180,7 @@ export default function ProjectDetail() {
             <div><span className="ov-l">Budget Utilization</span><span className="ov-v">{budget > 0 ? `${util}%` : '—'}</span></div>
             <div><span className="ov-l">Remaining Budget</span><span className="ov-v" style={remaining < 0 ? { color: 'var(--bad)' } : null}>{budget > 0 ? inr(remaining) : '—'}</span></div>
           </div>
+          {project.materialDescription && (<><div className="ov-l" style={{ marginTop: 16 }}>Material Description</div><p className="sub" style={{ margin: '4px 0 0', whiteSpace: 'pre-wrap' }}>{project.materialDescription}</p></>)}
           {project.notes && <p className="sub" style={{ marginTop: 14 }}>{project.notes}</p>}
         </div>
       )}
@@ -185,25 +210,46 @@ export default function ProjectDetail() {
       {tab === 'Payments' && (
         <>
           <div className="toolbar" style={{ marginBottom: 12 }}>
-            <h2 style={{ fontSize: 17 }}>Milestone Payment Schedule</h2>
-            <div className="right"><button className="btn primary" onClick={() => openSched(null)}>+ Add schedule</button></div>
+            <h2 style={{ fontSize: 17 }}>Payment Pending Cases</h2>
+            <div className="right"><button className="btn primary" onClick={() => openSched(null)}>+ Add payment record</button></div>
           </div>
-          <div className="tbl">
+          <div className="tbl pp-scroll">
             <table>
-              <thead><tr><th>Customer</th><th className="num">Quoted</th><th className="num">Scheduled</th><th className="num">Received</th><th className="num">Outstanding</th><th>Milestones</th><th>Status</th><th></th></tr></thead>
+              <thead>
+                <tr>
+                  <th>Customer</th>
+                  <th>Condition</th>
+                  <th className="num">Total Order Value</th>
+                  <th className="num">Collection so Far</th>
+                  <th className="num">Balance to Pay</th>
+                  <th className="num">Budget</th>
+                  <th className="num">After Budget Final O/S</th>
+                  <th className="num">Collection Amount</th>
+                  <th>Collection Date</th>
+                  <th>Update</th>
+                  <th>Payment Terms</th>
+                  {PAY_SLOTS.map((i) => (<React.Fragment key={i}><th className="num">Payment {i + 1}</th><th>Pay {i + 1} Date</th></React.Fragment>))}
+                  <th></th>
+                </tr>
+              </thead>
               <tbody>
-                {schedule.length === 0 ? (<tr><td colSpan={8} className="state">No milestone payment schedule for this project yet. Click "Add schedule" to create one.</td></tr>
+                {schedule.length === 0 ? (<tr><td colSpan={12 + PAY_SLOTS.length * 2} className="state">No payment records for this project yet. Click "Add payment record" to create one.</td></tr>
                 ) : schedule.map((r) => {
-                  const ms = ppMilestones(r); const paidCount = ms.filter((m) => m.paid).length;
+                  const pays = ppPaymentsOf(r);
                   return (
                     <tr key={r.id} className="row-click" onClick={() => openSched(r)}>
                       <td><b>{r.customerName}</b></td>
-                      <td className="num">{inr(ppQuoted(r))}</td>
-                      <td className="num calc">{inr(ppScheduled(r))}</td>
-                      <td className="num calc">{inr(ppPaidAmount(r))}</td>
-                      <td className="num calc">{inr(ppOutstanding(r))}</td>
-                      <td>{paidCount}/{ms.length} paid</td>
-                      <td><Pill s={ppStatus(r)} /></td>
+                      <td><Pill s={r.condition || 'Payment Pending'} /></td>
+                      <td className="num">{inr(r.totalOrderValue)}</td>
+                      <td className="num calc">{inr(r.collectionSoFar)}</td>
+                      <td className={`num calc ${ppBalance(r) > 0 ? 'overdue' : ''}`}>{inr(ppBalance(r))}</td>
+                      <td className="num">{r.budget ? inr(r.budget) : '—'}</td>
+                      <td className="num calc">{r.afterBudgetOutstanding ? inr(r.afterBudgetOutstanding) : '—'}</td>
+                      <td className="num">{r.collectionAmount ? inr(r.collectionAmount) : '—'}</td>
+                      <td>{r.collectionDate ? dfmt(r.collectionDate) : '—'}</td>
+                      <td>{r.update || '—'}</td>
+                      <td>{r.paymentTerms || '—'}</td>
+                      {pays.map((p, i) => (<React.Fragment key={i}><td className="num">{p.amount ? inr(p.amount) : '—'}</td><td>{p.date ? dfmt(p.date) : '—'}</td></React.Fragment>))}
                       <td onClick={(e) => e.stopPropagation()}><button className="link" onClick={() => openSched(r)}>Edit</button></td>
                     </tr>
                   );
@@ -286,31 +332,35 @@ export default function ProjectDetail() {
 
       {sched && (
         <Drawer onClose={closeSched}>
-          <h3>{sched.isNew ? 'Add payment schedule' : 'Edit payment schedule'}</h3>
-          <p className="hint">For <b>{project.name}</b>. Set the quoted value, then split it into milestones; the percentages must total 100%.</p>
+          <h3>{sched.isNew ? 'Add payment record' : 'Edit payment record'}</h3>
+          <p className="hint">For <b>{project.name}</b>. Track collection against the order value, exactly like the Payment Pending Cases sheet.</p>
           <div className="grid">
-            <Field label="Quoted / Project Value (₹) *" full><input type="number" min="0" step="1" value={sched.data.quotedValue} onChange={(e) => setSD('quotedValue', e.target.value)} placeholder="Total order value" /></Field>
+            <Field label="Condition">
+              <select value={sched.data.condition} onChange={(e) => setSD('condition', e.target.value)}>
+                {CONDITIONS.map((c) => (<option key={c} value={c}>{c}</option>))}
+              </select>
+            </Field>
+            <Field label="Total Order Value (₹) *"><input type="number" min="0" step="1" value={sched.data.totalOrderValue} onChange={(e) => setSD('totalOrderValue', e.target.value)} /></Field>
+            <Field label="Collection so Far (₹)"><input type="number" min="0" step="1" value={sched.data.collectionSoFar} onChange={(e) => setSD('collectionSoFar', e.target.value)} /></Field>
+            <Field label="Balance to Pay (₹)"><input value={inr(liveBalance)} readOnly tabIndex={-1} className="ro" /></Field>
+            <Field label="Budget (₹)"><input type="number" min="0" step="1" value={sched.data.budget} onChange={(e) => setSD('budget', e.target.value)} /></Field>
+            <Field label="After Budget Final Outstanding (₹)"><input type="number" step="1" value={sched.data.afterBudgetOutstanding} onChange={(e) => setSD('afterBudgetOutstanding', e.target.value)} /></Field>
+            <Field label="Collection Amount (₹)"><input type="number" min="0" step="1" value={sched.data.collectionAmount} onChange={(e) => setSD('collectionAmount', e.target.value)} /></Field>
+            <Field label="Collection Date"><input type="date" value={sched.data.collectionDate} onChange={(e) => setSD('collectionDate', e.target.value)} /></Field>
+            <Field label="Payment Terms" full><input value={sched.data.paymentTerms} onChange={(e) => setSD('paymentTerms', e.target.value)} placeholder="e.g. 50% advance, balance on delivery" /></Field>
+            <Field label="Update" full><textarea rows={2} value={sched.data.update} onChange={(e) => setSD('update', e.target.value)} placeholder="Latest status / remark" /></Field>
           </div>
           <div className="pp-sched">
-            <div className="po-items-head"><span>Payment Terms Schedule</span><button type="button" className="link" onClick={addMs}><Plus size={14} style={{ verticalAlign: '-2px' }} /> Add milestone</button></div>
-            <div className="pp-head"><span>Term / Milestone</span><span>%</span><span>Value (₹)</span><span>Paid date</span><span>Paid</span><span /></div>
-            {sched.data.milestones.map((m) => (
-              <div key={m._id} className="pp-row">
-                <input placeholder="Milestone" value={m.term} onChange={(e) => setMs(m._id, 'term', e.target.value)} />
-                <input inputMode="decimal" placeholder="%" value={m.percentage} onChange={(e) => setPct(m._id, e.target.value)} />
-                <input className="pp-val" value={inr(msAmount(sched.data.quotedValue, m.percentage))} readOnly tabIndex={-1} />
-                <input type="date" value={m.date || ''} onChange={(e) => setMs(m._id, 'date', e.target.value)} />
-                <input type="checkbox" checked={!!m.paid} onChange={(e) => setMs(m._id, 'paid', e.target.checked)} />
-                <button type="button" className="link danger" onClick={() => removeMs(m._id)} title="Remove"><X size={15} /></button>
+            <div className="po-items-head"><span>Payment Installments</span></div>
+            <div className="pp-head"><span>#</span><span>Amount (₹)</span><span>Date</span></div>
+            {sched.data.payments.map((p, i) => (
+              <div key={i} className="pp-row">
+                <span className="pp-n">Payment {i + 1}</span>
+                <input type="number" min="0" step="1" placeholder="Amount" value={p.amount} onChange={(e) => setPay(i, 'amount', e.target.value)} />
+                <input type="date" value={p.date} onChange={(e) => setPay(i, 'date', e.target.value)} />
               </div>
             ))}
-            <div className="pp-total">
-              <span>Total</span>
-              <span style={{ color: pctValid ? 'var(--ok,#16a34a)' : 'var(--bad)' }}>{Number(pctTotal.toFixed(2))}%</span>
-              <span>{inr(amtTotal)}</span><span /><span /><span />
-            </div>
           </div>
-          {!pctValid && <p style={{ margin: '8px 0 0', color: 'var(--bad)', fontSize: 12.5, fontWeight: 600 }}>Total payment percentage must be 100%.</p>}
           <div className="grid" style={{ marginTop: 10 }}>
             <Field label="Notes" full><input value={sched.data.notes} onChange={(e) => setSD('notes', e.target.value)} /></Field>
           </div>
@@ -319,11 +369,11 @@ export default function ProjectDetail() {
             <div>{!sched.isNew && <button className="btn danger" onClick={() => setConfirmDel(true)}>Delete</button>}</div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn" onClick={closeSched}>Cancel</button>
-              <button className="btn primary" onClick={submitSched} disabled={schedBusy || !pctValid}>{schedBusy ? 'Saving…' : sched.isNew ? 'Add schedule' : 'Save changes'}</button>
+              <button className="btn primary" onClick={submitSched} disabled={schedBusy}>{schedBusy ? 'Saving…' : sched.isNew ? 'Add record' : 'Save changes'}</button>
             </div>
           </div>
           {confirmDel && (
-            <div className="confirm">Delete this payment schedule permanently?
+            <div className="confirm">Delete this payment record permanently?
               <button className="btn danger" onClick={doDeleteSched} disabled={schedBusy}>Delete</button>
               <button className="link" onClick={() => setConfirmDel(false)}>Cancel</button>
             </div>
@@ -341,17 +391,18 @@ export default function ProjectDetail() {
         .ov-v{display:block;font:700 15px var(--f-body);color:var(--fg)}
         .bar{height:10px;border-radius:6px;background:var(--sunk,#e5e7eb);overflow:hidden}
         .bar-fill{height:100%;border-radius:6px;transition:width .3s}
+        .pp-scroll{overflow-x:auto}
+        .pp-scroll table{min-width:1500px}
         .pp-sched{margin-top:14px;border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--surface)}
-        .pp-head,.pp-row,.pp-total{display:grid;grid-template-columns:1fr 64px 110px 140px 40px 30px;gap:8px;align-items:center}
+        .pp-head,.pp-row{display:grid;grid-template-columns:110px 1fr 160px;gap:8px;align-items:center}
         .pp-head{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);padding:0 2px 8px}
         .pp-row{margin-bottom:8px}
-        .pp-row input[type=text],.pp-row input:not([type]),.pp-row input[type=date],.pp-row input[inputmode=decimal]{width:100%;box-sizing:border-box;font:400 13.5px var(--f-body);padding:8px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg);outline:none;min-width:0}
+        .pp-row .pp-n{font:600 13px var(--f-body);color:var(--muted)}
+        .pp-row input{width:100%;box-sizing:border-box;font:400 13.5px var(--f-body);padding:8px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg);outline:none;min-width:0}
         .pp-row input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
-        .pp-row .pp-val{width:100%;box-sizing:border-box;font:600 13.5px var(--f-body);padding:8px 9px;border:1px solid var(--line);border-radius:8px;background:var(--sunk,#f1f5f9);color:var(--fg);cursor:not-allowed}
-        .pp-row input[type=checkbox]{width:18px;height:18px;justify-self:center}
-        .pp-total{border-top:2px solid var(--line);padding-top:10px;margin-top:4px;font-weight:800;color:var(--fg)}
+        input.ro{background:var(--sunk,#f1f5f9);cursor:not-allowed}
         .link.danger{color:var(--bad)}
-        @media (max-width:640px){.pp-head{display:none}.pp-row,.pp-total{grid-template-columns:1fr 50px 90px;grid-auto-rows:auto}.pp-row input[type=date]{grid-column:1/-1}}
+        @media (max-width:640px){.pp-head{display:none}.pp-row{grid-template-columns:1fr 1fr;grid-auto-rows:auto}.pp-row .pp-n{grid-column:1/-1}}
       `}</style>
     </section>
   );

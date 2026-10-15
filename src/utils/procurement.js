@@ -260,3 +260,31 @@ export function budgetFor(project, groups) {
     : 'On Track';
   return { allocated, utilized, paid, out, remaining, utilPct, status, poCount: g.length };
 }
+
+
+// ── Client payment helpers (money RECEIVED from the client, per project order) ──
+// A client record carries an order value, payment terms and a receipts ledger
+// (payments[]). Received = sum of receipts when any exist, else the manual
+// collectionSoFar; outstanding, status and overdue all derive from that. Kept
+// entirely separate from vendor payments (which live in purchase_payments).
+export const cpReceipts = (r = {}) => (Array.isArray(r.payments) ? r.payments : [])
+  .map((p) => ({ amount: num(p.amount), date: p.date || '', method: p.method || '', refNo: p.refNo || '', remarks: p.remarks || '', dueDate: p.dueDate || '' }));
+export const cpOrderValue = (r) => num(r && r.totalOrderValue);
+export const cpReceived = (r = {}) => {
+  const rs = cpReceipts(r);
+  return rs.length ? rs.reduce((s, p) => s + p.amount, 0) : num(r.collectionSoFar);
+};
+export const cpOutstanding = (r) => Math.max(cpOrderValue(r) - cpReceived(r), 0);
+export const cpStatus = (r) => {
+  const v = cpOrderValue(r), rec = cpReceived(r);
+  if (rec <= 0) return 'Unpaid';
+  return v > 0 && rec >= v ? 'Paid' : 'Partial';
+};
+export const cpOverdueDays = (r) => {
+  const t = today();
+  return (cpOutstanding(r) > 0 && r && r.dueDate && r.dueDate < t) ? daysDiff(t, r.dueDate) : 0;
+};
+export const cpLastDate = (r) => {
+  const rs = cpReceipts(r).filter((p) => p.date).map((p) => p.date).sort();
+  return rs.length ? rs[rs.length - 1] : ((r && r.collectionDate) || '');
+};

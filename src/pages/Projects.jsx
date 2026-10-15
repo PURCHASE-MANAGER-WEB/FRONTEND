@@ -7,7 +7,7 @@ import { Pill, Drawer, Field, StateRow } from '../components/ui';
 import { num, inr, groupPOs } from '../utils/procurement';
 
 export const PROJECT_STATUS = ['Active', 'On Hold', 'Completed', 'Cancelled'];
-const blank = () => ({ name: '', code: '', client: '', budget: '', status: 'Active', startDate: '', notes: '' });
+const blank = () => ({ name: '', code: '', client: '', budget: '', status: 'Active', startDate: '', materialDescription: '', notes: '' });
 
 export default function Projects() {
   const { projects, lines, loading, error, saveProject, deleteProject } = usePurchaseData();
@@ -44,7 +44,7 @@ export default function Projects() {
     .filter((p) => !q || [p.name, p.code, p.client, p.status].filter(Boolean).join(' ').toLowerCase().includes(q.toLowerCase()))
     .sort((a, b) => String(a.name).localeCompare(String(b.name))), [projects, q]);
 
-  const open = (p) => { setFormErr(''); setConfirmDel(false); setEditing(p ? { isNew: false, data: { ...p, budget: p.budget ?? '' } } : { isNew: true, data: blank() }); };
+  const open = (p) => { setFormErr(''); setConfirmDel(false); setEditing(p ? { isNew: false, data: { ...p, budget: p.budget ?? '', materialDescription: p.materialDescription || '' } } : { isNew: true, data: blank() }); };
   const close = () => { setEditing(null); setConfirmDel(false); };
   const set = (k, val) => setEditing((e) => ({ ...e, data: { ...e.data, [k]: val } }));
 
@@ -58,7 +58,7 @@ export default function Projects() {
     const payload = {
       name, code: String(d.code || '').trim(), client: String(d.client || '').trim(),
       budget: num(d.budget), status: d.status || 'Active',
-      startDate: d.startDate || '', notes: String(d.notes || '').trim(),
+      startDate: d.startDate || '', materialDescription: String(d.materialDescription || '').trim(), notes: String(d.notes || '').trim(),
     };
     setBusy(true);
     try { await saveProject(editing.isNew, editing.data.id, payload); close(); toast(editing.isNew ? 'Project added' : 'Project saved'); }
@@ -136,6 +136,7 @@ export default function Projects() {
             <Field label="Client"><input value={editing.data.client} onChange={(e) => set('client', e.target.value)} /></Field>
             <Field label="Allocated Budget (₹)"><input type="number" min="0" step="1000" value={editing.data.budget} onChange={(e) => set('budget', e.target.value)} /></Field>
             <Field label="Start Date"><input type="date" value={editing.data.startDate || ''} onChange={(e) => set('startDate', e.target.value)} /></Field>
+            <Field label="Material Description" full><textarea rows={2} value={editing.data.materialDescription} onChange={(e) => set('materialDescription', e.target.value)} placeholder="Materials / scope for this project" /></Field>
             <Field label="Notes" full><input value={editing.data.notes} onChange={(e) => set('notes', e.target.value)} /></Field>
           </div>
           {formErr && <div className="err">{formErr}</div>}

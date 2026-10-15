@@ -236,10 +236,7 @@ export default function PurchaseOrders() {
     <section>
       <section className="kpis" aria-label="Purchase order summary" style={{ marginBottom: 16 }}>
         <div className="kpi"><span className="kpi-ic"><ClipboardList size={16} /></span><div className="l">Total POs</div><div className="v">{poStats.total}</div></div>
-        <div className="kpi"><span className="kpi-ic"><Clock size={16} /></span><div className="l">Pending Approval</div><div className="v">{poStats.pendingApproval}</div></div>
-        <div className="kpi"><span className="kpi-ic"><CheckCircle2 size={16} /></span><div className="l">Approved</div><div className="v">{poStats.approved}</div></div>
         <div className="kpi"><span className="kpi-ic"><IndianRupee size={16} /></span><div className="l">Total PO Value</div><div className="v">{inr(poStats.totalValue)}</div></div>
-        <div className="kpi"><span className="kpi-ic"><Wallet size={16} /></span><div className="l">Pending PO Value</div><div className="v">{inr(poStats.pendingValue)}</div></div>
       </section>
       <div className="toolbar">
         <h2>Purchase Order &amp; Material Tracking</h2>

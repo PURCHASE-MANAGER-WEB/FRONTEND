@@ -26,11 +26,7 @@ export default function Dashboard() {
   const SECTIONS = [
     { title: 'Purchase Orders', cards: [
       { l: 'Total POs', v: k.poCount, sub: 'All purchase orders', icon: ClipboardList, c: 'accent', to: '/purchase-orders' },
-      { l: 'Pending Approval', v: poPend, sub: 'Awaiting approval', icon: Clock, c: 'warn', to: '/purchase-orders' },
-      { l: 'Approved', v: poAppr, sub: 'Active orders', icon: CheckCircle2, c: 'ok', to: '/purchase-orders' },
-      { l: 'Overdue POs', v: k.overdueCount, sub: 'Delivery / payment overdue', icon: AlertTriangle, c: 'bad', to: '/purchase-orders?filter=overdue' },
       { l: 'Total PO Value', v: inr(k.value), sub: 'Combined order value', icon: IndianRupee, c: 'accent', to: '/purchase-orders' },
-      { l: 'Pending PO Value', v: inr(pendingValue), sub: 'Outstanding on orders', icon: Wallet, c: 'mute', to: '/purchase-orders' },
     ] },
     { title: 'Payments', cards: [
       { l: 'Total Paid', v: inr(k.paid), sub: 'Paid to date', icon: Wallet, c: 'ok', to: '/payment-progress' },
@@ -44,11 +40,6 @@ export default function Dashboard() {
       { l: 'Total Projects', v: projects.length, sub: 'All projects', icon: FolderKanban, c: 'accent', to: '/projects' },
       { l: 'Active Projects', v: activeProjects, sub: 'In progress', icon: CheckCircle2, c: 'ok', to: '/projects' },
       { l: 'Total Budget', v: inr(totalBudget), sub: 'Allocated across projects', icon: PiggyBank, c: 'mute', to: '/projects' },
-    ] },
-    { title: 'Delivery', cards: [
-      { l: 'Total Challans', v: challans.length, sub: 'All delivery challans', icon: Truck, c: 'accent', to: '/delivery-challan' },
-      { l: 'Received', v: dcRecv, sub: 'Fully received', icon: CheckCircle2, c: 'ok', to: '/delivery-challan' },
-      { l: 'Pending', v: dcPend, sub: 'Awaiting delivery', icon: Clock, c: 'warn', to: '/delivery-challan' },
     ] },
   ];
 
