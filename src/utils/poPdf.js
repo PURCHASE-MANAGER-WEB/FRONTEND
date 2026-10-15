@@ -42,7 +42,7 @@ const qn = (n) => (Number(n) || 0).toLocaleString('en-IN', { maximumFractionDigi
 
 async function loadLogo() {
   try {
-    const res = await fetch('/images/tescologo.png');
+    const res = await fetch('/images/tescologo2.png');
     if (!res.ok) return null;
     const blob = await res.blob();
     return await new Promise((resolve) => {

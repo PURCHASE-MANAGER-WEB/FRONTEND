@@ -7,7 +7,7 @@ const rs = (n) => 'Rs. ' + Math.round(Number(n) || 0).toLocaleString('en-IN');
 
 async function loadLogo() {
   try {
-    const r = await fetch('/images/tescologo.png');
+    const r = await fetch('/images/tescologo2.png');
     if (!r.ok) return null;
     const b = await r.blob();
     return await new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => res(null); fr.readAsDataURL(b); });
