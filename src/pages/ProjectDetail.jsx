@@ -196,21 +196,94 @@ export default function ProjectDetail() {
         {TABS.map((t) => (<button key={t} className={`tab ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>{t}</button>))}
       </div>
 
-      {tab === 'Overview' && (
-        <div className="card" style={{ padding: 20 }}>
-          <div className="ov-grid">
-            <div><span className="ov-l">Project Code</span><span className="ov-v">{project.code || '—'}</span></div>
-            <div><span className="ov-l">Client</span><span className="ov-v">{project.client || '—'}</span></div>
-            <div><span className="ov-l">Status</span><span className="ov-v"><Pill s={project.status || 'Active'} /></span></div>
-            <div><span className="ov-l">Start Date</span><span className="ov-v">{dfmt(project.startDate)}</span></div>
-            <div><span className="ov-l">Purchase Orders</span><span className="ov-v">{projGroups.length}</span></div>
-            <div><span className="ov-l">Budget Utilization</span><span className="ov-v">{budget > 0 ? `${util}%` : '—'}</span></div>
-            <div><span className="ov-l">Remaining Budget</span><span className="ov-v" style={remaining < 0 ? { color: 'var(--bad)' } : null}>{budget > 0 ? inr(remaining) : '—'}</span></div>
-          </div>
-          {project.materialDescription && (<><div className="ov-l" style={{ marginTop: 16 }}>Material Description</div><p className="sub" style={{ margin: '4px 0 0', whiteSpace: 'pre-wrap' }}>{project.materialDescription}</p></>)}
-          {project.notes && <p className="sub" style={{ marginTop: 14 }}>{project.notes}</p>}
-        </div>
-      )}
+      {tab === 'Overview' && (() => {
+        const V = (v) => (v == null || v === '' ? '—' : v);
+        const terms = Array.isArray(project.paymentTerms) ? project.paymentTerms : [];
+        const quoted = num(project.quotedPrice);
+        return (
+          <>
+            <div className="card pd-card">
+              <h3>Client &amp; Project Details</h3>
+              <div className="ov-grid">
+                <div><span className="ov-l">Client Name</span><span className="ov-v">{V(project.client)}</span></div>
+                <div><span className="ov-l">Project Location</span><span className="ov-v">{V(project.projectLocation)}</span></div>
+                <div><span className="ov-l">Project Code</span><span className="ov-v">{V(project.code)}</span></div>
+                <div><span className="ov-l">Status</span><span className="ov-v"><Pill s={project.status || 'Active'} /></span></div>
+                <div><span className="ov-l">Contact Details</span><span className="ov-v">{V(project.contactDetails)}</span></div>
+                <div><span className="ov-l">Mobile Number</span><span className="ov-v">{V(project.mobileNumber)}</span></div>
+                <div><span className="ov-l">Alternate Mobile</span><span className="ov-v">{V(project.altMobile)}</span></div>
+                <div><span className="ov-l">Email / WhatsApp</span><span className="ov-v">{V(project.emailWhatsapp)}</span></div>
+                <div><span className="ov-l">Billing Name</span><span className="ov-v">{V(project.billingName)}</span></div>
+                <div><span className="ov-l">GST Number</span><span className="ov-v">{V(project.gstNumber)}</span></div>
+                <div className="ov-full"><span className="ov-l">Site Address</span><span className="ov-v" style={{ whiteSpace: 'pre-wrap' }}>{V(project.siteAddress)}</span></div>
+                <div className="ov-full"><span className="ov-l">Billing Address</span><span className="ov-v" style={{ whiteSpace: 'pre-wrap' }}>{V(project.billingAddress)}</span></div>
+                <div><span className="ov-l">Salesperson</span><span className="ov-v">{V(project.salespersonName)}</span></div>
+                <div><span className="ov-l">Date of Order</span><span className="ov-v">{project.dateOfOrder ? dfmt(project.dateOfOrder) : '—'}</span></div>
+                <div><span className="ov-l">Proposal Ref No</span><span className="ov-v">{V(project.proposalRefNo)}</span></div>
+                <div><span className="ov-l">Lead ID / Ref</span><span className="ov-v">{V(project.leadRef)}</span></div>
+              </div>
+            </div>
+
+            <div className="card pd-card">
+              <h3>Scope of Work</h3>
+              <div className="ov-grid">
+                <div><span className="ov-l">Type of Project</span><span className="ov-v">{V(project.typeOfProject)}</span></div>
+                <div><span className="ov-l">Project Size / Area</span><span className="ov-v">{V(project.projectSize)}</span></div>
+                <div><span className="ov-l">3D Design</span><span className="ov-v">{project.design3D ? 'Yes' : 'No'}</span></div>
+                <div><span className="ov-l">2D Design</span><span className="ov-v">{project.design2D ? 'Yes' : 'No'}</span></div>
+                <div><span className="ov-l">Transportation (Client Scope)</span><span className="ov-v">{V(project.transportationScope)}</span></div>
+                <div><span className="ov-l">Scaffolding (Client Scope)</span><span className="ov-v">{V(project.scaffoldingScope)}</span></div>
+                {project.materialDescription && <div className="ov-full"><span className="ov-l">Material Description</span><span className="ov-v" style={{ whiteSpace: 'pre-wrap' }}>{project.materialDescription}</span></div>}
+              </div>
+            </div>
+
+            <div className="card pd-card">
+              <h3>Timeline &amp; Delivery</h3>
+              <div className="ov-grid">
+                <div><span className="ov-l">Tentative Start Date</span><span className="ov-v">{dfmt(project.startDate)}</span></div>
+                <div><span className="ov-l">Tentative Completion Date</span><span className="ov-v">{dfmt(project.tentativeCompletionDate)}</span></div>
+                <div><span className="ov-l">Lead Time Promised</span><span className="ov-v">{V(project.leadTimePromised)}</span></div>
+                <div><span className="ov-l">Purchase Orders</span><span className="ov-v">{projGroups.length}</span></div>
+              </div>
+            </div>
+
+            <div className="card pd-card">
+              <h3>Pricing &amp; Payment Terms</h3>
+              <div className="ov-grid">
+                <div><span className="ov-l">Quoted Price</span><span className="ov-v">{quoted > 0 ? inr(quoted) : '—'}</span></div>
+                <div><span className="ov-l">Allocated Budget</span><span className="ov-v">{inr(budget)}</span></div>
+                <div><span className="ov-l">PO Value</span><span className="ov-v">{inr(value)}</span></div>
+                <div><span className="ov-l">Payments</span><span className="ov-v">{inr(paid)}</span></div>
+                <div><span className="ov-l">Outstanding</span><span className="ov-v" style={out > 0 ? { color: 'var(--bad)' } : null}>{inr(out)}</span></div>
+                <div><span className="ov-l">Budget Utilization</span><span className="ov-v">{budget > 0 ? `${util}%` : '—'}</span></div>
+                <div><span className="ov-l">Remaining Budget</span><span className="ov-v" style={remaining < 0 ? { color: 'var(--bad)' } : null}>{budget > 0 ? inr(remaining) : '—'}</span></div>
+              </div>
+              {terms.length > 0 && (
+                <div className="tbl" style={{ marginTop: 14 }}>
+                  <table>
+                    <thead><tr><th>Term / Milestone</th><th className="num">%</th><th className="num">Value (₹)</th></tr></thead>
+                    <tbody>
+                      {terms.map((t, i) => (
+                        <tr key={i}><td>{t.term || '—'}</td><td className="num">{num(t.percentage)}%</td><td className="num">{inr(t.value)}</td></tr>
+                      ))}
+                      <tr className="bh-total"><td>Total</td><td className="num">{terms.reduce((s, t) => s + num(t.percentage), 0)}%</td><td className="num">{inr(terms.reduce((s, t) => s + num(t.value), 0))}</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="card pd-card">
+              <h3>Confirmations &amp; Declarations</h3>
+              <div className="ov-grid">
+                <div><span className="ov-l">Site Engineer Visit</span><span className="ov-v">{project.siteEngineerVisit ? 'Completed' : 'Pending'}</span></div>
+                <div><span className="ov-l">Salesperson Declaration</span><span className="ov-v">{project.salespersonDeclaration ? 'Confirmed' : 'Not confirmed'}</span></div>
+              </div>
+              {project.notes && <p className="sub" style={{ marginTop: 14, whiteSpace: 'pre-wrap' }}>{project.notes}</p>}
+            </div>
+          </>
+        );
+      })()}
 
       {tab === 'Purchase Orders' && (
         <div className="tbl">
@@ -326,33 +399,26 @@ export default function ProjectDetail() {
           <div className="tbl bh-scroll">
             <table>
               <thead><tr>
-                <th>Sl. No</th><th>Budget Head</th><th className="num">Performa Invoice (₹)</th><th className="num">Budget Approved (₹)</th>
-                <th className="num">PO / WO Value (₹)</th><th className="num">Actual Cost (₹)</th><th className="num">Balance (₹)</th><th>Remarks</th><th></th>
+                <th>Sl. No</th><th>Description</th><th className="num">Budget Approved (₹)</th>
+                <th className="num">PO / WO Value (₹)</th><th className="num">Actual Cost (₹)</th><th>Remarks</th><th></th>
               </tr></thead>
               <tbody>
-                {heads.map((h, i) => {
-                  const bal = num(h.approved) - num(h.actual);
-                  return (
+                {heads.map((h, i) => (
                     <tr key={h._id}>
                       <td>{i + 1}</td>
-                      <td><input className="bh-in bh-head" value={h.head} onChange={(e) => setHead(h._id, 'head', e.target.value)} placeholder="Budget head" /></td>
-                      <td><input className="bh-in bh-num" type="number" min="0" step="any" value={h.performa} onChange={(e) => setHead(h._id, 'performa', e.target.value)} /></td>
+                      <td><input className="bh-in bh-head" value={h.head} onChange={(e) => setHead(h._id, 'head', e.target.value)} placeholder="Description" /></td>
                       <td><input className="bh-in bh-num" type="number" min="0" step="any" value={h.approved} onChange={(e) => setHead(h._id, 'approved', e.target.value)} /></td>
                       <td><input className="bh-in bh-num bh-blue" type="number" min="0" step="any" value={h.poValue} onChange={(e) => setHead(h._id, 'poValue', e.target.value)} /></td>
                       <td><input className="bh-in bh-num" type="number" min="0" step="any" value={h.actual} onChange={(e) => setHead(h._id, 'actual', e.target.value)} /></td>
-                      <td className="num" style={{ fontWeight: 700, color: bal < 0 ? 'var(--bad)' : 'var(--fg)' }}>{(num(h.approved) || num(h.actual)) ? inr(bal) : '—'}</td>
                       <td><input className="bh-in" value={h.remarks} onChange={(e) => setHead(h._id, 'remarks', e.target.value)} placeholder="—" /></td>
                       <td><button className="link danger" onClick={() => removeHead(h._id)} title="Remove">✕</button></td>
                     </tr>
-                  );
-                })}
+                ))}
                 <tr className="bh-total">
                   <td></td><td>TOTAL PROJECT BUDGET</td>
-                  <td className="num">{inr(bhTotals.performa)}</td>
                   <td className="num">{inr(bhTotals.approved)}</td>
                   <td className="num">{inr(bhTotals.poValue)}</td>
                   <td className="num">{inr(bhTotals.actual)}</td>
-                  <td className="num" style={{ color: bhTotals.approved - bhTotals.actual < 0 ? 'var(--bad)' : 'var(--fg)' }}>{inr(bhTotals.approved - bhTotals.actual)}</td>
                   <td colSpan={2}>Budget Utilised: {bhTotals.approved > 0 ? `${bhUtil}%` : '—'}</td>
                 </tr>
               </tbody>
@@ -452,12 +518,15 @@ export default function ProjectDetail() {
         .ov-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
         .ov-l{display:block;font-size:12px;color:var(--muted);margin-bottom:3px}
         .ov-v{display:block;font:700 15px var(--f-body);color:var(--fg)}
+        .pd-card{padding:20px;margin-bottom:16px}
+        .pd-card h3{margin:0 0 14px;font:800 15px var(--f-display);color:var(--fg)}
+        .ov-full{grid-column:1/-1}
         .bar{height:10px;border-radius:6px;background:var(--sunk,#e5e7eb);overflow:hidden}
         .bar-fill{height:100%;border-radius:6px;transition:width .3s}
         .pp-scroll{overflow-x:auto}
         .pp-scroll table{min-width:1500px}
         .bh-scroll{overflow-x:auto}
-        .bh-scroll table{min-width:980px}
+        .bh-scroll table{min-width:760px}
         .bh-in{width:100%;box-sizing:border-box;font:400 13px var(--f-body);padding:7px 8px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--fg);outline:none;min-width:0}
         .bh-in:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
         .bh-num{text-align:right;font-variant-numeric:tabular-nums}
