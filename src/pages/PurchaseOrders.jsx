@@ -16,7 +16,7 @@ const newId = () => 'L' + Date.now().toString(36) + Math.random().toString(36).s
 // One blank item row for the PO form.
 const blankItem = () => ({
   _id: newId(), isNew: true,
-  material: '', description: '', spec: '', hsn: '',
+  material: '', description: '', spec: '', hsn: '', make: '', weight: '',
   qty: '', unit: 'MT', rate: '', received: 0, expDate: '', dueDate: '', paid: 0,
 });
 
@@ -91,7 +91,7 @@ export default function PurchaseOrders() {
       deliveryDate: h.deliveryDate || '', deliveryAddress: h.deliveryAddress || '', status: h.status || 'Approved',
       items: group.map(l => ({
         _id: l.id, isNew: false,
-        material: l.material || '', description: l.description || '', spec: l.spec || '', hsn: l.hsn || '',
+        material: l.material || '', description: l.description || '', spec: l.spec || '', hsn: l.hsn || '', make: l.make || '', weight: l.weight ?? '',
         qty: l.qty ?? '', unit: l.unit || 'MT', rate: l.rate ?? '', received: l.received ?? 0,
         expDate: l.expDate || '', dueDate: l.dueDate || '', paid: l.paid ?? 0,
       })),
@@ -182,6 +182,7 @@ export default function PurchaseOrders() {
           ...shared,
           material: String(it.material).trim(), description: String(it.description || '').trim(),
           spec: String(it.spec || '').trim(), hsn: String(it.hsn || '').trim(),
+          make: String(it.make || '').trim(), weight: num(it.weight),
           qty: num(it.qty), unit: it.unit, rate: num(it.rate), received: num(it.received),
           expDate: it.expDate || '', dueDate: it.dueDate || '', paid: num(it.paid),
         };
@@ -397,9 +398,11 @@ export default function PurchaseOrders() {
                       })()}
                     </label>
                     <label className="pf">Specification<input value={it.spec} onChange={e => setItem(it._id, 'spec', e.target.value)} placeholder="e.g. Fe 500D, 16mm" /></label>
+                    <label className="pf">Make<input value={it.make} onChange={e => setItem(it._id, 'make', e.target.value)} placeholder="e.g. MKK / MPL" /></label>
                     <label className="pf full">Description of goods<input value={it.description} onChange={e => setItem(it._id, 'description', e.target.value)} placeholder="Longer description as it should read on the order / invoice" /></label>
                     <label className="pf">Qty *<input type="number" min="0" step="any" value={it.qty} onChange={e => setItem(it._id, 'qty', e.target.value)} /></label>
                     <label className="pf">Unit (Per)<select value={it.unit} onChange={e => setItem(it._id, 'unit', e.target.value)}>{UNITS.map(u => <option key={u}>{u}</option>)}</select></label>
+                    <label className="pf">Approx. Wt (MT)<input type="number" min="0" step="any" value={it.weight} onChange={e => setItem(it._id, 'weight', e.target.value)} placeholder="Per-item weight" /></label>
                     <label className="pf">Rate (₹) *<input type="number" min="0" step="any" value={it.rate} onChange={e => setItem(it._id, 'rate', e.target.value)} /></label>
                   </div>
                   <details className="po-track">

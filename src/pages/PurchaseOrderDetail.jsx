@@ -68,7 +68,7 @@ export default function PurchaseOrderDetail() {
         delPct: model.g.delPct ?? 0,
         overdueDays: model.g.overdueDays ?? 0,
         items: model.items.map(({ l, amount }) => ({
-          material: l.material, spec: l.spec, description: l.description, hsn: l.hsn,
+          material: l.material, spec: l.spec, description: l.description, hsn: l.hsn, make: l.make, weight: num(l.weight),
           qty: num(l.qty), unit: l.unit, rate: num(l.rate), amount,
         })),
         totals: model.totals,

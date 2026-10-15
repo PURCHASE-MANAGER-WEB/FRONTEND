@@ -1,18 +1,16 @@
-// Purchase Order PDF — matches the Tesco Structures brand template:
+// Purchase Order PDF — matches the Tesco Structures brand template exactly:
 // logo + centered "PURCHASE ORDER" between green rules, two-column meta,
-// TO (SUPPLIER) / BILL TO blocks, a bordered item table with a grey header,
-// a right-aligned totals block with a green NET PAYABLE highlight, amount in
-// words, numbered terms, an authorised-signatory line and a three-column green
-// footer. Built with jsPDF only (no autotable), imported dynamically.
-//
-// Built-in PDF fonts don't carry the ₹ glyph, so money prints as "Rs." here
-// (the on-screen UI keeps ₹). Same data shape / call as before.
+// TO (SUPPLIER) / BILL TO blocks, a bordered item table with a DARK header
+// (S.No · Description · Make · Qty (Nos) · Approx. Wt (MT) · Rate / MT (Rs.) ·
+// Amount (Rs.)), a right-aligned totals block with weight notes on the left and a
+// green NET PAYABLE highlight, amount in words, numbered terms, an authorised
+// signatory line and a three-column green footer. jsPDF only, imported dynamically.
 
 import { formatTerms } from './procurement';
 
-const GREEN  = [74, 125, 47];     // brand green — rules, signatory, footer line
-const GREENL = [233, 242, 221];   // light green — NET PAYABLE highlight
-const HEAD   = [228, 228, 228];   // table header grey
+const GREEN  = [74, 125, 47];
+const GREENL = [233, 242, 221];
+const CHAR   = [51, 51, 51];       // dark table header
 const INK    = [33, 37, 41];
 const MUTE   = [110, 116, 124];
 const LINE   = [205, 210, 216];
@@ -37,8 +35,9 @@ const DEFAULT_TERMS = [
   'Correspondence: This PO number must be quoted on all invoices, delivery notes and correspondence.',
 ];
 
-const rs = (n) => 'Rs. ' + Math.round(Number(n) || 0).toLocaleString('en-IN', { minimumFractionDigits: 0 });
-const rs2 = (n) => 'Rs. ' + (Number(n) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const nz = (v) => { const n = parseFloat(v); return isFinite(n) ? n : 0; };
+const money2 = (n) => Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const wt3 = (n) => Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 const qn = (n) => (Number(n) || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 
 async function loadLogo() {
@@ -65,13 +64,13 @@ export async function downloadPoPdf(data) {
   const H = doc.internal.pageSize.getHeight();
   const M = 40;
   const CW = W - 2 * M;
-  const FOOT = 54;               // reserved footer height
+  const FOOT = 54;
 
   const logo = await loadLogo();
   let ld = null;
   if (logo) { try { const p = doc.getImageProperties(logo); ld = { w: p.width, h: p.height }; } catch { ld = null; } }
 
-  // ── Header: logo (left) ──
+  // ── Header: logo ──
   let y = 38;
   if (logo && ld) {
     const lw = 180, lh = Math.min(60, lw * ld.h / ld.w);
@@ -91,7 +90,7 @@ export async function downloadPoPdf(data) {
   doc.setDrawColor(...GREEN).setLineWidth(1.3).line(M, ty + 9, W - M, ty + 9);
   y = ty + 24;
 
-  // ── Meta: two columns ──
+  // ── Meta ──
   const colR = M + CW * 0.53;
   let yL = y, yR = y;
   const metaRow = (side, label, val) => {
@@ -119,10 +118,9 @@ export async function downloadPoPdf(data) {
   const bodyTop = y + 13;
   const leftW = colR - M - 14, rightW = W - M - colR;
 
-  // left (supplier)
   let ly = bodyTop;
   doc.setFont('helvetica', 'bold').setFontSize(10.5).setTextColor(...INK);
-  doc.text(String((data.vendor && data.vendor.name) || '—'), M, ly); ly += 14;
+  doc.text(String((data.vendor && (data.vendor.name || data.vendorName)) || '—'), M, ly); ly += 14;
   doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(...MUTE);
   const supLines = [
     data.vendor && data.vendor.address,
@@ -132,7 +130,6 @@ export async function downloadPoPdf(data) {
   ].filter(Boolean);
   supLines.forEach((t) => { const w = doc.splitTextToSize(String(t), leftW); doc.text(w, M, ly); ly += 12 * w.length; });
 
-  // right (company / bill-to)
   let ry = bodyTop;
   doc.setFont('helvetica', 'bold').setFontSize(10.5).setTextColor(...INK);
   doc.text(COMPANY.name, colR, ry); ry += 14;
@@ -141,7 +138,6 @@ export async function downloadPoPdf(data) {
 
   y = Math.max(ly, ry) + 7;
 
-  // Delivery address, if present
   if (data.deliveryAddress) {
     doc.setFont('helvetica', 'bold').setFontSize(8).setTextColor(...MUTE);
     doc.text('DELIVERY ADDRESS', M, y); y += 12;
@@ -156,39 +152,40 @@ export async function downloadPoPdf(data) {
   doc.text(intro, M, y); y += intro.length * 12 + 8;
 
   // ── Item table ──
+  const items = data.items || [];
+  const totWeight = items.reduce((s, it) => s + nz(it.weight), 0);
   const cols = [
-    { w: 30,  align: 'center', title: 'S.No' },
-    { w: CW - 30 - 55 - 42 - 86 - 96, align: 'left', title: 'Description' },
-    { w: 55,  align: 'right',  title: 'Qty' },
-    { w: 42,  align: 'center', title: 'Per' },
-    { w: 86,  align: 'right',  title: 'Rate (Rs.)' },
-    { w: 96,  align: 'right',  title: 'Amount (Rs.)' },
+    { w: 26,  align: 'center', title: 'S.No' },
+    { w: CW - 26 - 42 - 46 - 66 - 76 - 84, align: 'left', title: 'Description' },
+    { w: 42,  align: 'center', title: 'Make' },
+    { w: 46,  align: 'center', title: 'Qty (Nos)' },
+    { w: 66,  align: 'right',  title: 'Approx. Wt (MT)' },
+    { w: 76,  align: 'right',  title: 'Rate / MT (Rs.)' },
+    { w: 84,  align: 'right',  title: 'Amount (Rs.)' },
   ];
   const xOf = (i) => M + cols.slice(0, i).reduce((s, c) => s + c.w, 0);
   const cell = (i, text, top, align) => {
     const c = cols[i]; const a = align || c.align; const x0 = xOf(i);
-    const tx = a === 'right' ? x0 + c.w - 6 : a === 'center' ? x0 + c.w / 2 : x0 + 6;
+    const tx = a === 'right' ? x0 + c.w - 5 : a === 'center' ? x0 + c.w / 2 : x0 + 5;
     doc.text(text, tx, top, { align: a, baseline: 'top' });
   };
   const lineH = 11;
-  const descW = cols[1].w - 12;
+  const descW = cols[1].w - 10;
 
   const drawHead = (top) => {
-    doc.setFillColor(...HEAD); doc.rect(M, top, CW, 20, 'F');
-    doc.setDrawColor(...LINE).setLineWidth(0.6); doc.rect(M, top, CW, 20);
-    cols.forEach((c, i) => { if (i > 0) doc.line(xOf(i), top, xOf(i), top + 20); });
-    doc.setFont('helvetica', 'bold').setFontSize(8.5).setTextColor(...INK);
-    cols.forEach((c, i) => cell(i, c.title, top + 6));
-    return top + 20;
+    doc.setFillColor(...CHAR); doc.rect(M, top, CW, 22, 'F');
+    doc.setFont('helvetica', 'bold').setFontSize(7.5).setTextColor(255, 255, 255);
+    cols.forEach((c, i) => cell(i, c.title, top + 7));
+    return top + 22;
   };
 
   y = drawHead(y);
   doc.setFont('helvetica', 'normal').setFontSize(9);
-  (data.items || []).forEach((it, idx) => {
+  items.forEach((it, idx) => {
     const matLines = doc.splitTextToSize(String(it.material || '-'), descW);
     const specLines = it.spec ? doc.splitTextToSize('Spec: ' + it.spec, descW) : [];
     const descLines = it.description ? doc.splitTextToSize(String(it.description), descW) : [];
-    const rowH = Math.max((matLines.length + specLines.length + descLines.length) * lineH + 8, 22);
+    const rowH = Math.max((matLines.length + specLines.length + descLines.length) * lineH + 8, 24);
 
     if (y + rowH > H - FOOT - 12) { doc.addPage(); y = drawHead(50); doc.setFont('helvetica', 'normal').setFontSize(9); }
 
@@ -198,62 +195,65 @@ export async function downloadPoPdf(data) {
     const top = y + 5;
     doc.setFont('helvetica', 'normal').setTextColor(...INK);
     cell(0, String(idx + 1), top);
-    cell(2, qn(it.qty), top);
-    cell(3, String(it.unit || ''), top);
-    cell(4, rs(it.rate), top);
-    cell(5, rs2(it.amount), top);
+    cell(2, it.make ? String(it.make) : '', top);
+    cell(3, qn(it.qty), top);
+    cell(4, nz(it.weight) ? wt3(it.weight) : '', top);
+    cell(5, money2(it.rate), top);
+    cell(6, money2(it.amount), top);
 
     let dy = top;
     doc.setFont('helvetica', 'bold').setTextColor(...INK);
-    matLines.forEach((l) => { doc.text(l, xOf(1) + 6, dy, { baseline: 'top' }); dy += lineH; });
+    matLines.forEach((l) => { doc.text(l, xOf(1) + 5, dy, { baseline: 'top' }); dy += lineH; });
     doc.setFont('helvetica', 'normal').setTextColor(...MUTE);
-    [...specLines, ...descLines].forEach((l) => { doc.text(l, xOf(1) + 6, dy, { baseline: 'top' }); dy += lineH; });
+    [...specLines, ...descLines].forEach((l) => { doc.text(l, xOf(1) + 5, dy, { baseline: 'top' }); dy += lineH; });
 
     y += rowH;
   });
 
-  // ── Totals block (continues the table grid) ──
+  // ── Totals (continue the grid) ──
   const T = data.totals || {};
-  const xNotesEnd = xOf(2);         // left notes cell:  M .. Qty start
-  const xAmt = xOf(5);              // amount cell start
-  const totRows = [['Sub Total', rs2(T.sub)]];
-  if (T.loading) totRows.push(['Loading Charges', rs2(T.loading)]);
-  if (T.transport) totRows.push(['Transport Charge', rs2(T.transport)]);
-  totRows.push(['Taxable Value', rs2(T.taxable)]);
-  totRows.push([`GST @ ${T.gstPct || 18}%  (CGST ${(T.gstPct || 18) / 2}% + SGST ${(T.gstPct || 18) / 2}%)`, rs2(T.gst != null ? T.gst : (Number(T.cgst || 0) + Number(T.sgst || 0)))]);
-  if (Math.abs(Number(T.roundOff || 0)) >= 0.005) totRows.push(['Round Off', (T.roundOff >= 0 ? '' : '-') + rs2(Math.abs(T.roundOff))]);
+  const gstPct = T.gstPct || 18;
+  const gstVal = T.gst != null ? T.gst : (nz(T.cgst) + nz(T.sgst));
+  const ap = totWeight > 0 ? ' (approx.)' : '';
+  const totRows = [['Sub Total' + ap, money2(T.sub)]];
+  if (T.loading) totRows.push(['Loading Charges', money2(T.loading)]);
+  if (T.transport) totRows.push(['Transport Charge', money2(T.transport)]);
+  totRows.push([`GST @ ${gstPct}%`, money2(gstVal)]);
+  if (Math.abs(nz(T.roundOff)) >= 0.005) totRows.push(['Round Off', (T.roundOff >= 0 ? '' : '-') + money2(Math.abs(T.roundOff))]);
 
-  const rowTH = 16, netH = 20;
+  const notesEnd = xOf(2);
+  const xAmt = xOf(6);
+  const rowTH = 17, netH = 20;
   const totalH = totRows.length * rowTH + netH;
   if (y + totalH > H - FOOT - 10) { doc.addPage(); y = 50; }
 
-  // left notes (italic) aligned with the totals rows
+  // left weight notes
   doc.setFont('helvetica', 'italic').setFontSize(8.5).setTextColor(...MUTE);
-  doc.text(doc.splitTextToSize('All rates and taxes are as per the agreed quotation. Final billing as applicable.', xNotesEnd - M - 10), M, y + 12);
+  const noteLines = totWeight > 0
+    ? ['Total approx. weight: ' + wt3(totWeight) + ' MT', '(standard 6 m length; final billing', 'on actual weighment)']
+    : ['All rates and taxes are as per the agreed quotation.', 'Final billing as applicable.'];
+  noteLines.forEach((t, i) => doc.text(t, M, y + 12 + i * 12));
 
   let ry2 = y;
   doc.setFontSize(9.5);
   totRows.forEach(([k, v]) => {
     doc.setDrawColor(...LINE).setLineWidth(0.5);
-    doc.rect(xNotesEnd, ry2, xAmt - xNotesEnd, rowTH);   // label cell
-    doc.rect(xAmt, ry2, W - M - xAmt, rowTH);            // amount cell
+    doc.rect(notesEnd, ry2, xAmt - notesEnd, rowTH);
+    doc.rect(xAmt, ry2, W - M - xAmt, rowTH);
     doc.setFont('helvetica', 'normal').setTextColor(...INK);
     doc.text(k, xAmt - 8, ry2 + 12, { align: 'right' });
     doc.text(v, W - M - 6, ry2 + 12, { align: 'right' });
     ry2 += rowTH;
   });
-  // NET PAYABLE band (green)
   doc.setFillColor(...GREENL);
-  doc.rect(xNotesEnd, ry2, W - M - xNotesEnd, netH, 'F');
+  doc.rect(notesEnd, ry2, W - M - notesEnd, netH, 'F');
   doc.setDrawColor(...GREEN).setLineWidth(0.8);
-  doc.rect(xNotesEnd, ry2, xAmt - xNotesEnd, netH);
+  doc.rect(notesEnd, ry2, xAmt - notesEnd, netH);
   doc.rect(xAmt, ry2, W - M - xAmt, netH);
   doc.setFont('helvetica', 'bold').setFontSize(10.5).setTextColor(...INK);
-  doc.text('NET PAYABLE', xAmt - 8, ry2 + 15, { align: 'right' });
-  doc.text(rs2(T.grand), W - M - 6, ry2 + 15, { align: 'right' });
-  // left border of the whole totals area + bottom line
-  doc.setDrawColor(...LINE).setLineWidth(0.5);
-  y = ry2 + netH + 12;
+  doc.text('NET PAYABLE' + ap, xAmt - 8, ry2 + 15, { align: 'right' });
+  doc.text(money2(T.grand), W - M - 6, ry2 + 15, { align: 'right' });
+  y = ry2 + netH + 16;
 
   // ── Amount in words ──
   if (y > H - FOOT - 40) { doc.addPage(); y = 50; }
@@ -266,7 +266,7 @@ export async function downloadPoPdf(data) {
   doc.text(awLines, M + awW, y);
   y += Math.max(awLines.length * 12, 12) + 10;
 
-  // ── Terms & conditions ──
+  // ── Terms ──
   const termClauses = data.terms
     ? formatTerms(data.terms).split('\n').map((t) => t.replace(/^\s*\d+[.)]\s*/, '').trim()).filter(Boolean)
     : DEFAULT_TERMS;
@@ -282,7 +282,6 @@ export async function downloadPoPdf(data) {
       const indent = doc.getTextWidth(n);
       const wrapped = doc.splitTextToSize((m ? m[2] : clause), CW - indent);
       if (y + wrapped.length * 12 > H - FOOT - 6) { doc.addPage(); y = 50; }
-      // bold lead (number + "Label:")
       doc.setFont('helvetica', 'bold').setTextColor(...INK);
       doc.text(lead, M, y);
       const leadW = doc.getTextWidth(lead);
@@ -293,7 +292,7 @@ export async function downloadPoPdf(data) {
     });
   }
 
-  // ── Authorised signatory ──
+  // ── Signatory ──
   if (y > H - FOOT - 60) { doc.addPage(); y = 50; }
   y += 2;
   doc.setFont('helvetica', 'bold').setFontSize(10).setTextColor(...INK);
@@ -302,19 +301,16 @@ export async function downloadPoPdf(data) {
   doc.setFont('helvetica', 'normal').setFontSize(9.5).setTextColor(...INK);
   doc.text('Authorised Signatory', W - M, y, { align: 'right' });
 
-  // ── Footer (every page) ──
+  // ── Footer ──
   const pages = doc.internal.getNumberOfPages();
   for (let p = 1; p <= pages; p++) {
     doc.setPage(p);
     doc.setDrawColor(...GREEN).setLineWidth(1).line(M, H - FOOT + 6, W - M, H - FOOT + 6);
     doc.setFont('helvetica', 'normal').setFontSize(7.5).setTextColor(...MUTE);
-    // left
     doc.text(COMPANY.web, M, H - FOOT + 20);
     doc.text(COMPANY.email, M, H - FOOT + 31);
-    // center
     doc.text(COMPANY.phones[0], W / 2, H - FOOT + 20, { align: 'center' });
     doc.text(COMPANY.phones[1], W / 2, H - FOOT + 31, { align: 'center' });
-    // right
     doc.text(COMPANY.footAddr[0], W - M, H - FOOT + 20, { align: 'right' });
     doc.text(COMPANY.footAddr[1], W - M, H - FOOT + 31, { align: 'right' });
     if (pages > 1) doc.text(`Page ${p} of ${pages}`, W / 2, H - 12, { align: 'center' });
