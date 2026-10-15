@@ -54,7 +54,7 @@ function intWords(n) {
 
 async function loadLogo() {
   try {
-    const res = await fetch('/logo.png');
+    const res = await fetch('/images/tescologo.png');
     if (!res.ok) return null;
     const blob = await res.blob();
     return await new Promise((resolve) => {
@@ -89,7 +89,7 @@ export async function downloadChallanPdf(data) {
   // ── Header: logo ──
   let y = 40;
   if (logo && ld) {
-    const lw = 160, lh = Math.min(54, lw * ld.h / ld.w);
+    const sc = Math.min(150 / ld.w, 50 / ld.h); const lw = ld.w * sc, lh = ld.h * sc;
     try { doc.addImage(logo, 'PNG', M, y, lw, lh); } catch { /* ignore */ }
   } else {
     doc.setFont('helvetica', 'bold').setFontSize(16).setTextColor(...INK);

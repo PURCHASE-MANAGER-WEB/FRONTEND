@@ -7,7 +7,7 @@ const rs = (n) => 'Rs. ' + Math.round(Number(n) || 0).toLocaleString('en-IN');
 
 async function loadLogo() {
   try {
-    const r = await fetch('/logo.png');
+    const r = await fetch('/images/tescologo.png');
     if (!r.ok) return null;
     const b = await r.blob();
     return await new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => res(null); fr.readAsDataURL(b); });
@@ -30,8 +30,8 @@ export async function downloadPaymentSlip(data) {
   const LOGO_W = 162;
   let logoH = 0;
   if (logo && logoDims) {
-    logoH = Math.min(58, LOGO_W * logoDims.h / logoDims.w);
-    try { doc.addImage(logo, 'PNG', M, y, LOGO_W, logoH); } catch { /* ignore */ }
+    const sc = Math.min(LOGO_W / logoDims.w, 48 / logoDims.h); const lw = logoDims.w * sc; logoH = logoDims.h * sc;
+    try { doc.addImage(logo, 'PNG', M, y, lw, logoH); } catch { /* ignore */ }
     doc.setFont('helvetica', 'normal').setFontSize(8.5).setTextColor(...MUTE);
     doc.text('Procurement Portal', M + 2, y + logoH + 12);
   } else {
