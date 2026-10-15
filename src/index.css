@@ -80,9 +80,9 @@ body{
 
 /* ───────── KPIs ───────── */
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(176px,1fr));gap:16px}
-.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow-sm);position:relative;overflow:hidden;transition:box-shadow .16s,border-color .16s,transform .16s}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow-sm);position:relative;overflow:hidden;transition:box-shadow .16s,border-color .16s,transform .16s;display:flex;flex-direction:column;min-height:104px}
 .kpi .l{font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:700;padding-right:42px}
-.kpi .v{font:600 27px/1.05 var(--f-mono);margin-top:11px;font-variant-numeric:tabular-nums;letter-spacing:-.015em;color:var(--fg)}
+.kpi .v{font:600 27px/1.05 var(--f-mono);margin-top:auto;padding-top:12px;font-variant-numeric:tabular-nums;letter-spacing:-.015em;color:var(--fg)}
 .kpi .v.bad{color:var(--bad)}
 .kpi-ic{position:absolute;top:15px;right:15px;width:34px;height:34px;border-radius:10px;background:var(--accent-soft);color:var(--accent-ink);display:flex;align-items:center;justify-content:center}
 .kpi:hover{box-shadow:var(--shadow);border-color:color-mix(in srgb,var(--accent) 20%,var(--line));transform:translateY(-1px)}
