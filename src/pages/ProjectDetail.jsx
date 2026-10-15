@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { usePurchaseData } from '../context/PurchaseData';
 import { useToast } from '../components/Toast';
 import { Pill, Drawer, Field } from '../components/ui';
-import { num, inr, dfmt, qfmt, groupPOs, vendorName } from '../utils/procurement';
+import { num, inr, dfmt, qfmt, groupPOs, vendorName, PAYMENT_METHODS } from '../utils/procurement';
 import { openChallanDoc } from '../utils/challanDoc';
 
 const TABS = ['Overview', 'Purchase Orders', 'Payments', 'Budget', 'Delivery Challans'];
@@ -89,7 +89,7 @@ export default function ProjectDetail() {
 
   const blankRow = () => ({
     condition: 'Payment Pending', totalOrderValue: '', collectionSoFar: '',
-    collectionAmount: '', collectionDate: '', update: '', paymentTerms: '',
+    collectionAmount: '', collectionDate: '', method: '', update: '', paymentTerms: '',
     payments: PAY_SLOTS.map(() => ({ amount: '', date: '' })), notes: '',
   });
   const openSched = (r) => {
@@ -101,6 +101,7 @@ export default function ProjectDetail() {
         collectionSoFar: r.collectionSoFar != null ? String(r.collectionSoFar) : '',
         collectionAmount: r.collectionAmount != null ? String(r.collectionAmount) : '',
         collectionDate: r.collectionDate || '',
+        method: r.collectionMethod || '',
         update: r.update || '',
         paymentTerms: r.paymentTerms || '',
         payments: ppPaymentsOf(r).map((p) => ({ amount: p.amount === '' ? '' : String(p.amount), date: p.date || '' })),
@@ -132,6 +133,7 @@ export default function ProjectDetail() {
         collectionSoFar: num(d.collectionSoFar),
         collectionAmount: num(d.collectionAmount),
         collectionDate: d.collectionDate || '',
+        collectionMethod: d.method || '',
         update: String(d.update || '').trim(),
         paymentTerms: String(d.paymentTerms || '').trim(),
         payments: payLines,
@@ -322,6 +324,7 @@ export default function ProjectDetail() {
                   <th className="num">Balance to Pay</th>
                   <th className="num">Collection Amount</th>
                   <th>Collection Date</th>
+                  <th>Method</th>
                   <th>Update</th>
                   <th>Payment Terms</th>
                   {PAY_SLOTS.map((i) => (<React.Fragment key={i}><th className="num">Payment {i + 1}</th><th>Pay {i + 1} Date</th></React.Fragment>))}
@@ -329,7 +332,7 @@ export default function ProjectDetail() {
                 </tr>
               </thead>
               <tbody>
-                {schedule.length === 0 ? (<tr><td colSpan={10 + PAY_SLOTS.length * 2} className="state">No payment records for this project yet. Click "Add payment record" to create one.</td></tr>
+                {schedule.length === 0 ? (<tr><td colSpan={11 + PAY_SLOTS.length * 2} className="state">No payment records for this project yet. Click "Add payment record" to create one.</td></tr>
                 ) : schedule.map((r) => {
                   const pays = ppPaymentsOf(r);
                   return (
@@ -341,6 +344,7 @@ export default function ProjectDetail() {
                       <td className={`num calc ${ppBalance(r) > 0 ? 'overdue' : ''}`}>{inr(ppBalance(r))}</td>
                       <td className="num">{r.collectionAmount ? inr(r.collectionAmount) : '—'}</td>
                       <td>{r.collectionDate ? dfmt(r.collectionDate) : '—'}</td>
+                      <td>{r.collectionMethod || '—'}</td>
                       <td>{r.update || '—'}</td>
                       <td>{r.paymentTerms || '—'}</td>
                       {pays.map((p, i) => (<React.Fragment key={i}><td className="num">{p.amount ? inr(p.amount) : '—'}</td><td>{p.date ? dfmt(p.date) : '—'}</td></React.Fragment>))}
@@ -474,6 +478,7 @@ export default function ProjectDetail() {
             <Field label="Balance to Pay (₹)"><input value={inr(liveBalance)} readOnly tabIndex={-1} className="ro" /></Field>
             <Field label="Collection Amount (₹)"><input type="number" min="0" step="1" value={sched.data.collectionAmount} onChange={(e) => setSD('collectionAmount', e.target.value)} /></Field>
             <Field label="Collection Date"><input type="date" value={sched.data.collectionDate} onChange={(e) => setSD('collectionDate', e.target.value)} /></Field>
+            <Field label="Payment Method"><select value={sched.data.method} onChange={(e) => setSD('method', e.target.value)}><option value="">— Select —</option>{PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}</select></Field>
             <Field label="Payment Terms" full><input value={sched.data.paymentTerms} onChange={(e) => setSD('paymentTerms', e.target.value)} placeholder="e.g. 50% advance, balance on delivery" /></Field>
             <Field label="Update" full><textarea rows={2} value={sched.data.update} onChange={(e) => setSD('update', e.target.value)} placeholder="Latest status / remark" /></Field>
           </div>
