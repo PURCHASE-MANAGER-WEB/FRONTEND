@@ -6,8 +6,8 @@ import { getUser, clearSession, authApi } from '../api/client';
 const NAV = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/vendors', label: 'Vendors', icon: Store },
-  { to: '/purchase-orders', label: 'Purchase Orders', icon: ClipboardList },
   { to: '/projects', label: 'Projects', icon: FolderKanban },
+  { to: '/purchase-orders', label: 'Purchase Orders', icon: ClipboardList },
   { to: '/delivery-challan', label: 'Delivery Challan', icon: Truck },
   { to: '/purchase-progress', label: 'Purchase Progress', icon: TrendingUp },
   { to: '/payment-progress', label: 'Payment Progress', icon: Wallet },
