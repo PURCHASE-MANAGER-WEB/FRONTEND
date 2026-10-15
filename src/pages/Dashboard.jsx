@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ClipboardList, IndianRupee, Wallet, AlertTriangle } from 'lucide-react';
 import { usePurchaseData } from '../context/PurchaseData';
 import { kpis, inr } from '../utils/procurement';
 
@@ -13,10 +14,10 @@ export default function Dashboard() {
   const k = useMemo(() => kpis(lines), [lines]);
 
   const CARDS = [
-    { l: 'Total PO',       v: k.poCount,            to: 'all' },
-    { l: 'Total PO Value', v: inr(k.value),         to: 'all' },
-    { l: 'Outstanding',    v: inr(k.out),           bad: k.out > 0 },
-    { l: 'Overdue',        v: inr(k.overdueAmount), bad: k.overdueAmount > 0, to: 'overdue' },
+    { l: 'Total PO',       v: k.poCount,            to: 'all',     icon: ClipboardList },
+    { l: 'Total PO Value', v: inr(k.value),         to: 'all',     icon: IndianRupee },
+    { l: 'Outstanding',    v: inr(k.out),           bad: k.out > 0, icon: Wallet },
+    { l: 'Overdue',        v: inr(k.overdueAmount), bad: k.overdueAmount > 0, to: 'overdue', icon: AlertTriangle },
   ];
 
   return (
@@ -34,6 +35,7 @@ export default function Dashboard() {
               onClick={clickable ? go : undefined}
               onKeyDown={clickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } } : undefined}
             >
+              {x.icon && <span className="kpi-ic"><x.icon size={17} /></span>}
               <div className="l">{x.l}</div>
               <div className={`v ${x.bad ? 'bad' : ''}`}>{loading ? '—' : x.v}</div>
               {clickable && <div className="kpi-go">View →</div>}

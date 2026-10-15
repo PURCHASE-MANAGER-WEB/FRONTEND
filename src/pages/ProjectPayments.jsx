@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, ReceiptIndianRupee, IndianRupee, Wallet, Clock } from 'lucide-react';
 import { usePurchaseData } from '../context/PurchaseData';
 import { useToast } from '../components/Toast';
 import { Pill, Drawer, Field, StateRow } from '../components/ui';
@@ -92,10 +92,10 @@ export default function ProjectPayments() {
   return (
     <section>
       <section className="kpis" aria-label="Payment summary" style={{ marginBottom: 16 }}>
-        <div className="kpi"><div className="l">Payment Schedules</div><div className="v">{projectPayments.length}</div></div>
-        <div className="kpi"><div className="l">Total Quoted</div><div className="v">{inr(totals.quoted)}</div></div>
-        <div className="kpi"><div className="l">Total Received</div><div className="v">{inr(totals.paid)}</div></div>
-        <div className="kpi"><div className="l">Outstanding</div><div className={`v ${totals.out > 0 ? 'bad' : ''}`}>{inr(totals.out)}</div></div>
+        <div className="kpi"><span className="kpi-ic"><ReceiptIndianRupee size={16} /></span><div className="l">Payment Schedules</div><div className="v">{projectPayments.length}</div></div>
+        <div className="kpi"><span className="kpi-ic"><IndianRupee size={16} /></span><div className="l">Total Quoted</div><div className="v">{inr(totals.quoted)}</div></div>
+        <div className="kpi"><span className="kpi-ic"><Wallet size={16} /></span><div className="l">Total Received</div><div className="v">{inr(totals.paid)}</div></div>
+        <div className="kpi"><span className="kpi-ic"><Clock size={16} /></span><div className="l">Outstanding</div><div className={`v ${totals.out > 0 ? 'bad' : ''}`}>{inr(totals.out)}</div></div>
       </section>
 
       <div className="toolbar">

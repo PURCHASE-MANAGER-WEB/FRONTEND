@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { History, IndianRupee, Wallet, ClipboardList } from 'lucide-react';
 import { usePurchaseData } from '../context/PurchaseData';
 import { Pill, Drawer, Field, StateRow } from '../components/ui';
 import { num, inr, dfmt, groupPOs, vendorName, PAYMENT_METHODS } from '../utils/procurement';
@@ -38,10 +39,10 @@ export default function PaymentHistory() {
   return (
     <section>
       <section className="kpis" aria-label="Payment history summary" style={{ marginBottom: 16 }}>
-        <div className="kpi"><div className="l">Total Payments</div><div className="v">{stats.count}</div></div>
-        <div className="kpi"><div className="l">Total Paid</div><div className="v">{inr(stats.total)}</div></div>
-        <div className="kpi"><div className="l">This Month</div><div className="v">{inr(stats.thisMonth)}</div></div>
-        <div className="kpi"><div className="l">POs Paid</div><div className="v">{stats.pos}</div></div>
+        <div className="kpi"><span className="kpi-ic"><History size={16} /></span><div className="l">Total Payments</div><div className="v">{stats.count}</div></div>
+        <div className="kpi"><span className="kpi-ic"><IndianRupee size={16} /></span><div className="l">Total Paid</div><div className="v">{inr(stats.total)}</div></div>
+        <div className="kpi"><span className="kpi-ic"><Wallet size={16} /></span><div className="l">This Month</div><div className="v">{inr(stats.thisMonth)}</div></div>
+        <div className="kpi"><span className="kpi-ic"><ClipboardList size={16} /></span><div className="l">POs Paid</div><div className="v">{stats.pos}</div></div>
       </section>
 
       <div className="toolbar">

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { usePurchaseData } from '../context/PurchaseData';
 import { useToast } from '../components/Toast';
+import { Truck, CheckCircle2, Clock, AlertTriangle } from 'lucide-react';
 import { Drawer, Field, StateRow } from '../components/ui';
 import { num, qfmt, dfmt, today, groupPOs, vendorName, MATERIALS, UNITS } from '../utils/procurement';
 import { readFileBase64, openChallanDoc, downloadChallanDoc, DOC_MAX_BYTES } from '../utils/challanDoc';
@@ -103,10 +104,10 @@ export default function DeliveryChallan() {
   return (
     <section>
       <section className="kpis" aria-label="Delivery challan summary" style={{ marginBottom: 16 }}>
-        <div className="kpi"><div className="l">Total Challans</div><div className="v">{challans.length}</div></div>
-        <div className="kpi"><div className="l">Received</div><div className="v">{byStatus('Received')}</div></div>
-        <div className="kpi"><div className="l">Partial</div><div className="v">{byStatus('Partial')}</div></div>
-        <div className="kpi"><div className="l">Pending</div><div className="v">{byStatus('Pending')}</div></div>
+        <div className="kpi"><span className="kpi-ic"><Truck size={16} /></span><div className="l">Total Challans</div><div className="v">{challans.length}</div></div>
+        <div className="kpi"><span className="kpi-ic"><CheckCircle2 size={16} /></span><div className="l">Received</div><div className="v">{byStatus('Received')}</div></div>
+        <div className="kpi"><span className="kpi-ic"><Clock size={16} /></span><div className="l">Partial</div><div className="v">{byStatus('Partial')}</div></div>
+        <div className="kpi"><span className="kpi-ic"><AlertTriangle size={16} /></span><div className="l">Pending</div><div className="v">{byStatus('Pending')}</div></div>
       </section>
 
       <div className="toolbar">

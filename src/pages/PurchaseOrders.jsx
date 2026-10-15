@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Plus, Trash2, FileText, Upload } from 'lucide-react';
+import { Plus, Trash2, FileText, Upload, ClipboardList, Clock, CheckCircle2, IndianRupee, Wallet } from 'lucide-react';
 import { usePurchaseData } from '../context/PurchaseData';
 import { purchaseApi } from '../api/client';
 import { useToast } from '../components/Toast';
@@ -231,14 +231,11 @@ export default function PurchaseOrders() {
   return (
     <section>
       <section className="kpis" aria-label="Purchase order summary" style={{ marginBottom: 16 }}>
-        <div className="kpi"><div className="l">Total POs</div><div className="v">{poStats.total}</div></div>
-        <div className="kpi"><div className="l">Draft</div><div className="v">{poStats.draft}</div></div>
-        <div className="kpi"><div className="l">Pending Approval</div><div className="v">{poStats.pendingApproval}</div></div>
-        <div className="kpi"><div className="l">Approved</div><div className="v">{poStats.approved}</div></div>
-        <div className="kpi"><div className="l">Completed</div><div className="v">{poStats.completed}</div></div>
-        <div className="kpi"><div className="l">Cancelled</div><div className="v">{poStats.cancelled}</div></div>
-        <div className="kpi"><div className="l">Total PO Value</div><div className="v">{inr(poStats.totalValue)}</div></div>
-        <div className="kpi"><div className="l">Pending PO Value</div><div className="v">{inr(poStats.pendingValue)}</div></div>
+        <div className="kpi"><span className="kpi-ic"><ClipboardList size={16} /></span><div className="l">Total POs</div><div className="v">{poStats.total}</div></div>
+        <div className="kpi"><span className="kpi-ic"><Clock size={16} /></span><div className="l">Pending Approval</div><div className="v">{poStats.pendingApproval}</div></div>
+        <div className="kpi"><span className="kpi-ic"><CheckCircle2 size={16} /></span><div className="l">Approved</div><div className="v">{poStats.approved}</div></div>
+        <div className="kpi"><span className="kpi-ic"><IndianRupee size={16} /></span><div className="l">Total PO Value</div><div className="v">{inr(poStats.totalValue)}</div></div>
+        <div className="kpi"><span className="kpi-ic"><Wallet size={16} /></span><div className="l">Pending PO Value</div><div className="v">{inr(poStats.pendingValue)}</div></div>
       </section>
       <div className="toolbar">
         <h2>Purchase Order &amp; Material Tracking</h2>

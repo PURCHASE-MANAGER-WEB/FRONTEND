@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { Store, CheckCircle2, IndianRupee, Wallet, Coins, Clock } from 'lucide-react';
 import { usePurchaseData } from '../context/PurchaseData';
 import { useToast } from '../components/Toast';
 import { Pill, Drawer, Field, StateRow } from '../components/ui';
@@ -61,12 +62,12 @@ export default function Vendors() {
   return (
     <section>
       <section className="kpis" aria-label="Vendor summary" style={{ marginBottom: 16 }}>
-        <div className="kpi"><div className="l">Total Vendors</div><div className="v">{vendors.length}</div></div>
-        <div className="kpi"><div className="l">Active Vendors</div><div className="v">{activeVendors}</div></div>
-        <div className="kpi"><div className="l">Total Purchase Value</div><div className="v">{inr(k.value)}</div></div>
-        <div className="kpi"><div className="l">Paid Amount</div><div className="v">{inr(k.paid)}</div></div>
-        <div className="kpi"><div className="l">Outstanding</div><div className="v">{inr(k.out)}</div></div>
-        <div className="kpi"><div className="l">Pending Payments</div><div className="v">{pendingPayments}</div></div>
+        <div className="kpi"><span className="kpi-ic"><Store size={16} /></span><div className="l">Total Vendors</div><div className="v">{vendors.length}</div></div>
+        <div className="kpi"><span className="kpi-ic"><CheckCircle2 size={16} /></span><div className="l">Active Vendors</div><div className="v">{activeVendors}</div></div>
+        <div className="kpi"><span className="kpi-ic"><IndianRupee size={16} /></span><div className="l">Total Purchase Value</div><div className="v">{inr(k.value)}</div></div>
+        <div className="kpi"><span className="kpi-ic"><Wallet size={16} /></span><div className="l">Paid Amount</div><div className="v">{inr(k.paid)}</div></div>
+        <div className="kpi"><span className="kpi-ic"><Coins size={16} /></span><div className="l">Outstanding</div><div className="v">{inr(k.out)}</div></div>
+        <div className="kpi"><span className="kpi-ic"><Clock size={16} /></span><div className="l">Pending Payments</div><div className="v">{pendingPayments}</div></div>
       </section>
       <div className="toolbar">
         <h2>Vendor Registration</h2>

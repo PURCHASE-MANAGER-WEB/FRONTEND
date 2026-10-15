@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { FolderKanban, CheckCircle2, PiggyBank, IndianRupee, Wallet } from 'lucide-react';
 import { usePurchaseData } from '../context/PurchaseData';
 import { useToast } from '../components/Toast';
 import { Pill, Drawer, Field, StateRow } from '../components/ui';
@@ -75,11 +76,11 @@ export default function Projects() {
   return (
     <section>
       <section className="kpis" aria-label="Project summary" style={{ marginBottom: 16 }}>
-        <div className="kpi"><div className="l">Total Projects</div><div className="v">{projects.length}</div></div>
-        <div className="kpi"><div className="l">Active Projects</div><div className="v">{activeCount}</div></div>
-        <div className="kpi"><div className="l">Total Budget</div><div className="v">{inr(totalBudget)}</div></div>
-        <div className="kpi"><div className="l">Total PO Value</div><div className="v">{inr(portfolio.value)}</div></div>
-        <div className="kpi"><div className="l">Outstanding</div><div className="v">{inr(portfolio.out)}</div></div>
+        <div className="kpi"><span className="kpi-ic"><FolderKanban size={16} /></span><div className="l">Total Projects</div><div className="v">{projects.length}</div></div>
+        <div className="kpi"><span className="kpi-ic"><CheckCircle2 size={16} /></span><div className="l">Active Projects</div><div className="v">{activeCount}</div></div>
+        <div className="kpi"><span className="kpi-ic"><PiggyBank size={16} /></span><div className="l">Total Budget</div><div className="v">{inr(totalBudget)}</div></div>
+        <div className="kpi"><span className="kpi-ic"><IndianRupee size={16} /></span><div className="l">Total PO Value</div><div className="v">{inr(portfolio.value)}</div></div>
+        <div className="kpi"><span className="kpi-ic"><Wallet size={16} /></span><div className="l">Outstanding</div><div className="v">{inr(portfolio.out)}</div></div>
       </section>
 
       <div className="toolbar">

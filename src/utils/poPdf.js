@@ -74,7 +74,7 @@ export async function downloadPoPdf(data) {
   // ── Header: logo (left) ──
   let y = 38;
   if (logo && ld) {
-    const lw = 150, lh = Math.min(48, lw * ld.h / ld.w);
+    const lw = 180, lh = Math.min(60, lw * ld.h / ld.w);
     try { doc.addImage(logo, 'PNG', M, y, lw, lh); } catch { /* ignore */ }
   } else {
     doc.setFont('helvetica', 'bold').setFontSize(16).setTextColor(...INK);
@@ -84,7 +84,7 @@ export async function downloadPoPdf(data) {
   }
 
   // ── Title with green rules ──
-  let ty = y + 70;
+  let ty = y + 84;
   doc.setDrawColor(...GREEN).setLineWidth(1.3).line(M, ty - 20, W - M, ty - 20);
   doc.setFont('helvetica', 'bold').setFontSize(17).setTextColor(...INK);
   doc.text('PURCHASE ORDER', W / 2, ty, { align: 'center' });

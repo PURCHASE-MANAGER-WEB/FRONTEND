@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { PiggyBank, IndianRupee, Wallet, AlertTriangle } from 'lucide-react';
 import { usePurchaseData } from '../context/PurchaseData';
 import { useToast } from '../components/Toast';
 import { Drawer, Field, StateRow } from '../components/ui';
@@ -47,10 +48,10 @@ export default function Budget() {
   return (
     <section>
       <section className="kpis" aria-label="Budget summary" style={{ marginBottom: 16 }}>
-        <div className="kpi"><div className="l">Total Allocated</div><div className="v">{inr(totals.allocated)}</div></div>
-        <div className="kpi"><div className="l">Total Utilized (PO Value)</div><div className="v">{inr(totals.utilized)}</div></div>
-        <div className="kpi"><div className="l">Total Remaining</div><div className={`v ${totals.remaining < 0 ? 'bad' : ''}`}>{inr(totals.remaining)}</div></div>
-        <div className="kpi"><div className="l">Over Budget</div><div className={`v ${totals.over > 0 ? 'bad' : ''}`}>{totals.over}</div></div>
+        <div className="kpi"><span className="kpi-ic"><PiggyBank size={16} /></span><div className="l">Total Allocated</div><div className="v">{inr(totals.allocated)}</div></div>
+        <div className="kpi"><span className="kpi-ic"><IndianRupee size={16} /></span><div className="l">Total Utilized (PO Value)</div><div className="v">{inr(totals.utilized)}</div></div>
+        <div className="kpi"><span className="kpi-ic"><Wallet size={16} /></span><div className="l">Total Remaining</div><div className={`v ${totals.remaining < 0 ? 'bad' : ''}`}>{inr(totals.remaining)}</div></div>
+        <div className="kpi"><span className="kpi-ic"><AlertTriangle size={16} /></span><div className="l">Over Budget</div><div className={`v ${totals.over > 0 ? 'bad' : ''}`}>{totals.over}</div></div>
       </section>
 
       <div className="toolbar">

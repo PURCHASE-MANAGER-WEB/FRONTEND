@@ -14,7 +14,7 @@
   --f-body:"IBM Plex Sans","Segoe UI",sans-serif;
   --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
   --radius:12px; --radius-sm:9px;
-  --shadow-sm:0 1px 2px rgba(15,33,71,.05),0 4px 12px -5px rgba(15,33,71,.12);
+  --shadow-sm:0 1px 2px rgba(15,33,71,.04),0 3px 10px -5px rgba(15,33,71,.09);
   --shadow:0 10px 30px -12px rgba(15,33,71,.26);
   --shadow-lg:0 28px 60px -22px rgba(15,33,71,.42);
   --grid:rgba(37,99,235,.05);
@@ -80,12 +80,12 @@ body{
 
 /* ───────── KPIs ───────── */
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(176px,1fr));gap:16px}
-.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:17px 18px 16px;box-shadow:var(--shadow-sm);position:relative;overflow:hidden;transition:box-shadow .16s,border-color .16s,transform .16s}
-.kpi::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;background:linear-gradient(90deg,var(--accent),var(--accent-2))}
-.kpi .l{font-size:10.5px;text-transform:uppercase;letter-spacing:.11em;color:var(--muted);font-weight:600}
-.kpi .v{font:600 26px/1 var(--f-mono);margin-top:9px;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow-sm);position:relative;overflow:hidden;transition:box-shadow .16s,border-color .16s,transform .16s}
+.kpi .l{font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:700;padding-right:42px}
+.kpi .v{font:600 27px/1.05 var(--f-mono);margin-top:11px;font-variant-numeric:tabular-nums;letter-spacing:-.015em;color:var(--fg)}
 .kpi .v.bad{color:var(--bad)}
-.kpi:hover{box-shadow:var(--shadow);border-color:color-mix(in srgb,var(--accent) 22%,var(--line));transform:translateY(-1px)}
+.kpi-ic{position:absolute;top:15px;right:15px;width:34px;height:34px;border-radius:10px;background:var(--accent-soft);color:var(--accent-ink);display:flex;align-items:center;justify-content:center}
+.kpi:hover{box-shadow:var(--shadow);border-color:color-mix(in srgb,var(--accent) 20%,var(--line));transform:translateY(-1px)}
 
 /* ───────── toolbar + inputs ───────── */
 .toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between}
@@ -108,8 +108,8 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-sm);transition:box-shadow .16s}
 .tbl{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-sm)}
 table{border-collapse:collapse;width:100%;font-size:13.5px}
-th{background:var(--sunk);text-align:left;font:700 10.5px var(--f-body);text-transform:uppercase;letter-spacing:.07em;color:var(--muted);padding:12px 13px;white-space:nowrap;border-bottom:1.5px solid var(--line)}
-td{padding:11px 13px;border-top:1px solid var(--line-soft);white-space:nowrap;vertical-align:middle}
+th{background:var(--sunk);text-align:left;font:700 10.5px var(--f-body);text-transform:uppercase;letter-spacing:.07em;color:var(--muted);padding:13px 14px;white-space:nowrap;border-bottom:1px solid var(--line)}
+td{padding:12px 14px;border-top:1px solid var(--line-soft);white-space:nowrap;vertical-align:middle}
 tbody tr{transition:background .12s}
 tbody tr:hover{background:color-mix(in srgb,var(--accent-soft) 32%,transparent)}
 td.num,th.num{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
