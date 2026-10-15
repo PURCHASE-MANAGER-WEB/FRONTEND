@@ -89,7 +89,7 @@ export async function downloadChallanPdf(data) {
   // ── Header: logo ──
   let y = 40;
   if (logo && ld) {
-    const sc = Math.min(150 / ld.w, 50 / ld.h); const lw = ld.w * sc, lh = ld.h * sc;
+    const sc = Math.min(200 / ld.w, 70 / ld.h); const lw = ld.w * sc, lh = ld.h * sc;
     try { doc.addImage(logo, 'PNG', M, y, lw, lh); } catch { /* ignore */ }
   } else {
     doc.setFont('helvetica', 'bold').setFontSize(16).setTextColor(...INK);
@@ -99,7 +99,7 @@ export async function downloadChallanPdf(data) {
   }
 
   // ── Title between green rules ──
-  let ty = y + 78;
+  let ty = y + 96;
   doc.setDrawColor(...GREEN).setLineWidth(1.3).line(M, ty - 20, W - M, ty - 20);
   doc.setFont('helvetica', 'bold').setFontSize(17).setTextColor(...INK);
   doc.text('DELIVERY CHALLAN', W / 2, ty, { align: 'center' });

@@ -13,7 +13,7 @@ import { downloadPaymentSlip } from '../utils/paymentSlip';
 
 const TABS = ['Client Payment', 'Vendor Payment'];
 const blankPay = () => ({ amount: '', date: today(), method: '', refNo: '', remarks: '', dueDate: '' });
-const blankOrder = () => ({ project: '', clientName: '', totalOrderValue: '', paymentTerms: '', dueDate: '', notes: '' });
+const blankOrder = () => ({ project: '', clientName: '', totalOrderValue: '', paymentTerms: '', method: '', dueDate: '', notes: '' });
 
 // Payment Progress — two completely separate ledgers:
 //   • Client Payment  : money RECEIVED from clients, per project order (purchase_project_payments)
@@ -134,7 +134,7 @@ export default function PaymentProgress() {
     setCDetail({
       project: r.project || '', clientName: clientOf(r) === '—' ? '' : clientOf(r),
       totalOrderValue: r.totalOrderValue != null ? String(r.totalOrderValue) : '',
-      paymentTerms: r.paymentTerms || '', dueDate: r.dueDate || '', notes: r.notes || '',
+      paymentTerms: r.paymentTerms || '', method: r.paymentMethod || '', dueDate: r.dueDate || '', notes: r.notes || '',
     });
     setCDrawer({ isNew: false, id: r.id });
   };
@@ -159,6 +159,7 @@ export default function PaymentProgress() {
         clientName: String(d.clientName || '').trim(),
         totalOrderValue: num(d.totalOrderValue),
         paymentTerms: String(d.paymentTerms || '').trim(),
+        paymentMethod: d.method || '',
         dueDate: d.dueDate || '',
         notes: String(d.notes || '').trim(),
       };
@@ -413,6 +414,7 @@ export default function PaymentProgress() {
             <Field label="Order Value (₹) *"><input type="number" min="0" step="any" value={cDetail.totalOrderValue} onChange={e => setCD('totalOrderValue', e.target.value)} /></Field>
             <Field label="Payment Terms"><input value={cDetail.paymentTerms} onChange={e => setCD('paymentTerms', e.target.value)} placeholder="e.g. 50% advance, balance on delivery" /></Field>
             <Field label="Payment Due Date"><input type="date" value={cDetail.dueDate} onChange={e => setCD('dueDate', e.target.value)} /></Field>
+            <Field label="Payment Method"><select value={cDetail.method} onChange={e => setCD('method', e.target.value)}><option value="">— Select —</option>{PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}</select></Field>
             <Field label="Notes"><input value={cDetail.notes} onChange={e => setCD('notes', e.target.value)} placeholder="Any note" /></Field>
           </div>
           {cErr && <div className="err">{cErr}</div>}
