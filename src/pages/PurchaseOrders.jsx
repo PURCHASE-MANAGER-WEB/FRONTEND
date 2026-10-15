@@ -61,7 +61,7 @@ export default function PurchaseOrders() {
     const matchLine = (po) => lines.some(l => l.po === po && [l.material, l.spec, l.description].filter(Boolean).join(' ').toLowerCase().includes(q2));
     return groupPOs(lines)
       .map(g => ({ g, vn: vendorName(vendors, g.vid) }))
-      .filter(({ g, vn }) => statusOkG(g) && (!q2 || [g.po, g.vid, vn, g.project].filter(Boolean).join(' ').toLowerCase().includes(q2) || matchLine(g.po)))
+      .filter(({ g, vn }) => statusOkG(g) && (!q2 || [g.po, g.vid, g.vendorName || vn, g.project].filter(Boolean).join(' ').toLowerCase().includes(q2) || matchLine(g.po)))
       .sort((a, b) => String(a.g.po).localeCompare(String(b.g.po), undefined, { numeric: true }));
   }, [lines, vendors, q, filter]);
 
@@ -102,9 +102,8 @@ export default function PurchaseOrders() {
 
   // ── Simple (quick) PO: project + vendor + material + optional invoice ──
   const openSimple = () => {
-    if (!vendors.length) { toast('Add a vendor first'); return; }
     setSimpleErr('');
-    setSimple({ project: '', vid: vendors[0]?.vid || '', material: '', file: null });
+    setSimple({ project: '', vid: '', vendorOther: '', material: '', file: null });
   };
   const onSimpleFile = (file) => {
     setSimpleErr('');
@@ -117,12 +116,15 @@ export default function PurchaseOrders() {
   const submitSimple = async () => {
     const d = simple;
     if (!String(d.project).trim()) { setSimpleErr('Select or enter a project.'); return; }
+    const isOther = d.vid === '__other__';
     if (!d.vid) { setSimpleErr('Select a vendor.'); return; }
+    if (isOther && !String(d.vendorOther).trim()) { setSimpleErr('Enter the vendor name.'); return; }
     if (!String(d.material).trim()) { setSimpleErr('Enter the material description.'); return; }
     const po = nextPo(lines);
+    const vendorFields = isOther ? { vid: '', vendorName: d.vendorOther.trim() } : { vid: d.vid };
     setSimpleBusy(true);
     try {
-      await purchaseApi.createLine({ id: newId(), po, poDate: today(), vid: d.vid, project: d.project.trim(), material: d.material.trim(), description: d.material.trim(), qty: 0, unit: 'Nos', rate: 0, received: 0, paid: 0, status: 'Approved' });
+      await purchaseApi.createLine({ id: newId(), po, poDate: today(), ...vendorFields, project: d.project.trim(), material: d.material.trim(), description: d.material.trim(), qty: 0, unit: 'Nos', rate: 0, received: 0, paid: 0, status: 'Approved' });
       let invMsg = '';
       if (d.file) { try { await uploadInvoice(d.file, po); } catch { invMsg = ' (invoice upload failed \u2014 add it later)'; } }
       await reload();
@@ -269,29 +271,26 @@ export default function PurchaseOrders() {
       <div className="tbl" style={{ marginTop: 10 }}>
         <table>
           <thead><tr>
-            <th>PO Number</th><th>PO Date</th><th>Vendor</th><th>Project</th><th>Status</th><th className="num">Items</th>
+            <th>PO Number</th><th>PO Date</th><th>Vendor</th><th>Project</th><th className="num">Items</th>
             <th className="num">Ordered</th><th className="num">PO Value</th><th className="num">Received</th><th className="num">Pending</th>
-            <th>Exp. Delivery</th><th className="num">Paid</th><th className="num">Outstanding</th><th>Delivery</th><th>Payment</th><th></th>
+            <th>Exp. Delivery</th><th></th>
           </tr></thead>
           <tbody>
             {loading || error || rows.length === 0 ? (
-              <StateRow cols={16} loading={loading} error={error}
+              <StateRow cols={11} loading={loading} error={error}
                 empty={lines.length ? 'No purchase orders match your search.' : (vendors.length ? 'No purchase orders yet. Add a PO to start tracking.' : 'Add a vendor first, then raise purchase orders against them.')} />
             ) : rows.map(({ g, vn }) => {
               const u = g.unit === 'mixed units' ? '' : ' ' + g.unit;
               return (
                 <tr key={g.po}>
                   <td className="id"><Link className="po-link" to={`/purchase-orders/${encodeURIComponent(g.po)}`}>{g.po}</Link></td>
-                  <td>{dfmt(g.date)}</td><td>{vn}</td><td>{g.project || '—'}</td>
-                  <td className="calc"><Pill s={g.status} /></td>
+                  <td>{dfmt(g.date)}</td><td>{g.vendorName || vn}</td><td>{g.project || '—'}</td>
                   <td className="num">{g.count}</td>
                   <td className="num">{qfmt(g.qty)}{u}</td>
                   <td className="num calc">{inr(g.value)}</td>
                   <td className="num">{qfmt(g.rec)}{u}</td>
                   <td className="num calc">{qfmt(g.pend)}{u}</td>
                   <td className={g.overdueDays > 0 ? 'overdue' : ''}>{dfmt(g.expDate)}{g.overdueDays > 0 ? ` · ${g.overdueDays}d overdue` : (g.dueToday && g.delivery !== 'Completed' ? ' · due today' : '')}</td>
-                  <td className="num">{inr(g.paid)}</td><td className="num calc">{inr(g.out)}</td>
-                  <td className="calc"><Pill s={g.delivery} /></td><td className="calc"><Pill s={g.payment} /></td>
                   <td><button className="link" onClick={() => open(g.po)}>Edit</button></td>
                 </tr>
               );
@@ -299,9 +298,8 @@ export default function PurchaseOrders() {
           </tbody>
           {rows.length > 0 && (
             <tfoot><tr>
-              <td colSpan={7}>Total ({rows.length} PO{rows.length > 1 ? 's' : ''})</td>
-              <td className="num">{inr(totals.total)}</td><td colSpan={3}></td>
-              <td className="num">{inr(totals.paid)}</td><td className="num">{inr(totals.out)}</td><td colSpan={3}></td>
+              <td colSpan={6}>Total ({rows.length} PO{rows.length > 1 ? 's' : ''})</td>
+              <td className="num">{inr(totals.total)}</td><td colSpan={4}></td>
             </tr></tfoot>
           )}
         </table>
@@ -317,8 +315,11 @@ export default function PurchaseOrders() {
             </Field>
             <Field label="Vendor *" full>
               <select value={simple.vid} onChange={(e) => setSimple((s) => ({ ...s, vid: e.target.value }))}>
+                <option value="">— Select vendor —</option>
                 {vendors.map((v) => <option key={v.vid} value={v.vid}>{v.vid} · {v.name}</option>)}
+                <option value="__other__">Other (type manually)</option>
               </select>
+              {simple.vid === '__other__' && <input value={simple.vendorOther} onChange={(e) => setSimple((s) => ({ ...s, vendorOther: e.target.value }))} placeholder="Enter vendor name" style={{ marginTop: 6 }} />}
             </Field>
             <Field label="Material Description *" full><textarea rows={3} value={simple.material} onChange={(e) => setSimple((s) => ({ ...s, material: e.target.value }))} placeholder="What is being ordered" /></Field>
             <Field label="Invoice (PDF, optional)" full>
@@ -358,11 +359,6 @@ export default function PurchaseOrders() {
               </select>
             </Field>
             <Field label="Project Name *" full><input value={editing.project} onChange={e => setHdr('project', e.target.value)} /></Field>
-            <Field label="Status">
-              <select value={editing.status || 'Approved'} onChange={e => setHdr('status', e.target.value)}>
-                {PO_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </Field>
             <Field label="Delivery Date"><input type="date" value={editing.deliveryDate || ''} onChange={e => setHdr('deliveryDate', e.target.value)} /></Field>
             <Field label="Delivery Address" full><textarea rows={2} value={editing.deliveryAddress || ''} onChange={e => setHdr('deliveryAddress', e.target.value)} placeholder="Complete delivery / site address for this order" /></Field>
           </div>

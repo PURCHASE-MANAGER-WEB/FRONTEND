@@ -28,7 +28,7 @@ export default function PaymentProgress() {
   const rows = useMemo(() => {
     const q2 = q.trim().toLowerCase();
     return groups
-      .map(g => ({ g, vn: vendorName(vendors, g.vid) }))
+      .map(g => ({ g, vn: g.vendorName || vendorName(vendors, g.vid) }))
       .filter(({ g, vn }) => !q2 || [g.po, g.vid, vn, g.project].filter(Boolean).join(' ').toLowerCase().includes(q2))
       .sort((a, b) => String(a.g.po).localeCompare(String(b.g.po), undefined, { numeric: true }));
   }, [groups, vendors, q]);
@@ -119,7 +119,7 @@ export default function PaymentProgress() {
               <StateRow cols={11} loading={loading} error={error}
                 empty={groups.length ? 'No POs match your search.' : 'No purchase orders yet. Raise a PO to record payments against it.'} />
             ) : rows.map(({ g, vn }) => (
-              <tr key={g.po}>
+              <tr key={g.po} className="row-click" onClick={() => openManage(g)}>
                 <td className="id">{g.po}</td>
                 <td>{vn}</td>
                 <td>{g.project || '—'}</td>
@@ -130,7 +130,7 @@ export default function PaymentProgress() {
                 <td className="calc"><Pill s={g.payment} /></td>
                 <td>{(() => { const ps = paysOf(g.po); return ps.length ? (ps[0].method || '—') : '—'; })()}</td>
                 <td className="num">{paysOf(g.po).length}</td>
-                <td><button className="link" onClick={() => openManage(g)}>Manage</button></td>
+                <td onClick={(e) => e.stopPropagation()}><button className="link" onClick={() => openManage(g)}>View / Manage</button></td>
               </tr>
             ))}
           </tbody>
@@ -140,7 +140,7 @@ export default function PaymentProgress() {
       {mg && (
         <Drawer onClose={close}>
           <h3>Payments · {mg.po}</h3>
-          <p className="hint">{vendorName(vendors, mg.vid)} · {mg.project || 'No project'}</p>
+          <p className="hint">{mg.vendorName || vendorName(vendors, mg.vid)} · {mg.project || 'No project'}</p>
 
           <div className="kpis" style={{ gridTemplateColumns: 'repeat(3,1fr)', margin: '4px 0 14px' }}>
             <div className="kpi"><div className="l">PO Amount</div><div className="v">{inr(mg.value)}</div></div>
