@@ -27,6 +27,9 @@ export const FAB_WORKS = [
   { desc: 'Roof / wall sheet laying with fixing', unit: 'Sq.ft' },
 ];
 
+// Contract-work service categories offered by fabricators / subcontractors.
+export const FAB_SERVICES = ['Civil Works', 'Painting Works', 'Structural Steel Works', 'Roofing Sheet Installation', 'Electrical Works', 'Wall Panel Works', 'Fabrication Works', 'Plumbing Works', 'Flooring & Tiling Works', 'Waterproofing Works', 'Interior & Exterior Works', 'False Ceiling Works', 'Glass & Aluminium Works'];
+
 // Standard terms & conditions printed on a Fabricator Purchase Order. Editable per
 // PO in the form; this is the default/fallback used by the form and the PDF.
 export const FAB_TERMS = [

@@ -4,7 +4,7 @@ import { usePurchaseData } from '../context/PurchaseData';
 import { useToast } from '../components/Toast';
 import { isRestrictedPM } from '../api/client';
 import { Pill, Drawer, Field, StateRow } from '../components/ui';
-import { calcLine, num, inr, TERMS, VENDOR_STATUS, kpis, groupPOs, MATERIALS } from '../utils/procurement';
+import { calcLine, num, inr, TERMS, VENDOR_STATUS, kpis, groupPOs, MATERIALS, FAB_SERVICES } from '../utils/procurement';
 
 // Shared master for purchase partners. kind = 'Supplier' (Vendors) or 'Fabricator'
 // (Fabricators). Both live in the same purchase_suppliers collection, distinguished
@@ -96,7 +96,7 @@ export default function VendorManager({ kind = 'Supplier' }) {
         <table>
           <thead><tr>
             <th>{Label} ID</th><th>{Label} Name</th><th>Contact</th><th>Mobile</th><th>Email</th>
-            {!isFab && <th>GST Number</th>}<th>Material / Service</th><th className="num">Credit Limit</th><th>Terms</th><th>Status</th>
+            {!isFab && <th>GST Number</th>}<th>{isFab ? 'Service' : 'Material / Service'}</th><th className="num">Credit Limit</th><th>Terms</th><th>Status</th>
             {!pm && <th className="num">Outstanding</th>}
             {!pm && <th className="num">Available Credit</th>}
             <th></th>
@@ -140,26 +140,27 @@ export default function VendorManager({ kind = 'Supplier' }) {
             <Field label={`${Label} Name *`} full><input value={editing.data.name} onChange={e => set('name', e.target.value)} /></Field>
             <Field label="Contact Person"><input value={editing.data.contact} onChange={e => set('contact', e.target.value)} /></Field>
             <Field label="Mobile Number"><input inputMode="tel" value={editing.data.mobile} onChange={e => set('mobile', e.target.value)} placeholder="10-digit mobile" /></Field>
-            <Field label="Email" full><input type="email" value={editing.data.email} onChange={e => set('email', e.target.value)} /></Field>
+            {!isFab && <Field label="Email" full><input type="email" value={editing.data.email} onChange={e => set('email', e.target.value)} /></Field>}
             <Field label="Address" full><input value={editing.data.address} onChange={e => set('address', e.target.value)} /></Field>
             {!isFab && <Field label="GST Number"><input value={editing.data.gst} maxLength={15} style={{ textTransform: 'uppercase' }} onChange={e => set('gst', e.target.value)} placeholder="15-character GSTIN" /></Field>}
-            <Field label="Material / Service">
+            <Field label={isFab ? 'Service' : 'Material / Service'}>
               {(() => {
-                const KNOWN = MATERIALS.filter(m => m !== 'Other');
+                const LIST = isFab ? FAB_SERVICES : MATERIALS;
+                const KNOWN = LIST.filter(m => m !== 'Other');
                 const mat = editing.data.material || '';
                 const isOther = mat === 'Other' || (mat !== '' && !KNOWN.includes(mat));
                 return (<>
                   <select value={isOther ? 'Other' : mat} onChange={e => set('material', e.target.value)}>
-                    <option value="">Select material</option>
+                    <option value="">{isFab ? 'Select service' : 'Select material'}</option>
                     {KNOWN.map(m => <option key={m} value={m}>{m}</option>)}
                     <option value="Other">Other</option>
                   </select>
-                  {isOther && <input placeholder="Enter material / service" value={mat === 'Other' ? '' : mat} onChange={e => set('material', e.target.value)} style={{ marginTop: 6 }} />}
+                  {isOther && <input placeholder={isFab ? 'Enter service' : 'Enter material / service'} value={mat === 'Other' ? '' : mat} onChange={e => set('material', e.target.value)} style={{ marginTop: 6 }} />}
                 </>);
               })()}
             </Field>
-            <Field label="Credit Limit (₹)"><input type="number" min="0" step="1000" value={editing.data.creditLimit} onChange={e => set('creditLimit', e.target.value)} /></Field>
-            <Field label="Payment Terms"><select value={editing.data.terms} onChange={e => set('terms', e.target.value)}>{TERMS.map(t => <option key={t}>{t}</option>)}</select></Field>
+            {!isFab && <Field label="Credit Limit (₹)"><input type="number" min="0" step="1000" value={editing.data.creditLimit} onChange={e => set('creditLimit', e.target.value)} /></Field>}
+            {!isFab && <Field label="Payment Terms"><select value={editing.data.terms} onChange={e => set('terms', e.target.value)}>{TERMS.map(t => <option key={t}>{t}</option>)}</select></Field>}
           </div>
           {formErr && <div className="err">{formErr}</div>}
           <div className="actions">

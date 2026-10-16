@@ -116,6 +116,8 @@ export default function ProjectDetail() {
   const closeSched = () => { setSched(null); setConfirmDel(false); };
   const setSD = (k, v) => setSched((e) => ({ ...e, data: { ...e.data, [k]: v } }));
   const setPay = (i, k, v) => setSched((e) => ({ ...e, data: { ...e.data, payments: e.data.payments.map((p, idx) => idx === i ? { ...p, [k]: v } : p) } }));
+  const addPay = () => setSched((e) => ({ ...e, data: { ...e.data, payments: [...e.data.payments, { amount: '', date: '' }] } }));
+  const removePay = (i) => setSched((e) => ({ ...e, data: { ...e.data, payments: e.data.payments.length > 1 ? e.data.payments.filter((_, idx) => idx !== i) : e.data.payments } }));
 
   const liveBalance = sched ? (num(sched.data.totalOrderValue) - num(sched.data.collectionSoFar)) : 0;
 
@@ -485,13 +487,14 @@ export default function ProjectDetail() {
             <Field label="Update" full><textarea rows={2} value={sched.data.update} onChange={(e) => setSD('update', e.target.value)} placeholder="Latest status / remark" /></Field>
           </div>
           <div className="pp-sched">
-            <div className="po-items-head"><span>Payment Installments</span></div>
+            <div className="po-items-head"><span>Payment Installments</span><button type="button" className="link" onClick={addPay}>+ Add payment</button></div>
             <div className="pp-head"><span>#</span><span>Amount (₹)</span><span>Date</span></div>
             {sched.data.payments.map((p, i) => (
               <div key={i} className="pp-row">
                 <span className="pp-n">Payment {i + 1}</span>
                 <input type="number" min="0" step="1" placeholder="Amount" value={p.amount} onChange={(e) => setPay(i, 'amount', e.target.value)} />
                 <input type="date" value={p.date} onChange={(e) => setPay(i, 'date', e.target.value)} />
+                {sched.data.payments.length > 1 && <button type="button" className="pp-del" title="Remove payment" onClick={() => removePay(i)}>×</button>}
               </div>
             ))}
           </div>
@@ -539,7 +542,9 @@ export default function ProjectDetail() {
         .bh-blue{color:#1d4ed8}
         tr.bh-total td{background:var(--accent-soft);font-weight:800;color:var(--fg);border-top:2px solid var(--accent)}
         .pp-sched{margin-top:14px;border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--surface)}
-        .pp-head,.pp-row{display:grid;grid-template-columns:110px 1fr 160px;gap:8px;align-items:center}
+        .pp-head,.pp-row{display:grid;grid-template-columns:110px 1fr 160px 30px;gap:8px;align-items:center}
+        .pp-del{width:26px;height:26px;border:1px solid var(--line);border-radius:7px;background:none;color:var(--bad);cursor:pointer;font-size:17px;line-height:1;display:flex;align-items:center;justify-content:center}
+        .pp-del:hover{background:var(--bad-bg)}
         .pp-head{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);padding:0 2px 8px}
         .pp-row{margin-bottom:8px}
         .pp-row .pp-n{font:600 13px var(--f-body);color:var(--muted)}
@@ -547,7 +552,7 @@ export default function ProjectDetail() {
         .pp-row input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
         input.ro{background:var(--sunk,#f1f5f9);cursor:not-allowed}
         .link.danger{color:var(--bad)}
-        @media (max-width:640px){.pp-head{display:none}.pp-row{grid-template-columns:1fr 1fr;grid-auto-rows:auto}.pp-row .pp-n{grid-column:1/-1}}
+        @media (max-width:640px){.pp-head{display:none}.pp-row{grid-template-columns:1fr 1fr 28px;grid-auto-rows:auto}.pp-row .pp-n{grid-column:1/-1}}
       `}</style>
     </section>
   );
