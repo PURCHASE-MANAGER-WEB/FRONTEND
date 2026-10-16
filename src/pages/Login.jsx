@@ -51,8 +51,8 @@ export default function Login() {
     if (params.get('loggedout') === '1') { clearSession(); return; }
     if (isAuthenticated()) {
       const r = getUser()?.role;
-      if (r === 'accounts_manager') navigate('/accounts/dashboard', { replace: true });
-      else if (r === APP_ROLE) navigate('/dashboard', { replace: true });
+      // Accounts Manager uses the SAME full portal as Purchase Head.
+      if (r === APP_ROLE || r === 'accounts_manager') navigate('/dashboard', { replace: true });
     }
   }, [navigate]);
 
@@ -75,7 +75,7 @@ export default function Login() {
         return;
       }
       setSession(data.token, data.user);
-      navigate(role === 'accounts_manager' ? '/accounts/dashboard' : '/dashboard', { replace: true });
+      navigate('/dashboard', { replace: true });
     } catch (err) {
       if (/deactivat/i.test(err.message || '')) {
         clearSession();

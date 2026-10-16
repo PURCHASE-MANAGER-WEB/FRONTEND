@@ -35,16 +35,14 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
-// Role-based area gating. An Accounts Manager may only reach the /accounts/* module;
-// a Purchase Manager may only reach the purchase module. This mirrors the sidebar and
-// blocks hand-edited URLs from crossing into the other role's screens. The backend is
-// the real authority (it re-derives the role from the account on every request).
+// Area gating. Purchase Head and Accounts Manager share ONE full portal; the separate
+// /accounts/* module is retired, so any such URL redirects to the dashboard. The
+// restricted Purchase Manager designation is kept out of the money modules. The backend
+// is the real authority (it re-derives the role from the account on every request).
 const AreaGuard = ({ children }) => {
   const loc = useLocation();
-  const role = getUser()?.role;
-  const isAccountsPath = loc.pathname.startsWith('/accounts');
-  if (role === 'accounts_manager' && !isAccountsPath) return <Navigate to="/accounts/dashboard" replace />;
-  if (role !== 'accounts_manager' && isAccountsPath) return <Navigate to="/dashboard" replace />;
+  // Separate Accounts portal retired: Accounts Manager uses the same Purchase Head portal.
+  if (loc.pathname.startsWith('/accounts')) return <Navigate to="/dashboard" replace />;
   // Restricted Purchase Manager designation: no Payment Progress (accounts/money).
   if (isRestrictedPM() && loc.pathname.startsWith('/payment-progress')) return <Navigate to="/dashboard" replace />;
   return children;

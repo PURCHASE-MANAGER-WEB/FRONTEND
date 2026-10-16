@@ -12,14 +12,6 @@ const NAV = [
   { to: '/delivery-challan', label: 'Delivery Challan', icon: Truck },
   { to: '/purchase-progress', label: 'Purchase Progress', icon: TrendingUp },
   { to: '/payment-progress', label: 'Payment Progress', icon: Wallet, pmHidden: true },
-  { separator: true, label: 'Accounts Department' },
-  { to: '/accounts/dashboard', label: 'Accounts Dashboard', icon: LayoutDashboard },
-  { to: '/accounts/invoices', label: 'Invoice Management', icon: FileText },
-  { to: '/accounts/verification', label: 'Verification', icon: CheckSquare },
-  { to: '/accounts/payments', label: 'Payments Tracker', icon: Wallet },
-  { to: '/accounts/vendors', label: 'Vendor Accounts', icon: Users },
-  { to: '/accounts/fabricators', label: 'Fabricator Accounts', icon: Users },
-  { to: '/accounts/projects', label: 'Project Accounts', icon: ClipboardList },
 ];
 
 export default function Sidebar({ open, onNavigate }) {
@@ -37,11 +29,9 @@ export default function Sidebar({ open, onNavigate }) {
 
   const restricted = isRestrictedPM();
   const filteredNav = NAV.filter(item => {
-    if (isAccounts) {
-      return item.to?.startsWith('/accounts'); // omit separator for Accounts Manager
-    }
+    // One shared portal: Purchase Head and Accounts Manager see the full purchase nav.
     if (item.separator || item.to?.startsWith('/accounts')) return false;
-    if (restricted && item.pmHidden) return false; // Purchase Manager: no accounts/payment modules
+    if (restricted && item.pmHidden) return false; // Purchase Manager: no payment module
     return true;
   });
 
@@ -53,7 +43,7 @@ export default function Sidebar({ open, onNavigate }) {
             <span className="tile"><img src="/logo2-_21iriWQ.png" alt="Tesco Structures" /></span>
             <div>
               <b>Tesco Structures</b>
-              <span>{isAccounts ? 'Accounts Portal' : 'Procurement Portal'}</span>
+              <span>Procurement Portal</span>
             </div>
           </div>
         </div>
