@@ -53,6 +53,31 @@ export default function AppLayout() {
     return () => document.removeEventListener('mousedown', onDoc);
   }, []);
 
+  // Auto-fit large amounts inside summary cards: shrink each value's font just enough
+  // to fit its card width, so no amount clips or overflows while every card keeps its
+  // fixed height. Re-runs on route change, data updates (MutationObserver), resize and
+  // web-font load. Only the font-size style is touched, so it never loops.
+  useEffect(() => {
+    let raf = 0;
+    const fitOne = (el) => {
+      el.style.whiteSpace = 'nowrap';
+      el.style.fontSize = '';
+      const base = parseFloat(getComputedStyle(el).fontSize) || 24;
+      let size = base, guard = 0;
+      while (el.scrollWidth > el.clientWidth + 0.5 && size > 12 && guard < 80) {
+        size -= 0.5; el.style.fontSize = size + 'px'; guard++;
+      }
+    };
+    const fit = () => { document.querySelectorAll('.dc-v, .kpi .v').forEach(fitOne); };
+    const schedule = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(fit); };
+    schedule();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(schedule).catch(() => {});
+    window.addEventListener('resize', schedule);
+    const obs = new MutationObserver(schedule);
+    obs.observe(document.body, { subtree: true, childList: true, characterData: true });
+    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', schedule); obs.disconnect(); };
+  }, [loc.pathname]);
+
   const goOverdue = () => { setBellOpen(false); navigate('/purchase-orders?filter=overdue'); };
 
   return (
