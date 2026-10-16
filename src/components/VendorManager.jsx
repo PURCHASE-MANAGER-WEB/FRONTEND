@@ -144,20 +144,21 @@ export default function VendorManager({ kind = 'Supplier' }) {
             <Field label="Address" full><input value={editing.data.address} onChange={e => set('address', e.target.value)} /></Field>
             {!isFab && <Field label="GST Number"><input value={editing.data.gst} maxLength={15} style={{ textTransform: 'uppercase' }} onChange={e => set('gst', e.target.value)} placeholder="15-character GSTIN" /></Field>}
             <Field label={isFab ? 'Service' : 'Material / Service'}>
-              {(() => {
-                const LIST = isFab ? FAB_SERVICES : MATERIALS;
-                const KNOWN = LIST.filter(m => m !== 'Other');
+              {isFab ? (() => {
+                const KNOWN = FAB_SERVICES;
                 const mat = editing.data.material || '';
                 const isOther = mat === 'Other' || (mat !== '' && !KNOWN.includes(mat));
                 return (<>
                   <select value={isOther ? 'Other' : mat} onChange={e => set('material', e.target.value)}>
-                    <option value="">{isFab ? 'Select service' : 'Select material'}</option>
+                    <option value="">Select service</option>
                     {KNOWN.map(m => <option key={m} value={m}>{m}</option>)}
                     <option value="Other">Other</option>
                   </select>
-                  {isOther && <input placeholder={isFab ? 'Enter service' : 'Enter material / service'} value={mat === 'Other' ? '' : mat} onChange={e => set('material', e.target.value)} style={{ marginTop: 6 }} />}
+                  {isOther && <input placeholder="Enter service" value={mat === 'Other' ? '' : mat} onChange={e => set('material', e.target.value)} style={{ marginTop: 6 }} />}
                 </>);
-              })()}
+              })() : (
+                <input value={editing.data.material} onChange={e => set('material', e.target.value)} placeholder="Enter material / service" />
+              )}
             </Field>
             {!isFab && <Field label="Credit Limit (₹)"><input type="number" min="0" step="1000" value={editing.data.creditLimit} onChange={e => set('creditLimit', e.target.value)} /></Field>}
             {!isFab && <Field label="Payment Terms"><select value={editing.data.terms} onChange={e => set('terms', e.target.value)}>{TERMS.map(t => <option key={t}>{t}</option>)}</select></Field>}
