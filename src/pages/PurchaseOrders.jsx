@@ -105,7 +105,7 @@ export default function PurchaseOrders() {
   // ── Simple (quick) PO: project + vendor + material + optional invoice ──
   const openSimple = () => {
     setSimpleErr('');
-    setSimple({ project: '', vid: '', vendorOther: '', material: '', file: null });
+    setSimple({ project: '', vid: '', vendorOther: '', material: '', value: '', file: null });
   };
   const onSimpleFile = (file) => {
     setSimpleErr('');
@@ -126,7 +126,7 @@ export default function PurchaseOrders() {
     const vendorFields = isOther ? { vid: '', vendorName: d.vendorOther.trim() } : { vid: d.vid };
     setSimpleBusy(true);
     try {
-      await purchaseApi.createLine({ id: newId(), po, poDate: today(), ...vendorFields, project: d.project.trim(), material: d.material.trim(), description: d.material.trim(), qty: 0, unit: 'Nos', rate: 0, received: 0, paid: 0, status: 'Approved' });
+      await purchaseApi.createLine({ id: newId(), po, poDate: today(), ...vendorFields, project: d.project.trim(), material: d.material.trim(), description: d.material.trim(), qty: num(d.value) > 0 ? 1 : 0, unit: 'Nos', rate: num(d.value), received: 0, paid: 0, status: 'Approved' });
       let invMsg = '';
       if (d.file) { try { await uploadInvoice(d.file, po); } catch { invMsg = ' (invoice upload failed \u2014 add it later)'; } }
       await reload();
@@ -324,6 +324,7 @@ export default function PurchaseOrders() {
               {simple.vid === '__other__' && <input value={simple.vendorOther} onChange={(e) => setSimple((s) => ({ ...s, vendorOther: e.target.value }))} placeholder="Enter vendor name" style={{ marginTop: 6 }} />}
             </Field>
             <Field label="Material Description *" full><textarea rows={3} value={simple.material} onChange={(e) => setSimple((s) => ({ ...s, material: e.target.value }))} placeholder="What is being ordered" /></Field>
+            <Field label="PO Value (₹)" full><input type="number" min="0" step="any" value={simple.value} onChange={(e) => setSimple((s) => ({ ...s, value: e.target.value }))} placeholder="Total order value (optional)" /></Field>
             <Field label="Invoice (PDF, optional)" full>
               {simple.file ? (
                 <div className="inv-row"><FileText size={18} /><span className="inv-name">{simple.file.name}</span><span className="inv-size">{kb(simple.file.size)}</span><button type="button" className="link" onClick={() => setSimple((s) => ({ ...s, file: null }))}>Remove</button></div>

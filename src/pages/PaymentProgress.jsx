@@ -108,10 +108,21 @@ export default function PaymentProgress() {
 
   const cRows = useMemo(() => {
     const q2 = q.trim().toLowerCase();
-    return (Array.isArray(projectPayments) ? projectPayments : [])
-      .map(r => ({ r, client: clientOf(r) }))
-      .filter(({ r, client }) => !q2 || [r.project, r.customerName, client, r.paymentTerms].filter(Boolean).join(' ').toLowerCase().includes(q2))
-      .sort((a, b) => String(cpLastDate(b.r) || '').localeCompare(String(cpLastDate(a.r) || '')));
+    const pays = Array.isArray(projectPayments) ? projectPayments : [];
+    const recFor = (name) => pays.find(r => (r.project || r.customerName) === name) || null;
+    const projNames = (projects || []).map(p => p.name);
+    // Every existing project shows here, with its client-payment record if one exists yet.
+    const projRows = (projects || []).map(p => { const r = recFor(p.name); return { key: 'p:' + p.name, projectName: p.name, r, proj: p, client: r ? clientOf(r) : (p.client || '—') }; });
+    // Plus any client-payment records not tied to a current project (manually-added orders).
+    const extraRows = pays.filter(r => !projNames.includes(r.project || r.customerName))
+      .map(r => ({ key: 'r:' + r.id, projectName: r.project || r.customerName || '—', r, proj: null, client: clientOf(r) }));
+    return [...projRows, ...extraRows]
+      .filter(({ projectName, client, r }) => !q2 || [projectName, client, r && r.paymentTerms].filter(Boolean).join(' ').toLowerCase().includes(q2))
+      .sort((a, b) => {
+        const la = a.r ? (cpLastDate(a.r) || '') : '', lb = b.r ? (cpLastDate(b.r) || '') : '';
+        if (la || lb) return String(lb).localeCompare(String(la));
+        return String(a.projectName).localeCompare(String(b.projectName), undefined, { numeric: true });
+      });
   }, [projectPayments, projects, q]);
 
   const cCards = useMemo(() => {
@@ -137,6 +148,13 @@ export default function PaymentProgress() {
       paymentTerms: r.paymentTerms || '', method: r.paymentMethod || '', dueDate: r.dueDate || '', notes: r.notes || '',
     });
     setCDrawer({ isNew: false, id: r.id });
+  };
+  // A project with no client-payment record yet: open the drawer pre-filled so saving
+  // order details / a receipt creates its record.
+  const openClientForProject = (proj) => {
+    setCErr(''); setCConfirmDel(false); setCForm(blankPay());
+    setCDetail({ project: proj.name, clientName: proj.client || '', totalOrderValue: '', paymentTerms: '', method: '', dueDate: '', notes: '' });
+    setCDrawer({ isNew: true, id: null });
   };
   const closeClient = () => { setCDrawer(null); setCErr(''); setCConfirmDel(false); };
   const setCD = (k, v) => setCDetail(d => ({ ...d, [k]: v }));
@@ -267,21 +285,22 @@ export default function PaymentProgress() {
               <tbody>
                 {loading || error || cRows.length === 0 ? (
                   <StateRow cols={10} loading={loading} error={error}
-                    empty={(projectPayments || []).length ? 'No client orders match your search.' : 'No client orders yet. Click "New client order" to start tracking a client payment.'} />
-                ) : cRows.map(({ r, client }) => {
-                  const od = cpOverdueDays(r);
+                    empty={((projects || []).length || (projectPayments || []).length) ? 'No projects or client orders match your search.' : 'No projects yet. Add a project, or click "New client order" to start tracking a client payment.'} />
+                ) : cRows.map(({ key, projectName, r, proj, client }) => {
+                  const od = r ? cpOverdueDays(r) : 0;
+                  const manageRow = () => (r ? openClientManage(r) : openClientForProject(proj));
                   return (
-                    <tr key={r.id} className="row-click" onClick={() => openClientManage(r)}>
-                      <td>{r.project || '—'}</td>
+                    <tr key={key} className="row-click" onClick={manageRow}>
+                      <td>{projectName || '—'}</td>
                       <td><b>{client}</b></td>
-                      <td className="num">{inr(cpOrderValue(r))}</td>
-                      <td>{r.paymentTerms || '—'}</td>
-                      <td className="num calc">{inr(cpReceived(r))}</td>
-                      <td className={od > 0 ? 'overdue' : ''}>{cpLastDate(r) ? dfmt(cpLastDate(r)) : '—'}{od > 0 ? ` · ${od}d overdue` : ''}</td>
-                      <td className={`num calc ${cpOutstanding(r) > 0 ? 'overdue' : ''}`}>{inr(cpOutstanding(r))}</td>
-                      <td className="calc"><Pill s={cpStatus(r)} /></td>
-                      <td className="num">{cpReceipts(r).length}</td>
-                      <td onClick={(e) => e.stopPropagation()}><button className="link" onClick={() => openClientManage(r)}>View / Manage</button></td>
+                      <td className="num">{r ? inr(cpOrderValue(r)) : '—'}</td>
+                      <td>{(r && r.paymentTerms) || '—'}</td>
+                      <td className="num calc">{r ? inr(cpReceived(r)) : '—'}</td>
+                      <td className={od > 0 ? 'overdue' : ''}>{r && cpLastDate(r) ? dfmt(cpLastDate(r)) : '—'}{od > 0 ? ` · ${od}d overdue` : ''}</td>
+                      <td className={`num calc ${r && cpOutstanding(r) > 0 ? 'overdue' : ''}`}>{r ? inr(cpOutstanding(r)) : '—'}</td>
+                      <td className="calc">{r ? <Pill s={cpStatus(r)} /> : <Pill s="No order" />}</td>
+                      <td className="num">{r ? cpReceipts(r).length : 0}</td>
+                      <td onClick={(e) => e.stopPropagation()}><button className="link" onClick={manageRow}>{r ? 'View / Manage' : 'Add payment'}</button></td>
                     </tr>
                   );
                 })}

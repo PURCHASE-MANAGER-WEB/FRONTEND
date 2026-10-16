@@ -146,7 +146,7 @@ export default function Projects() {
         <h2>Projects</h2>
         <div className="right">
           <input className="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search projects…" aria-label="Search projects" />
-          <button className="btn primary" onClick={() => open(null)}>+ Add project</button>
+          {!pm && <button className="btn primary" onClick={() => open(null)}>+ Add project</button>}
         </div>
       </div>
 

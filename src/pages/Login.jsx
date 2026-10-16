@@ -180,14 +180,9 @@ export default function Login() {
 
           {/* ── Left hero ── */}
           <div className="left-hero-card" style={{ background: `linear-gradient(135deg, ${HERO_FROM} 0%, ${HERO_TO} 100%)`, border: `1px solid ${HERO_BORDER}`, borderRadius: '1.5rem', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', boxShadow: '0 4px 20px -2px rgba(199,210,254,0.35)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-              <div style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 5, boxShadow: '0 2px 8px rgba(30,27,75,0.12)' }}>
-                <img src="/logo.png" alt="Tesco Structures" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
-              </div>
-              <div>
-                <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#1E1B4B', letterSpacing: '-0.3px', lineHeight: 1 }}>Tesco Structures</div>
-                <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: ACCENT, marginTop: 3 }}>Procurement</div>
-              </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+              <img src="/tescologo2.png" alt="Tesco Structures" style={{ height: 44, width: 'auto', maxWidth: '250px', objectFit: 'contain', display: 'block' }} />
+              <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: ACCENT, paddingLeft: 2 }}>Procurement</div>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
