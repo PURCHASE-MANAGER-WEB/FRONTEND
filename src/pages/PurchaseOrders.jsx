@@ -6,6 +6,7 @@ import { purchaseApi } from '../api/client';
 import { useToast } from '../components/Toast';
 import { Pill, Drawer, Field, StateRow } from '../components/ui';
 import ComboBox from '../components/ComboBox';
+import FabricatorPO from '../components/FabricatorPO';
 import { calcLine, calcPO, poCharges, amountInWords, groupPOs, num, inr, qfmt, dfmt, today, vendorName, nextPo, UNITS, PAYMENT_METHODS, PO_STATUSES, MATERIALS } from '../utils/procurement';
 import { uploadInvoice, openInvoice, downloadInvoice } from '../utils/cloudinary';
 
@@ -43,6 +44,7 @@ export default function PurchaseOrders() {
   const [simple, setSimple] = useState(null);
   const [simpleErr, setSimpleErr] = useState('');
   const [simpleBusy, setSimpleBusy] = useState(false);
+  const [fab, setFab] = useState(null); // { poKey } for the fabricator work-order form
   const [searchParams, setSearchParams] = useSearchParams();
 
   const filter = searchParams.get('filter') || 'all';
@@ -205,8 +207,9 @@ export default function PurchaseOrders() {
   // Deep link from the PO Details page: /purchase-orders?edit=PO-003 opens that PO.
   useEffect(() => {
     const ep = searchParams.get('edit');
-    if (ep && !editing && vendors.length && lines.some(l => l.po === ep)) {
-      open(ep);
+    if (ep && !editing && !fab && vendors.length && lines.some(l => l.po === ep)) {
+      const first = lines.find(l => l.po === ep);
+      if (first && first.poType === 'fabricator') setFab({ poKey: ep }); else open(ep);
       const next = new URLSearchParams(searchParams); next.delete('edit'); setSearchParams(next, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -254,6 +257,7 @@ export default function PurchaseOrders() {
               <div className="newpo-menu" role="menu">
                 <button role="menuitem" onClick={() => { setNewMenu(false); openSimple(); }}><b>Simple Form</b><span>Quick PO — project, material, invoice</span></button>
                 <button role="menuitem" onClick={() => { setNewMenu(false); open(null); }}><b>Detailed Form</b><span>Full PO — items, quantities, tax &amp; terms</span></button>
+                <button role="menuitem" onClick={() => { setNewMenu(false); setFab({ poKey: null }); }}><b>Fabricator Work Order</b><span>Labour work — fabrication, erection, painting</span></button>
               </div>
             )}
           </div>
@@ -281,7 +285,7 @@ export default function PurchaseOrders() {
               const u = g.unit === 'mixed units' ? '' : ' ' + g.unit;
               return (
                 <tr key={g.po}>
-                  <td className="id"><Link className="po-link" to={`/purchase-orders/${encodeURIComponent(g.po)}`}>{g.po}</Link></td>
+                  <td className="id"><Link className="po-link" to={`/purchase-orders/${encodeURIComponent(g.po)}`}>{g.po}</Link>{g.poType === 'fabricator' ? <span className="fab-tag">Fabricator</span> : null}</td>
                   <td>{dfmt(g.date)}</td><td>{g.vendorName || vn}</td><td>{g.project || '—'}</td>
                   <td className="num">{g.count}</td>
                   <td className="num">{qfmt(g.qty)}{u}</td>
@@ -289,7 +293,7 @@ export default function PurchaseOrders() {
                   <td className="num">{qfmt(g.rec)}{u}</td>
                   <td className="num calc">{qfmt(g.pend)}{u}</td>
                   <td className={g.overdueDays > 0 ? 'overdue' : ''}>{dfmt(g.expDate)}{g.overdueDays > 0 ? ` · ${g.overdueDays}d overdue` : (g.dueToday && g.delivery !== 'Completed' ? ' · due today' : '')}</td>
-                  <td><button className="link" onClick={() => open(g.po)}>Edit</button></td>
+                  <td><button className="link" onClick={() => g.poType === 'fabricator' ? setFab({ poKey: g.po }) : open(g.po)}>Edit</button></td>
                 </tr>
               );
             })}
@@ -338,6 +342,8 @@ export default function PurchaseOrders() {
           </div>
         </Drawer>
       )}
+
+      {fab && <FabricatorPO poKey={fab.poKey} onClose={() => setFab(null)} />}
 
       {editing && (
         <Drawer onClose={close}>
@@ -505,6 +511,7 @@ export default function PurchaseOrders() {
         .filter-note b{color:var(--accent-ink);text-transform:capitalize}
         .po-link{color:var(--accent-ink);font-weight:700;text-decoration:none;border-bottom:1px dotted var(--accent);cursor:pointer}
         .po-link:hover{text-decoration:none;border-bottom-style:solid}
+        .fab-tag{display:inline-block;margin-left:8px;font:700 9.5px var(--f-body);text-transform:uppercase;letter-spacing:.05em;color:var(--accent-ink);background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 22%,transparent);border-radius:6px;padding:2px 6px;vertical-align:middle}
         .sub-desc{font-size:11.5px;color:var(--muted);margin-top:2px;max-width:240px;white-space:normal;line-height:1.35}
         .po-items,.po-charges{margin-top:18px}
         .po-items-head{display:flex;align-items:center;justify-content:space-between;margin:0 0 10px}

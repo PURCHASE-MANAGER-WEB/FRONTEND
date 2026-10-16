@@ -15,6 +15,32 @@ export const TERMS = ['Advance','7 Days','15 Days','30 Days','45 Days','60 Days'
 export const VENDOR_STATUS = ['Active','Inactive','Blocked'];
 export const PAYMENT_METHODS = ['UPI','Cash','Cheque','Bank Transfer','Card','Other'];
 
+// ── Fabricator (labour) work order ──────────────────────────────────
+// Default scope-of-work rows for a Fabricator Purchase Order (labour work order),
+// each with the unit it is normally measured in. 'Other' lets the user type a
+// custom scope. Weight work (fabrication/erection) is billed per Kg; area work
+// (painting / sheet laying) per Sq.ft.
+export const FAB_WORKS = [
+  { desc: 'Fabrication of structural steel', unit: 'Kg' },
+  { desc: 'Erection of fabricated structure', unit: 'Kg' },
+  { desc: 'Painting – 1 coat primer + 2 coats enamel', unit: 'Sq.ft' },
+  { desc: 'Roof / wall sheet laying with fixing', unit: 'Sq.ft' },
+];
+
+// Standard terms & conditions printed on a Fabricator Purchase Order. Editable per
+// PO in the form; this is the default/fallback used by the form and the PDF.
+export const FAB_TERMS = [
+  'Scope of Tesco Structures: Supply of all structural steel, roofing sheets, paint and drawings at site/yard. Crane / hydra for erection, if required, will be arranged by us unless stated otherwise.',
+  'Scope of Fabricator: Skilled labour, welding machines, cutting & grinding tools, scaffolding, ropes and all hand tools. Welding rods and grinding/cutting wheels are in the fabricator\'s scope unless stated otherwise.',
+  'Workmanship: Work to be done strictly as per approved drawings and site engineer\'s instructions. Rejected or faulty work to be rectified at fabricator\'s cost.',
+  'Measurement: Fabrication & erection on weight basis (kg) as per drawing / actual weighment. Painting and sheet laying on area basis (sq.ft) as per actual measurement at site.',
+  'Safety: Fabricator to ensure all workers use PPE (helmet, safety belt, shoes, gloves, goggles). Fabricator is fully responsible for the safety, insurance and wages of his workers.',
+  'Material Care: Fabricator is responsible for material handed over. Any loss or damage due to negligence will be deducted from the bill. Excess material / scrap to be returned to us.',
+  'Completion: Work to be completed within the agreed number of days from the date of this PO. Delay without valid reason may attract deduction as decided by management.',
+  'Payment: Running bills on work progress, verified by our site engineer. 5% retention released after final completion & handover. TDS deducted as applicable.',
+  'Termination: Tesco Structures may cancel this PO for poor quality, slow progress or unsafe working, and pay only for work completed and verified.',
+];
+
 // Canonical materials list — shared by the Vendor form and the Purchase Order form so the
 // material choices stay consistent across the portal. Edit this one list to manage them.
 export const MATERIALS = ['MS Round Tube','MS Square Tube','MS Rectangular Tube','MS Plate','MS Angle','MS Channel','MS Beam','MS Flat','MS Sheet','GI Sheet','Roofing Sheet','Steel Rod / TMT','Cement','Fasteners / Bolts','Hardware & Fittings','Paint','Welding Consumables','Fabrication','Transport / Logistics','Other'];
@@ -85,7 +111,7 @@ export function groupPOs(lines) {
   const map = new Map();
   for (const l of lines) {
     const c = calcLine(l);
-    const g = map.get(l.po) || { po: l.po, vid: l.vid, vendorName: l.vendorName || '', project: l.project, date: l.poDate, status: l.status, value: 0, paid: 0, out: 0, qty: 0, rec: 0, pend: 0, units: new Set(), delOverdue: 0, payOverdue: 0, dueToday: false, payDueToday: false, count: 0, exps: [], dues: [] };
+    const g = map.get(l.po) || { po: l.po, vid: l.vid, vendorName: l.vendorName || '', project: l.project, date: l.poDate, status: l.status, poType: l.poType || '', value: 0, paid: 0, out: 0, qty: 0, rec: 0, pend: 0, units: new Set(), delOverdue: 0, payOverdue: 0, dueToday: false, payDueToday: false, count: 0, exps: [], dues: [] };
     g.value += c.total; g.paid += num(l.paid); g.out += c.out;
     g.qty += num(l.qty); g.rec += Math.min(num(l.received), num(l.qty)); g.pend += c.pending; g.units.add(l.unit);
     g.delOverdue = Math.max(g.delOverdue, c.delOverdueDays);

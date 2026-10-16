@@ -53,11 +53,11 @@ export default function VendorManager({ kind = 'Supplier' }) {
       : (editing.isNew && vendors.some(x => x.vid === vid)) ? `${vid} already exists. Use a different ${Label} ID.`
       : !String(d.name).trim() ? `Enter the ${label} name.`
       : (d.mobile && !/^\d{10}$/.test(String(d.mobile).trim())) ? 'Mobile number should be 10 digits.'
-      : (d.gst && String(d.gst).trim().length !== 15) ? 'GSTIN should be 15 characters.' : '';
+      : (!isFab && d.gst && String(d.gst).trim().length !== 15) ? 'GSTIN should be 15 characters.' : '';
     if (err) { setFormErr(err); return; }
     const payload = {
       vid, name: d.name.trim(), contact: d.contact.trim(), mobile: d.mobile.trim(), email: d.email.trim(),
-      address: d.address.trim(), gst: String(d.gst).trim().toUpperCase(), material: d.material.trim(),
+      address: d.address.trim(), gst: isFab ? '' : String(d.gst).trim().toUpperCase(), material: d.material.trim(),
       creditLimit: num(d.creditLimit), terms: d.terms, status: d.status, type: d.type || kind,
     };
     setBusy(true);
@@ -73,7 +73,7 @@ export default function VendorManager({ kind = 'Supplier' }) {
     finally { setBusy(false); }
   };
 
-  const cols = pm ? 11 : 13;
+  const cols = 10 + (isFab ? 0 : 1) + (pm ? 0 : 2);
 
   return (
     <section>
@@ -95,8 +95,8 @@ export default function VendorManager({ kind = 'Supplier' }) {
       <div className="tbl" style={{ marginTop: 12 }}>
         <table>
           <thead><tr>
-            <th>{Label} ID</th><th>{Label} Name</th><th>Contact</th><th>Mobile</th><th>Email</th><th>GST Number</th>
-            <th>Material / Service</th><th className="num">Credit Limit</th><th>Terms</th><th>Status</th>
+            <th>{Label} ID</th><th>{Label} Name</th><th>Contact</th><th>Mobile</th><th>Email</th>
+            {!isFab && <th>GST Number</th>}<th>Material / Service</th><th className="num">Credit Limit</th><th>Terms</th><th>Status</th>
             {!pm && <th className="num">Outstanding</th>}
             {!pm && <th className="num">Available Credit</th>}
             <th></th>
@@ -115,7 +115,7 @@ export default function VendorManager({ kind = 'Supplier' }) {
                   <td>{v.contact || '—'}</td>
                   <td className="id">{v.mobile || '—'}</td>
                   <td>{v.email || '—'}</td>
-                  <td className="id">{v.gst || '—'}</td>
+                  {!isFab && <td className="id">{v.gst || '—'}</td>}
                   <td>{v.material || '—'}</td>
                   <td className="num">{inr(v.creditLimit)}</td>
                   <td>{v.terms || '—'}</td>
@@ -142,7 +142,7 @@ export default function VendorManager({ kind = 'Supplier' }) {
             <Field label="Mobile Number"><input inputMode="tel" value={editing.data.mobile} onChange={e => set('mobile', e.target.value)} placeholder="10-digit mobile" /></Field>
             <Field label="Email" full><input type="email" value={editing.data.email} onChange={e => set('email', e.target.value)} /></Field>
             <Field label="Address" full><input value={editing.data.address} onChange={e => set('address', e.target.value)} /></Field>
-            <Field label="GST Number"><input value={editing.data.gst} maxLength={15} style={{ textTransform: 'uppercase' }} onChange={e => set('gst', e.target.value)} placeholder="15-character GSTIN" /></Field>
+            {!isFab && <Field label="GST Number"><input value={editing.data.gst} maxLength={15} style={{ textTransform: 'uppercase' }} onChange={e => set('gst', e.target.value)} placeholder="15-character GSTIN" /></Field>}
             <Field label="Material / Service">
               {(() => {
                 const KNOWN = MATERIALS.filter(m => m !== 'Other');

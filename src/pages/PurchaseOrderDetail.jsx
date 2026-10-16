@@ -6,6 +6,7 @@ import { useToast } from '../components/Toast';
 import { Pill, StateRow } from '../components/ui';
 import { calcLine, calcPO, poCharges, amountInWords, groupPOs, vendorName, num, inr, qfmt, dfmt, formatTerms } from '../utils/procurement';
 import { downloadPoPdf } from '../utils/poPdf';
+import { downloadFabricatorPoPdf } from '../utils/fabricatorPoPdf';
 import { openInvoice, downloadInvoice } from '../utils/cloudinary';
 import { isRestrictedPM } from '../api/client';
 
@@ -52,6 +53,27 @@ export default function PurchaseOrderDetail() {
     if (!model) return;
     setPdfBusy(true);
     try {
+      if ((model.h.poType || '') === 'fabricator') {
+        await downloadFabricatorPoPdf({
+          po,
+          poDateFmt: dfmt(model.h.poDate),
+          project: model.h.project,
+          client: model.h.client,
+          fab: {
+            name: model.h.vendorName || (model.vendor && model.vendor.name) || '',
+            address: model.h.fabAddress || (model.vendor && model.vendor.address) || '',
+            mobile: model.h.fabMobile || (model.vendor && model.vendor.mobile) || '',
+          },
+          siteEngineer: model.h.siteEngineer,
+          siteMobile: model.h.siteMobile,
+          siteAddress: model.h.siteAddress,
+          items: model.items.map(({ l, amount }) => ({ desc: l.material, unit: l.unit, qty: num(l.qty), rate: num(l.rate), amount })),
+          total: model.sub,
+          amountWords: amountInWords(model.sub),
+          terms: model.h.terms,
+        });
+        return;
+      }
       await downloadPoPdf({
         po,
         poDateFmt: dfmt(model.h.poDate),
@@ -99,6 +121,7 @@ export default function PurchaseOrderDetail() {
 
   const { h, ch, items, sub, totals, g, vendor, notes } = model;
   const pm = isRestrictedPM();
+  const fab = (h.poType || '') === 'fabricator';
 
   const money = (n) => num(n) ? inr(n) : '₹0';
 
@@ -120,7 +143,7 @@ export default function PurchaseOrderDetail() {
       <div className="pod-head">
         <div>
           <div className="pod-po">{po}</div>
-          <div className="pod-sub">Purchase order · raised on {dfmt(h.poDate)}</div>
+          <div className="pod-sub">{fab ? 'Fabricator work order' : 'Purchase order'} · raised on {dfmt(h.poDate)}</div>
         </div>
         <div className="pod-pills">
           <Pill s={g.delivery} />{g.overdueDays > 0 ? <span className="pod-od">{g.overdueDays}d overdue</span> : null}
@@ -137,7 +160,7 @@ export default function PurchaseOrderDetail() {
           <Row k="Delivery Date" v={h.deliveryDate ? dfmt(h.deliveryDate) : model.deliveryDateFmt} />
           <Row k="Delivery Address" v={h.deliveryAddress || '—'} />
           <Row k="Project" v={h.project} />
-          <Row k="GST Rate" v={`${totals.gstPct}%`} />
+          {!fab && <Row k="GST Rate" v={`${totals.gstPct}%`} />}
           <Row k="Payment Method" v={h.paymentMethod} />
           {!pm && <Row k="Invoice" v={h.invoice ? (
             <span>
@@ -148,14 +171,14 @@ export default function PurchaseOrderDetail() {
           ) : 'Not uploaded'} />}
         </div>
         <div className="card pod-card">
-          <h3>Supplier</h3>
-          <Row k="Vendor" v={vendor ? `${vendor.name}` : vendorName(vendors, h.vid)} />
+          <h3>{fab ? 'Fabricator / Subcontractor' : 'Supplier'}</h3>
+          <Row k={fab ? 'Fabricator' : 'Vendor'} v={vendor ? vendor.name : (h.vendorName || vendorName(vendors, h.vid))} />
           <Row k="Vendor ID" v={h.vid} />
           <Row k="Contact" v={vendor?.contact} />
-          <Row k="Mobile" v={vendor?.mobile} />
+          <Row k="Mobile" v={vendor?.mobile || h.fabMobile} />
           <Row k="Email" v={vendor?.email} />
-          <Row k="Address" v={vendor?.address} />
-          <Row k="GSTIN" v={vendor?.gst} />
+          <Row k="Address" v={vendor?.address || h.fabAddress} />
+          {!fab && <Row k="GSTIN" v={vendor?.gst} />}
         </div>
         <div className="card pod-card">
           <h3>Status</h3>
@@ -171,7 +194,7 @@ export default function PurchaseOrderDetail() {
       <div className="tbl" style={{ marginTop: 16 }}>
         <table>
           <thead><tr>
-            <th>#</th><th>Material</th><th>Specification</th><th>Description</th>
+            <th>#</th><th>{fab ? 'Description of Work' : 'Material'}</th><th>Specification</th><th>Description</th>
             <th className="num">Qty</th><th>Per</th><th className="num">Rate</th><th className="num">Amount</th>
             <th className="num">Received</th><th className="num">Pending</th><th>Delivery</th>
           </tr></thead>
@@ -224,15 +247,25 @@ export default function PurchaseOrderDetail() {
         </div>
         <div className="card pod-totals">
           <h3>Order summary</h3>
-          <Row k="Sub Total (materials)" v={money(totals.sub)} />
-          {totals.loading ? <Row k="Loading Charges" v={money(totals.loading)} /> : null}
-          {totals.transport ? <Row k="Transport Charge" v={money(totals.transport)} /> : null}
-          <Row k="Taxable Value" v={money(totals.taxable)} />
-          <Row k={`CGST @ ${totals.gstPct / 2}%`} v={money(totals.cgst)} />
-          <Row k={`SGST @ ${totals.gstPct / 2}%`} v={money(totals.sgst)} />
-          {Math.abs(totals.roundOff) >= 0.005 ? <Row k="Round Off" v={(totals.roundOff >= 0 ? '+' : '−') + '₹' + Math.abs(totals.roundOff).toFixed(2)} /> : null}
-          <Row k="Grand Total" v={inr(totals.grand)} strong />
-          <div className="pod-words">{amountInWords(totals.grand)}</div>
+          {fab ? (
+            <>
+              <Row k="Total work value" v={money(totals.sub)} />
+              <Row k="Grand Total" v={inr(totals.sub)} strong />
+              <div className="pod-words">{amountInWords(totals.sub)}</div>
+            </>
+          ) : (
+            <>
+              <Row k="Sub Total (materials)" v={money(totals.sub)} />
+              {totals.loading ? <Row k="Loading Charges" v={money(totals.loading)} /> : null}
+              {totals.transport ? <Row k="Transport Charge" v={money(totals.transport)} /> : null}
+              <Row k="Taxable Value" v={money(totals.taxable)} />
+              <Row k={`CGST @ ${totals.gstPct / 2}%`} v={money(totals.cgst)} />
+              <Row k={`SGST @ ${totals.gstPct / 2}%`} v={money(totals.sgst)} />
+              {Math.abs(totals.roundOff) >= 0.005 ? <Row k="Round Off" v={(totals.roundOff >= 0 ? '+' : '−') + '₹' + Math.abs(totals.roundOff).toFixed(2)} /> : null}
+              <Row k="Grand Total" v={inr(totals.grand)} strong />
+              <div className="pod-words">{amountInWords(totals.grand)}</div>
+            </>
+          )}
         </div>
       </div>
 

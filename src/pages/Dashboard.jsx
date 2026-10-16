@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ClipboardList, Clock, CheckCircle2, AlertTriangle, IndianRupee, Wallet, Coins, History, Store, FolderKanban, PiggyBank, Truck } from 'lucide-react';
+import { ClipboardList, Clock, CheckCircle2, AlertTriangle, IndianRupee, Wallet, Coins, History, Store, FolderKanban, PiggyBank, Truck, Factory } from 'lucide-react';
 import { usePurchaseData } from '../context/PurchaseData';
 import { kpis, groupPOs, inr, num } from '../utils/procurement';
 import { isRestrictedPM } from '../api/client';
@@ -18,7 +18,10 @@ export default function Dashboard() {
   const poPend = g.filter((x) => x.status === 'Pending Approval').length;
   const poAppr = g.filter((x) => x.status === 'Approved').length;
   const pendingValue = g.filter((x) => x.status !== 'Cancelled').reduce((a, x) => a + x.out, 0);
-  const activeVendors = vendors.filter((v) => String(v.status || 'Active') === 'Active').length;
+  const suppliers = vendors.filter((v) => (v.type || 'Supplier') === 'Supplier');
+  const fabricators = vendors.filter((v) => (v.type || 'Supplier') === 'Fabricator');
+  const activeVendors = suppliers.filter((v) => String(v.status || 'Active') === 'Active').length;
+  const activeFabricators = fabricators.filter((v) => String(v.status || 'Active') === 'Active').length;
   const activeProjects = projects.filter((p) => String(p.status || 'Active') === 'Active').length;
   const totalBudget = projects.reduce((a, p) => a + num(p.budget), 0);
   const dcRecv = challans.filter((c) => (c.status || 'Received') === 'Received').length;
@@ -35,9 +38,11 @@ export default function Dashboard() {
       { l: 'Overdue Amount', v: inr(k.overdueAmount), sub: 'Payment overdue', icon: AlertTriangle, c: 'bad', to: '/purchase-orders?filter=overdue' },
       { l: 'Payments Recorded', v: payments.length, sub: 'Ledger entries', icon: History, c: 'accent', to: '/payment-progress' },
     ] },
-    { title: 'Vendors & Projects', cards: [
-      { l: 'Total Vendors', v: vendors.length, sub: 'Supplier master', icon: Store, c: 'accent', to: '/vendors' },
+    { title: 'Vendors, Fabricators & Projects', cards: [
+      { l: 'Total Vendors', v: suppliers.length, sub: 'Supplier master', icon: Store, c: 'accent', to: '/vendors' },
       { l: 'Active Vendors', v: activeVendors, sub: 'Currently active', icon: CheckCircle2, c: 'ok', to: '/vendors' },
+      { l: 'Total Fabricators', v: fabricators.length, sub: 'Fabricator master', icon: Factory, c: 'accent', to: '/fabricators' },
+      { l: 'Active Fabricators', v: activeFabricators, sub: 'Currently active', icon: CheckCircle2, c: 'ok', to: '/fabricators' },
       { l: 'Total Projects', v: projects.length, sub: 'All projects', icon: FolderKanban, c: 'accent', to: '/projects' },
       { l: 'Active Projects', v: activeProjects, sub: 'In progress', icon: CheckCircle2, c: 'ok', to: '/projects' },
       { l: 'Total Budget', v: inr(totalBudget), sub: 'Allocated across projects', icon: PiggyBank, c: 'mute', to: '/projects' },
