@@ -64,23 +64,18 @@ export default function Login() {
     if (!email || !password) { setError('Please fill in all fields'); return; }
     setLoading(true);
     try {
-      if (selectedRole === 'Accounts Manager') {
-        if (email.trim() === 'accounts@tesco.com' && password === '123456') {
-          setSession('dummy_token_accounts', { role: 'accounts_manager', name: 'Accounts Manager' });
-          navigate('/accounts/dashboard', { replace: true });
-        } else {
-          setError('Invalid dummy credentials. Use accounts@tesco.com / 123456');
-        }
-      } else {
-        const data = await authApi.login(APP_ROLE, email.trim(), password, selectedRole);
-        if (data.user?.role && data.user.role !== APP_ROLE) {
-          clearSession();
-          setBlockedMsg('This portal is for Purchase accounts only. Please use your own portal.');
-          return;
-        }
-        setSession(data.token, data.user);
-        navigate('/dashboard', { replace: true });
+      // One shared portal, one login. The backend authenticates against the real
+      // account and validates the selected role against the account's stored
+      // designation — the dropdown alone never grants access.
+      const data = await authApi.login(selectedRole, email.trim(), password, selectedRole);
+      const role = data.user?.role;
+      if (role !== APP_ROLE && role !== 'accounts_manager') {
+        clearSession();
+        setBlockedMsg('This portal is for Purchase and Accounts users only. Please use your own portal.');
+        return;
       }
+      setSession(data.token, data.user);
+      navigate(role === 'accounts_manager' ? '/accounts/dashboard' : '/dashboard', { replace: true });
     } catch (err) {
       if (/deactivat/i.test(err.message || '')) {
         clearSession();

@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { getUser, clearSession, isAuthenticated, APP_ROLE } from './api/client';
 import { PurchaseDataProvider } from './context/PurchaseData';
 import AppLayout from './layouts/AppLayout';
@@ -34,6 +34,19 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
+// Role-based area gating. An Accounts Manager may only reach the /accounts/* module;
+// a Purchase Manager may only reach the purchase module. This mirrors the sidebar and
+// blocks hand-edited URLs from crossing into the other role's screens. The backend is
+// the real authority (it re-derives the role from the account on every request).
+const AreaGuard = ({ children }) => {
+  const loc = useLocation();
+  const role = getUser()?.role;
+  const isAccountsPath = loc.pathname.startsWith('/accounts');
+  if (role === 'accounts_manager' && !isAccountsPath) return <Navigate to="/accounts/dashboard" replace />;
+  if (role !== 'accounts_manager' && isAccountsPath) return <Navigate to="/dashboard" replace />;
+  return children;
+};
+
 export default function App() {
   return (
     <Router>
@@ -43,7 +56,9 @@ export default function App() {
           element={
             <ProtectedRoute>
               <PurchaseDataProvider>
-                <AppLayout />
+                <AreaGuard>
+                  <AppLayout />
+                </AreaGuard>
               </PurchaseDataProvider>
             </ProtectedRoute>
           }
