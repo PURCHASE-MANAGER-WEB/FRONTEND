@@ -61,6 +61,7 @@ export function PurchaseDataProvider({ children }) {
       await load();
     },
     deleteLine: async (id) => { await purchaseApi.deleteLine(id); await load(); },
+    deletePO: async (po) => { await purchaseApi.deletePO(po); await load(); },
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

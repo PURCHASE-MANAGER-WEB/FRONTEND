@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Download, Printer, Pencil, FileText } from 'lucide-react';
+import { ArrowLeft, Download, Printer, Pencil, FileText, Trash2 } from 'lucide-react';
 import { usePurchaseData } from '../context/PurchaseData';
 import { useToast } from '../components/Toast';
 import { Pill, StateRow } from '../components/ui';
@@ -17,8 +17,11 @@ export default function PurchaseOrderDetail() {
   const po = decodeURIComponent(poId || '');
   const navigate = useNavigate();
   const toast = useToast();
-  const { vendors, lines, loading, error } = usePurchaseData();
+  const { vendors, lines, payments, deletePO, loading, error } = usePurchaseData();
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
+  const [delBusy, setDelBusy] = useState(false);
+  const [delErr, setDelErr] = useState('');
 
   const model = useMemo(() => {
     const group = lines.filter(l => l.po === po);
@@ -105,6 +108,15 @@ export default function PurchaseOrderDetail() {
     }
   };
 
+  const onDeletePO = async () => {
+    const hasPay = (payments || []).some(p => p.po === po) || (model && model.group || []).some(l => num(l.paid) > 0);
+    if (hasPay) { setConfirmDel(false); setDelErr('This PO has recorded payments and cannot be deleted. Delete its payments first.'); return; }
+    setDelBusy(true);
+    try { await deletePO(po); toast('Purchase order deleted'); navigate('/purchase-orders'); }
+    catch (e) { setDelErr(e.message || 'Could not delete the purchase order.'); }
+    finally { setDelBusy(false); }
+  };
+
   // Loading / error / not-found
   if (loading || error || !model) {
     return (
@@ -136,8 +148,17 @@ export default function PurchaseOrderDetail() {
           <button className="btn" onClick={() => navigate(`/purchase-orders?edit=${encodeURIComponent(po)}`)}><Pencil size={15} style={{ verticalAlign: '-2px' }} /> Edit</button>
           <button className="btn" onClick={() => window.print()}><Printer size={15} style={{ verticalAlign: '-2px' }} /> Print</button>
           <button className="btn primary" onClick={onDownload} disabled={pdfBusy}><Download size={15} style={{ verticalAlign: '-2px' }} /> {pdfBusy ? 'Preparing…' : 'Download PDF'}</button>
+          <button className="btn danger" onClick={() => { setDelErr(''); setConfirmDel(true); }}><Trash2 size={15} style={{ verticalAlign: '-2px' }} /> Delete</button>
         </div>
       </div>
+      {confirmDel && (
+        <div className="confirm no-print" style={{ marginTop: 12 }}>
+          Delete purchase order {po} and all its items permanently?
+          <button className="btn danger" onClick={onDeletePO} disabled={delBusy}>Delete</button>
+          <button className="link" onClick={() => setConfirmDel(false)}>Cancel</button>
+        </div>
+      )}
+      {delErr && <div className="err no-print" style={{ marginTop: 10 }}>{delErr}</div>}
 
       {/* ── Title ── */}
       <div className="pod-head">

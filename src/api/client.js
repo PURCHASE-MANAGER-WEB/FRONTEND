@@ -87,6 +87,7 @@ export const purchaseApi = {
   createLine: (l) => api('/orders', { method: 'POST', body: l, auth: true }),
   updateLine: (id, l) => api(`/orders/${encodeURIComponent(id)}`, { method: 'PUT', body: l, auth: true }),
   deleteLine: (id) => api(`/orders/${encodeURIComponent(id)}`, { method: 'DELETE', auth: true }),
+  deletePO: (po) => api(`/orders/po/${encodeURIComponent(po)}`, { method: 'DELETE', auth: true }),
 };
 
 // Purchase payment ledger — purchase_payments collection.

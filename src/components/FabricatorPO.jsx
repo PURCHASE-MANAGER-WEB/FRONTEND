@@ -17,7 +17,7 @@ const blankWork = () => ({ _id: newId(), desc: '', unit: 'Kg', qty: '', rate: ''
 // the shared purchase_orders collection, flagged poType:'fabricator' (no GST — labour
 // work). The scope-of-work goes into `material`, measured by `unit`, with qty & rate.
 export default function FabricatorPO({ poKey = null, onClose }) {
-  const { vendors, lines, projects, reload } = usePurchaseData();
+  const { vendors, lines, projects, payments, reload } = usePurchaseData();
   const toast = useToast();
   const fabricators = vendors.filter((v) => (v.type || 'Supplier') === 'Fabricator');
 
@@ -57,6 +57,7 @@ export default function FabricatorPO({ poKey = null, onClose }) {
   const [d, setD] = useState(build);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
 
   const set = (k, v) => setD((s) => ({ ...s, [k]: v }));
   const setItem = (id, k, v) => setD((s) => ({ ...s, items: s.items.map((it) => it._id === id ? { ...it, [k]: v } : it) }));
@@ -80,6 +81,16 @@ export default function FabricatorPO({ poKey = null, onClose }) {
   const amt = (it) => num(it.qty) * num(it.rate);
   const total = d.items.reduce((s, it) => s + amt(it), 0);
   const realDesc = (it) => { const s = String(it.desc).trim(); return s === 'Other' ? '' : s; };
+
+  const doDeletePO = async () => {
+    if (d.isNew) return;
+    const po = String(d.po).trim().toUpperCase();
+    if ((payments || []).some(p => p.po === po)) { setConfirmDel(false); setErr('This work order has recorded payments and cannot be deleted. Delete its payments first.'); return; }
+    setBusy(true);
+    try { await purchaseApi.deletePO(po); await reload(); onClose && onClose(); toast('Fabricator work order deleted'); }
+    catch (e) { setErr(e.message || 'Could not delete the work order.'); }
+    finally { setBusy(false); }
+  };
 
   const submit = async () => {
     setErr('');
@@ -213,12 +224,19 @@ export default function FabricatorPO({ poKey = null, onClose }) {
 
       {err && <div className="err">{err}</div>}
       <div className="actions">
-        <div />
+        <div>{!d.isNew && <button className="btn danger" onClick={() => setConfirmDel(true)} disabled={busy}>Delete work order</button>}</div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn" onClick={onClose}>Cancel</button>
           <button className="btn primary" onClick={submit} disabled={busy}>{busy ? 'Saving…' : d.isNew ? 'Create work order' : 'Save changes'}</button>
         </div>
       </div>
+      {confirmDel && (
+        <div className="confirm">
+          Delete fabricator work order {d.po} permanently?
+          <button className="btn danger" onClick={doDeletePO} disabled={busy}>Delete</button>
+          <button className="link" onClick={() => setConfirmDel(false)}>Cancel</button>
+        </div>
+      )}
     </Drawer>
   );
 }

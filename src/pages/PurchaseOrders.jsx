@@ -31,7 +31,7 @@ const blankPO = (lines, vendors) => ({
 });
 
 export default function PurchaseOrders() {
-  const { vendors, lines, projects, loading, error, reload } = usePurchaseData();
+  const { vendors, lines, projects, payments, loading, error, reload } = usePurchaseData();
   const toast = useToast();
   const [q, setQ] = useState('');
   const [editing, setEditing] = useState(null);
@@ -40,6 +40,7 @@ export default function PurchaseOrders() {
   const [invBusy, setInvBusy] = useState(false);
   const [invErr, setInvErr] = useState('');
   const [newMenu, setNewMenu] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
   const newMenuRef = useRef(null);
   const [simple, setSimple] = useState(null);
   const [simpleErr, setSimpleErr] = useState('');
@@ -100,7 +101,7 @@ export default function PurchaseOrders() {
       origIds: group.map(l => l.id),
     });
   };
-  const close = () => { setEditing(null); setFormErr(''); };
+  const close = () => { setEditing(null); setFormErr(''); setConfirmDel(false); };
 
   // ── Simple (quick) PO: project + vendor + material + optional invoice ──
   const openSimple = () => {
@@ -153,6 +154,17 @@ export default function PurchaseOrders() {
   const itemAmts = editing ? editing.items.map(it => num(it.qty) * num(it.rate)) : [];
   const sub = itemAmts.reduce((s, a) => s + a, 0);
   const poTot = editing ? calcPO({ sub, loading: editing.loading, transport: editing.transport, gstPct: editing.gstPct }) : null;
+
+  const doDeletePO = async () => {
+    if (!editing || editing.isNew) return;
+    const po = String(editing.po).trim().toUpperCase();
+    const hasPay = (payments || []).some(p => p.po === po) || editing.items.some(it => num(it.paid) > 0);
+    if (hasPay) { setConfirmDel(false); setFormErr('This PO has recorded payments and cannot be deleted. Delete its payments first.'); return; }
+    setBusy(true);
+    try { await purchaseApi.deletePO(po); await reload(); close(); toast('Purchase order deleted'); }
+    catch (e) { setFormErr(e.message || 'Could not delete the purchase order.'); }
+    finally { setBusy(false); }
+  };
 
   const submit = async () => {
     const d = editing;
@@ -497,12 +509,19 @@ export default function PurchaseOrders() {
 
           {formErr && <div className="err">{formErr}</div>}
           <div className="actions">
-            <div />
+            <div>{!editing.isNew && <button className="btn danger" onClick={() => setConfirmDel(true)} disabled={busy}>Delete PO</button>}</div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn" onClick={close}>Cancel</button>
               <button className="btn primary" onClick={submit} disabled={busy}>{busy ? 'Saving…' : editing.isNew ? 'Create PO' : 'Save changes'}</button>
             </div>
           </div>
+          {confirmDel && (
+            <div className="confirm">
+              Delete purchase order {editing.po} and all its items permanently?
+              <button className="btn danger" onClick={doDeletePO} disabled={busy}>Delete</button>
+              <button className="link" onClick={() => setConfirmDel(false)}>Cancel</button>
+            </div>
+          )}
         </Drawer>
       )}
 
