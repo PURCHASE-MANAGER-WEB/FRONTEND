@@ -73,7 +73,7 @@ export default function VendorManager({ kind = 'Supplier' }) {
     finally { setBusy(false); }
   };
 
-  const cols = 10 + (isFab ? 0 : 1) + (pm ? 0 : 2);
+  const cols = 7 + (isFab ? 0 : 4) + (pm ? 0 : 1) + ((!pm && !isFab) ? 1 : 0);
 
   return (
     <section>
@@ -95,10 +95,10 @@ export default function VendorManager({ kind = 'Supplier' }) {
       <div className="tbl" style={{ marginTop: 12 }}>
         <table>
           <thead><tr>
-            <th>{Label} ID</th><th>{Label} Name</th><th>Contact</th><th>Mobile</th><th>Email</th>
-            {!isFab && <th>GST Number</th>}<th>{isFab ? 'Service' : 'Material / Service'}</th><th className="num">Credit Limit</th><th>Terms</th><th>Status</th>
+            <th>{Label} ID</th><th>{Label} Name</th><th>Contact</th><th>Mobile</th>{!isFab && <th>Email</th>}
+            {!isFab && <th>GST Number</th>}<th>{isFab ? 'Service' : 'Material / Service'}</th>{!isFab && <th className="num">Credit Limit</th>}{!isFab && <th>Terms</th>}<th>Status</th>
             {!pm && <th className="num">Outstanding</th>}
-            {!pm && <th className="num">Available Credit</th>}
+            {!pm && !isFab && <th className="num">Available Credit</th>}
             <th></th>
           </tr></thead>
           <tbody>
@@ -114,14 +114,14 @@ export default function VendorManager({ kind = 'Supplier' }) {
                   <td><b>{v.name}</b></td>
                   <td>{v.contact || '—'}</td>
                   <td className="id">{v.mobile || '—'}</td>
-                  <td>{v.email || '—'}</td>
+                  {!isFab && <td>{v.email || '—'}</td>}
                   {!isFab && <td className="id">{v.gst || '—'}</td>}
                   <td>{v.material || '—'}</td>
-                  <td className="num">{inr(v.creditLimit)}</td>
-                  <td>{v.terms || '—'}</td>
+                  {!isFab && <td className="num">{inr(v.creditLimit)}</td>}
+                  {!isFab && <td>{v.terms || '—'}</td>}
                   <td><Pill s={v.status || 'Active'} /></td>
                   {!pm && <td className="num calc">{inr(out)}</td>}
-                  {!pm && <td className={`num calc ${avail < 0 ? 'overdue' : ''}`}>{inr(avail)}{avail < 0 ? ' ⚠' : ''}</td>}
+                  {!pm && !isFab && <td className={`num calc ${avail < 0 ? 'overdue' : ''}`}>{inr(avail)}{avail < 0 ? ' ⚠' : ''}</td>}
                   <td><button className="link" onClick={() => open(v)}>Edit</button></td>
                 </tr>
               );
