@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Store, ClipboardList, TrendingUp, Wallet, LogOut, FileText, CheckSquare, Users, FolderKanban, ReceiptIndianRupee, PiggyBank, Truck, History } from 'lucide-react';
-import { getUser, clearSession, authApi } from '../api/client';
+import { LayoutDashboard, Store, ClipboardList, TrendingUp, Wallet, LogOut, FileText, CheckSquare, Users, FolderKanban, ReceiptIndianRupee, PiggyBank, Truck, History, Factory } from 'lucide-react';
+import { getUser, clearSession, authApi, isRestrictedPM } from '../api/client';
 
 const NAV = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/vendors', label: 'Vendors', icon: Store },
+  { to: '/fabricators', label: 'Fabricators', icon: Factory },
   { to: '/projects', label: 'Projects', icon: FolderKanban },
   { to: '/purchase-orders', label: 'Purchase Orders', icon: ClipboardList },
   { to: '/delivery-challan', label: 'Delivery Challan', icon: Truck },
   { to: '/purchase-progress', label: 'Purchase Progress', icon: TrendingUp },
-  { to: '/payment-progress', label: 'Payment Progress', icon: Wallet },
+  { to: '/payment-progress', label: 'Payment Progress', icon: Wallet, pmHidden: true },
   { separator: true, label: 'Accounts Department' },
   { to: '/accounts/dashboard', label: 'Accounts Dashboard', icon: LayoutDashboard },
   { to: '/accounts/invoices', label: 'Invoice Management', icon: FileText },
@@ -34,12 +35,14 @@ export default function Sidebar({ open, onNavigate }) {
     navigate('/login?loggedout=1', { replace: true });
   };
 
+  const restricted = isRestrictedPM();
   const filteredNav = NAV.filter(item => {
     if (isAccounts) {
       return item.to?.startsWith('/accounts'); // omit separator for Accounts Manager
-    } else {
-      return !item.to?.startsWith('/accounts') && !item.separator;
     }
+    if (item.separator || item.to?.startsWith('/accounts')) return false;
+    if (restricted && item.pmHidden) return false; // Purchase Manager: no accounts/payment modules
+    return true;
   });
 
   return (

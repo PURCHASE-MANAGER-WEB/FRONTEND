@@ -5,6 +5,7 @@ import { useToast } from '../components/Toast';
 import { Pill, Drawer, Field } from '../components/ui';
 import { num, inr, dfmt, qfmt, groupPOs, vendorName, PAYMENT_METHODS } from '../utils/procurement';
 import { openChallanDoc } from '../utils/challanDoc';
+import { isRestrictedPM } from '../api/client';
 
 const TABS = ['Overview', 'Purchase Orders', 'Payments', 'Budget', 'Delivery Challans'];
 const CONDITIONS = ['Payment Pending', 'Ongoing', 'Completed'];
@@ -27,6 +28,7 @@ export default function ProjectDetail() {
   const toast = useToast();
   const { projects, vendors, lines, payments, projectPayments, challans, loading,
     saveProjectPayment, deleteProjectPayment, saveProject } = usePurchaseData();
+  const pm = isRestrictedPM();
   const [tab, setTab] = useState('Overview');
 
   const project = useMemo(() => projects.find((p) => p.id === id), [projects, id]);
@@ -190,12 +192,12 @@ export default function ProjectDetail() {
       <section className="kpis" aria-label="Project financials" style={{ margin: '14px 0' }}>
         <div className="kpi"><div className="l">Allocated Budget</div><div className="v">{inr(budget)}</div></div>
         <div className="kpi"><div className="l">Total PO Value</div><div className="v">{inr(value)}</div></div>
-        <div className="kpi"><div className="l">Payments</div><div className="v">{inr(paid)}</div></div>
-        <div className="kpi"><div className="l">Outstanding</div><div className={`v ${out > 0 ? 'bad' : ''}`}>{inr(out)}</div></div>
+        {!pm && <div className="kpi"><div className="l">Payments</div><div className="v">{inr(paid)}</div></div>}
+        {!pm && <div className="kpi"><div className="l">Outstanding</div><div className={`v ${out > 0 ? 'bad' : ''}`}>{inr(out)}</div></div>}
       </section>
 
       <div className="tabs">
-        {TABS.map((t) => (<button key={t} className={`tab ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>{t}</button>))}
+        {(pm ? TABS.filter((t) => t !== 'Payments') : TABS).map((t) => (<button key={t} className={`tab ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>{t}</button>))}
       </div>
 
       {tab === 'Overview' && (() => {
@@ -252,15 +254,15 @@ export default function ProjectDetail() {
             <div className="card pd-card">
               <h3>Pricing &amp; Payment Terms</h3>
               <div className="ov-grid">
-                <div><span className="ov-l">Quoted Price</span><span className="ov-v">{quoted > 0 ? inr(quoted) : '—'}</span></div>
+                {!pm && <div><span className="ov-l">Quoted Price</span><span className="ov-v">{quoted > 0 ? inr(quoted) : '—'}</span></div>}
                 <div><span className="ov-l">Allocated Budget</span><span className="ov-v">{inr(budget)}</span></div>
                 <div><span className="ov-l">PO Value</span><span className="ov-v">{inr(value)}</span></div>
-                <div><span className="ov-l">Payments</span><span className="ov-v">{inr(paid)}</span></div>
-                <div><span className="ov-l">Outstanding</span><span className="ov-v" style={out > 0 ? { color: 'var(--bad)' } : null}>{inr(out)}</span></div>
+                {!pm && <div><span className="ov-l">Payments</span><span className="ov-v">{inr(paid)}</span></div>}
+                {!pm && <div><span className="ov-l">Outstanding</span><span className="ov-v" style={out > 0 ? { color: 'var(--bad)' } : null}>{inr(out)}</span></div>}
                 <div><span className="ov-l">Budget Utilization</span><span className="ov-v">{budget > 0 ? `${util}%` : '—'}</span></div>
                 <div><span className="ov-l">Remaining Budget</span><span className="ov-v" style={remaining < 0 ? { color: 'var(--bad)' } : null}>{budget > 0 ? inr(remaining) : '—'}</span></div>
               </div>
-              {terms.length > 0 && (
+              {!pm && terms.length > 0 && (
                 <div className="tbl" style={{ marginTop: 14 }}>
                   <table>
                     <thead><tr><th>Term / Milestone</th><th className="num">%</th><th className="num">Value (₹)</th></tr></thead>
@@ -288,18 +290,18 @@ export default function ProjectDetail() {
       {tab === 'Purchase Orders' && (
         <div className="tbl">
           <table>
-            <thead><tr><th>PO</th><th>Vendor</th><th className="num">Value</th><th className="num">Paid</th><th className="num">Outstanding</th><th>Delivery</th><th>Payment</th></tr></thead>
+            <thead><tr><th>PO</th><th>Vendor</th><th className="num">Value</th>{!pm && <th className="num">Paid</th>}{!pm && <th className="num">Outstanding</th>}<th>Delivery</th>{!pm && <th>Payment</th>}</tr></thead>
             <tbody>
-              {projGroups.length === 0 ? (<tr><td colSpan={7} className="state">No purchase orders linked to this project yet.</td></tr>
+              {projGroups.length === 0 ? (<tr><td colSpan={pm ? 4 : 7} className="state">No purchase orders linked to this project yet.</td></tr>
               ) : projGroups.map((g) => (
                 <tr key={g.po}>
                   <td><Link to={`/purchase-orders/${encodeURIComponent(g.po)}`} className="id" style={{ color: 'var(--accent-ink)', fontWeight: 700 }}>{g.po}</Link></td>
                   <td>{g.vendorName || vendorName(vendors, g.vid)}</td>
                   <td className="num">{inr(g.value)}</td>
-                  <td className="num calc">{inr(g.paid)}</td>
-                  <td className={`num calc ${g.out > 0 ? 'overdue' : ''}`}>{inr(g.out)}</td>
+                  {!pm && <td className="num calc">{inr(g.paid)}</td>}
+                  {!pm && <td className={`num calc ${g.out > 0 ? 'overdue' : ''}`}>{inr(g.out)}</td>}
                   <td><Pill s={g.delivery} /></td>
-                  <td><Pill s={g.payment} /></td>
+                  {!pm && <td><Pill s={g.payment} /></td>}
                 </tr>
               ))}
             </tbody>
@@ -307,7 +309,7 @@ export default function ProjectDetail() {
         </div>
       )}
 
-      {tab === 'Payments' && (
+      {tab === 'Payments' && !pm && (
         <>
           <div className="toolbar" style={{ marginBottom: 12 }}>
             <h2 style={{ fontSize: 17 }}>Payment Pending Cases</h2>

@@ -5,6 +5,7 @@ import { usePurchaseData } from '../context/PurchaseData';
 import { useToast } from '../components/Toast';
 import { Pill, Drawer, Field, StateRow } from '../components/ui';
 import { num, inr, groupPOs } from '../utils/procurement';
+import { isRestrictedPM } from '../api/client';
 
 export const PROJECT_STATUS = ['Active', 'On Hold', 'Completed', 'Cancelled'];
 const tid = () => Math.random().toString(36).slice(2, 9);
@@ -36,6 +37,7 @@ const blank = () => ({
 
 export default function Projects() {
   const { projects, lines, loading, error, saveProject, deleteProject } = usePurchaseData();
+  const pm = isRestrictedPM();
   const toast = useToast();
   const navigate = useNavigate();
   const [q, setQ] = useState('');
@@ -136,8 +138,8 @@ export default function Projects() {
         <div className="kpi"><span className="kpi-ic"><FolderKanban size={16} /></span><div className="l">Total Projects</div><div className="v">{projects.length}</div></div>
         <div className="kpi"><span className="kpi-ic"><CheckCircle2 size={16} /></span><div className="l">Active Projects</div><div className="v">{activeCount}</div></div>
         <div className="kpi"><span className="kpi-ic"><PiggyBank size={16} /></span><div className="l">Total Budget</div><div className="v">{inr(totalBudget)}</div></div>
-        <div className="kpi"><span className="kpi-ic"><IndianRupee size={16} /></span><div className="l">Total PO Value</div><div className="v">{inr(portfolio.value)}</div></div>
-        <div className="kpi"><span className="kpi-ic"><Wallet size={16} /></span><div className="l">Outstanding</div><div className="v">{inr(portfolio.out)}</div></div>
+        {!pm && <div className="kpi"><span className="kpi-ic"><IndianRupee size={16} /></span><div className="l">Total PO Value</div><div className="v">{inr(portfolio.value)}</div></div>}
+        {!pm && <div className="kpi"><span className="kpi-ic"><Wallet size={16} /></span><div className="l">Outstanding</div><div className="v">{inr(portfolio.out)}</div></div>}
       </section>
 
       <div className="toolbar">
@@ -152,12 +154,12 @@ export default function Projects() {
         <table>
           <thead><tr>
             <th>Project</th><th>Code</th><th>Client</th><th className="num">Budget</th>
-            <th className="num">PO Value</th><th className="num">Payments</th><th className="num">Outstanding</th>
+            {!pm && (<><th className="num">PO Value</th><th className="num">Payments</th><th className="num">Outstanding</th></>)}
             <th>Status</th><th></th>
           </tr></thead>
           <tbody>
             {loading || error || rows.length === 0 ? (
-              <StateRow cols={9} loading={loading} error={error}
+              <StateRow cols={pm ? 6 : 9} loading={loading} error={error}
                 empty={projects.length ? 'No projects match your search.' : 'No projects yet. Add your first project to start tracking budget, orders and payments.'} />
             ) : rows.map((p) => {
               const r = rollup(p.name);
@@ -167,9 +169,11 @@ export default function Projects() {
                   <td>{p.code || '—'}</td>
                   <td>{p.client || '—'}</td>
                   <td className="num">{inr(p.budget)}</td>
+                  {!pm && (<>
                   <td className="num calc">{inr(r.value)}{r.poCount ? <div className="id" style={{ fontSize: 11 }}>{r.poCount} PO{r.poCount > 1 ? 's' : ''}</div> : null}</td>
                   <td className="num calc">{inr(r.paid)}</td>
                   <td className={`num calc ${r.out > 0 ? 'overdue' : ''}`}>{inr(r.out)}</td>
+                  </>)}
                   <td><Pill s={p.status || 'Active'} /></td>
                   <td onClick={(e) => e.stopPropagation()}>
                     <button className="link" onClick={() => navigate(`/projects/${encodeURIComponent(p.id)}`)}>View</button>

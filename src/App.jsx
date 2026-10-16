@@ -1,11 +1,12 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { getUser, clearSession, isAuthenticated, APP_ROLE } from './api/client';
+import { getUser, clearSession, isAuthenticated, APP_ROLE, isRestrictedPM } from './api/client';
 import { PurchaseDataProvider } from './context/PurchaseData';
 import AppLayout from './layouts/AppLayout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Vendors from './pages/Vendors';
+import Fabricators from './pages/Fabricators';
 import PurchaseOrders from './pages/PurchaseOrders';
 import PurchaseOrderDetail from './pages/PurchaseOrderDetail';
 import PurchaseProgress from './pages/PurchaseProgress';
@@ -44,6 +45,8 @@ const AreaGuard = ({ children }) => {
   const isAccountsPath = loc.pathname.startsWith('/accounts');
   if (role === 'accounts_manager' && !isAccountsPath) return <Navigate to="/accounts/dashboard" replace />;
   if (role !== 'accounts_manager' && isAccountsPath) return <Navigate to="/dashboard" replace />;
+  // Restricted Purchase Manager designation: no Payment Progress (accounts/money).
+  if (isRestrictedPM() && loc.pathname.startsWith('/payment-progress')) return <Navigate to="/dashboard" replace />;
   return children;
 };
 
@@ -66,6 +69,7 @@ export default function App() {
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/vendors" element={<Vendors />} />
+          <Route path="/fabricators" element={<Fabricators />} />
           <Route path="/purchase-orders" element={<PurchaseOrders />} />
           <Route path="/purchase-orders/:poId" element={<PurchaseOrderDetail />} />
           <Route path="/purchase-progress" element={<PurchaseProgress />} />

@@ -7,6 +7,7 @@ import { Pill, StateRow } from '../components/ui';
 import { calcLine, calcPO, poCharges, amountInWords, groupPOs, vendorName, num, inr, qfmt, dfmt, formatTerms } from '../utils/procurement';
 import { downloadPoPdf } from '../utils/poPdf';
 import { openInvoice, downloadInvoice } from '../utils/cloudinary';
+import { isRestrictedPM } from '../api/client';
 
 const dtfmt = (s) => { if (!s) return '—'; const d = new Date(s); return isNaN(d) ? '—' : d.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }); };
 
@@ -97,6 +98,7 @@ export default function PurchaseOrderDetail() {
   }
 
   const { h, ch, items, sub, totals, g, vendor, notes } = model;
+  const pm = isRestrictedPM();
 
   const money = (n) => num(n) ? inr(n) : '₹0';
 
@@ -122,7 +124,7 @@ export default function PurchaseOrderDetail() {
         </div>
         <div className="pod-pills">
           <Pill s={g.delivery} />{g.overdueDays > 0 ? <span className="pod-od">{g.overdueDays}d overdue</span> : null}
-          <Pill s={g.payment} />
+          {!pm && <Pill s={g.payment} />}
         </div>
       </div>
 
@@ -137,13 +139,13 @@ export default function PurchaseOrderDetail() {
           <Row k="Project" v={h.project} />
           <Row k="GST Rate" v={`${totals.gstPct}%`} />
           <Row k="Payment Method" v={h.paymentMethod} />
-          <Row k="Invoice" v={h.invoice ? (
+          {!pm && <Row k="Invoice" v={h.invoice ? (
             <span>
               <button type="button" onClick={() => openInvoice(h.invoice)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent-ink)', fontWeight: 600, font: 'inherit' }}>View</button>
               <span style={{ margin: '0 8px', color: 'var(--muted, #94a3b8)' }}>·</span>
               <button type="button" onClick={() => downloadInvoice(h.invoice)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent-ink)', fontWeight: 600, font: 'inherit' }}>Download</button>
             </span>
-          ) : 'Not uploaded'} />
+          ) : 'Not uploaded'} />}
         </div>
         <div className="card pod-card">
           <h3>Supplier</h3>
@@ -159,8 +161,8 @@ export default function PurchaseOrderDetail() {
           <h3>Status</h3>
           <Row k="Delivery" v={<><b>{g.delivery}</b>{g.overdueDays > 0 ? ` · ${g.overdueDays} day${g.overdueDays > 1 ? 's' : ''} overdue` : ''}</>} />
           <Row k="Delivery progress" v={`${g.delPct}%`} />
-          <Row k="Payment" v={<><b>{g.payment}</b>{g.payOverdueDays > 0 ? ` · ${g.payOverdueDays}d overdue` : ''}</>} />
-          <Row k="Payment progress" v={`${g.payPct}% · ${money(g.out)} due`} />
+          {!pm && <Row k="Payment" v={<><b>{g.payment}</b>{g.payOverdueDays > 0 ? ` · ${g.payOverdueDays}d overdue` : ''}</>} />}
+          {!pm && <Row k="Payment progress" v={`${g.payPct}% · ${money(g.out)} due`} />}
           <Row k="Ordered / Received" v={`${qfmt(g.qty)} / ${qfmt(g.rec)}`} />
         </div>
       </div>

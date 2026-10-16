@@ -29,6 +29,14 @@ export const getUser = () => {
 export const isAuthenticated = () =>
   !!getToken() && localStorage.getItem('crm_authenticated') === 'true';
 
+export const getDesignation = () => { const u = getUser(); return (u && u.designation) || ''; };
+// The restricted purchase-only role is designation "Purchase Manager". Purchase Head and
+// Accounts Manager are NOT restricted. Used to hide accounts/payment modules and data.
+export const isRestrictedPM = () => {
+  const u = getUser() || {};
+  return u.role === 'purchase_manager' && (u.designation || 'Purchase Manager') === 'Purchase Manager';
+};
+
 export async function api(path, { method = 'GET', body, auth = false } = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (auth && getToken()) headers.Authorization = `Bearer ${getToken()}`;

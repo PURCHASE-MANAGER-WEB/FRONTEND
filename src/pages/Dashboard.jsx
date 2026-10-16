@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ClipboardList, Clock, CheckCircle2, AlertTriangle, IndianRupee, Wallet, Coins, History, Store, FolderKanban, PiggyBank, Truck } from 'lucide-react';
 import { usePurchaseData } from '../context/PurchaseData';
 import { kpis, groupPOs, inr, num } from '../utils/procurement';
+import { isRestrictedPM } from '../api/client';
 
 // Procurement dashboard — grouped sections of colored, clickable summary cards
 // (Purchase Orders · Payments · Vendors & Projects · Delivery). Every figure is
@@ -43,9 +44,12 @@ export default function Dashboard() {
     ] },
   ];
 
+  // Restricted Purchase Manager: hide the Payments (accounts) section entirely.
+  const VISIBLE = isRestrictedPM() ? SECTIONS.filter((sec) => sec.title !== 'Payments') : SECTIONS;
+
   return (
     <>
-      {SECTIONS.map((sec) => (
+      {VISIBLE.map((sec) => (
         <div className="dsec" key={sec.title}>
           <div className="dsec-h"><span className="dsec-bar" />{sec.title}</div>
           <div className="dgrid">

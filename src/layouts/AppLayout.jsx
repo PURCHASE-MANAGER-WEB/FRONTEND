@@ -5,10 +5,12 @@ import Sidebar from '../components/Sidebar';
 import { ToastProvider } from '../components/Toast';
 import { usePurchaseData } from '../context/PurchaseData';
 import { overdueStats, inr } from '../utils/procurement';
+import { isRestrictedPM } from '../api/client';
 
 const TITLES = {
   '/dashboard': ['Procurement Dashboard', 'Vendors, purchase orders and delivery & payment progress'],
   '/vendors': ['Vendor Registration', 'Register and manage your supplier master'],
+  '/fabricators': ['Fabricator Registration', 'Register and manage your fabricator master'],
   '/purchase-orders': ['Purchase Orders', 'Material-wise ordering, delivery and payment tracking'],
   '/projects': ['Projects', 'Project-wise budget, orders and payments'],
   '/project-payments': ['Project Payments', 'Milestone payment schedule and installment tracking'],
@@ -35,6 +37,7 @@ export default function AppLayout() {
   const bellRef = useRef(null);
 
   const od = useMemo(() => overdueStats(lines || []), [lines]);
+  const pm = isRestrictedPM();
 
   const [title, subtitle] = loc.pathname.startsWith('/purchase-orders/')
     ? ['Purchase Order Details', 'Full details, PDF and print for this purchase order']
@@ -67,8 +70,8 @@ export default function AppLayout() {
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-              {/* ── Notification bell ── */}
-              <div className="bell-wrap" ref={bellRef}>
+              {/* ── Notification bell (hidden for restricted Purchase Manager) ── */}
+              {!pm && <div className="bell-wrap" ref={bellRef}>
                 <button className="bell-btn" aria-label={`${od.count} overdue purchase orders`} onClick={() => setBellOpen(o => !o)}>
                   <Bell size={19} />
                   {od.count > 0 && <span className="bell-badge">{od.count > 99 ? '99+' : od.count}</span>}
@@ -99,7 +102,7 @@ export default function AppLayout() {
                     )}
                   </div>
                 )}
-              </div>
+              </div>}
               <button className="btn refresh-btn" onClick={reload} disabled={loading} title="Refresh data" aria-label="Refresh data">
                 <RefreshCw size={15} style={{ verticalAlign: '-2px' }} /> <span className="btn-label">{loading ? 'Loading…' : 'Refresh'}</span>
               </button>
