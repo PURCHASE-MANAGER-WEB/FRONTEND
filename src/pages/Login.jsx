@@ -182,7 +182,7 @@ export default function Login() {
           <div className="left-hero-card" style={{ background: `linear-gradient(135deg, ${HERO_FROM} 0%, ${HERO_TO} 100%)`, border: `1px solid ${HERO_BORDER}`, borderRadius: '1.5rem', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', boxShadow: '0 4px 20px -2px rgba(199,210,254,0.35)' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
               <img src="/tescologo2.png" alt="Tesco Structures" style={{ height: 44, width: 'auto', maxWidth: '250px', objectFit: 'contain', display: 'block' }} />
-              <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: ACCENT, paddingLeft: 2 }}>Procurement</div>
+              <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: ACCENT, paddingLeft: 7 }}>Procurement</div>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
