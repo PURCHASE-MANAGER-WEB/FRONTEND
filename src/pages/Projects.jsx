@@ -4,7 +4,7 @@ import { FolderKanban, CheckCircle2, PiggyBank, IndianRupee, Wallet, Plus, X } f
 import { usePurchaseData } from '../context/PurchaseData';
 import { useToast } from '../components/Toast';
 import { Pill, Drawer, Field, StateRow } from '../components/ui';
-import { num, inr, groupPOs } from '../utils/procurement';
+import { num, inr, groupPOs, cpOrderValue } from '../utils/procurement';
 import { isRestrictedPM } from '../api/client';
 
 export const PROJECT_STATUS = ['Active', 'On Hold', 'Completed', 'Cancelled'];
@@ -36,7 +36,7 @@ const blank = () => ({
 });
 
 export default function Projects() {
-  const { projects, lines, loading, error, saveProject, deleteProject } = usePurchaseData();
+  const { projects, lines, projectPayments, loading, error, saveProject, deleteProject } = usePurchaseData();
   const pm = isRestrictedPM();
   const toast = useToast();
   const navigate = useNavigate();
@@ -53,6 +53,7 @@ export default function Projects() {
   };
 
   const totalBudget = useMemo(() => projects.reduce((s, p) => s + num(p.budget), 0), [projects]);
+  const totalOrderValue = useMemo(() => (Array.isArray(projectPayments) ? projectPayments : []).reduce((a, r) => a + cpOrderValue(r), 0), [projectPayments]);
   const activeCount = projects.filter((p) => String(p.status || 'Active') === 'Active').length;
   const portfolio = useMemo(() => {
     let value = 0, out = 0;
@@ -138,7 +139,7 @@ export default function Projects() {
         <div className="kpi"><span className="kpi-ic"><FolderKanban size={16} /></span><div className="l">Total Projects</div><div className="v">{projects.length}</div></div>
         <div className="kpi"><span className="kpi-ic"><CheckCircle2 size={16} /></span><div className="l">Active Projects</div><div className="v">{activeCount}</div></div>
         <div className="kpi"><span className="kpi-ic"><PiggyBank size={16} /></span><div className="l">Total Budget</div><div className="v">{inr(totalBudget)}</div></div>
-        {!pm && <div className="kpi"><span className="kpi-ic"><IndianRupee size={16} /></span><div className="l">Total PO Value</div><div className="v">{inr(portfolio.value)}</div></div>}
+        {!pm && <div className="kpi"><span className="kpi-ic"><IndianRupee size={16} /></span><div className="l">Total Order Value</div><div className="v">{inr(totalOrderValue)}</div></div>}
         {!pm && <div className="kpi"><span className="kpi-ic"><Wallet size={16} /></span><div className="l">Outstanding</div><div className="v">{inr(portfolio.out)}</div></div>}
       </section>
 
