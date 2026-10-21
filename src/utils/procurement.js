@@ -114,7 +114,7 @@ export function groupPOs(lines) {
   const map = new Map();
   for (const l of lines) {
     const c = calcLine(l);
-    const g = map.get(l.po) || { po: l.po, vid: l.vid, vendorName: l.vendorName || '', project: l.project, projects: (Array.isArray(l.projects) && l.projects.length) ? l.projects : (l.project ? [l.project] : []), date: l.poDate, status: l.status, poType: l.poType || '', value: 0, paid: 0, out: 0, qty: 0, rec: 0, pend: 0, units: new Set(), delOverdue: 0, payOverdue: 0, dueToday: false, payDueToday: false, count: 0, exps: [], dues: [] };
+    const g = map.get(l.po) || { po: l.po, vid: l.vid, vendorName: l.vendorName || '', project: l.project, projects: (Array.isArray(l.projects) && l.projects.length) ? l.projects : (l.project ? [l.project] : []), date: l.poDate, status: l.status, poType: l.poType || '', loading: num(l.loading), transport: num(l.transport), gstPct: (l.gstPct === '' || l.gstPct === null || l.gstPct === undefined) ? 18 : num(l.gstPct), transportGst: l.transportGst !== false, value: 0, paid: 0, out: 0, qty: 0, rec: 0, pend: 0, units: new Set(), delOverdue: 0, payOverdue: 0, dueToday: false, payDueToday: false, count: 0, exps: [], dues: [] };
     g.value += c.total; g.paid += num(l.paid); g.out += c.out;
     g.qty += num(l.qty); g.rec += Math.min(num(l.received), num(l.qty)); g.pend += c.pending; g.units.add(l.unit);
     g.delOverdue = Math.max(g.delOverdue, c.delOverdueDays);
@@ -143,6 +143,7 @@ export function groupPOs(lines) {
       : g.rec > 0 ? 'Partial'
       : 'Pending';
     g.payment = settled ? 'Paid' : g.paid > 0 ? 'Partial' : 'Unpaid';
+    g.valueGst = calcPO({ sub: g.value, loading: g.loading, transport: g.transport, gstPct: g.gstPct, transportGst: g.transportGst }).grand;
     return g;
   }).sort((a,b) => String(a.po).localeCompare(String(b.po), undefined, { numeric: true }));
 }

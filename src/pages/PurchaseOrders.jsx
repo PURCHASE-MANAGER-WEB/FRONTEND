@@ -69,14 +69,14 @@ export default function PurchaseOrders() {
       .sort((a, b) => String(a.g.po).localeCompare(String(b.g.po), undefined, { numeric: true }));
   }, [lines, vendors, q, filter]);
 
-  const totals = rows.reduce((s, { g }) => ({ total: s.total + g.value, paid: s.paid + g.paid, out: s.out + g.out }), { total: 0, paid: 0, out: 0 });
+  const totals = rows.reduce((s, { g }) => ({ total: s.total + g.valueGst, paid: s.paid + g.paid, out: s.out + g.out }), { total: 0, paid: 0, out: 0 });
   const poNums = [...new Set(lines.map(l => l.po))];
 
   // Summary cards — counts by approval status, from the real PO records.
   const poStats = useMemo(() => {
     const gs = groupPOs(lines);
     const by = (s) => gs.filter(g => g.status === s).length;
-    return { total: gs.length, draft: by('Draft'), pendingApproval: by('Pending Approval'), approved: by('Approved'), completed: by('Completed'), cancelled: by('Cancelled'), totalValue: gs.reduce((a, g) => a + g.value, 0), pendingValue: gs.filter(g => g.status !== 'Cancelled').reduce((a, g) => a + g.out, 0) };
+    return { total: gs.length, draft: by('Draft'), pendingApproval: by('Pending Approval'), approved: by('Approved'), completed: by('Completed'), cancelled: by('Cancelled'), totalValue: gs.reduce((a, g) => a + g.valueGst, 0), pendingValue: gs.filter(g => g.status !== 'Cancelled').reduce((a, g) => a + g.out, 0) };
   }, [lines]);
 
   // Open the whole PO (all its material lines) in one editor. poKey === null → new PO.
@@ -304,7 +304,7 @@ export default function PurchaseOrders() {
                   <td>{dfmt(g.date)}</td><td>{g.vendorName || vn}</td><td>{(g.projects && g.projects.length ? g.projects.join(', ') : g.project) || '—'}</td>
                   <td className="num">{g.count}</td>
                   <td className="num">{qfmt(g.qty)}{u}</td>
-                  <td className="num calc">{inr(g.value)}</td>
+                  <td className="num calc">{inr(g.valueGst)}</td>
                   <td className="num">{qfmt(g.rec)}{u}</td>
                   <td className="num calc">{qfmt(g.pend)}{u}</td>
                   <td className={g.overdueDays > 0 ? 'overdue' : ''}>{dfmt(g.expDate)}{g.overdueDays > 0 ? ` · ${g.overdueDays}d overdue` : (g.dueToday && g.delivery !== 'Completed' ? ' · due today' : '')}</td>
