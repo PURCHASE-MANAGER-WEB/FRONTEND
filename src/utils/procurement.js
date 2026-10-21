@@ -46,7 +46,7 @@ export const FAB_TERMS = [
 
 // Canonical materials list — shared by the Vendor form and the Purchase Order form so the
 // material choices stay consistent across the portal. Edit this one list to manage them.
-export const MATERIALS = ['MS Round Tube','MS Square Tube','MS Rectangular Tube','MS Plate','MS Angle','MS Channel','MS Beam','MS Flat','MS Sheet','GI Sheet','Roofing Sheet','Steel Rod / TMT','Cement','Fasteners / Bolts','Hardware & Fittings','Paint','Welding Consumables','Fabrication','Transport / Logistics','Other'];
+export const MATERIALS = ['MS Round Tube','MS Square Tube','MS Rectangular Tube','MS Plate','Chq. Plate','MS Angle','MS Channel','MS Beam','MS Flat','MS Sheet','GI Sheet','Roofing Sheet','Steel Rod / TMT','Cement','Fasteners / Bolts','Hardware & Fittings','Paint','Welding Consumables','Fabrication','Transport / Logistics','Other'];
 
 // Purchase-order approval workflow statuses. An existing/older PO with no stored status is
 // treated as 'Approved' (it is an active order).
