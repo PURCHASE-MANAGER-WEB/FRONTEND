@@ -215,7 +215,7 @@ export default function PurchaseOrderDetail() {
       <div className="tbl" style={{ marginTop: 16 }}>
         <table>
           <thead><tr>
-            <th>#</th><th>{fab ? 'Description of Work' : 'Material'}</th><th>Specification</th><th>Description</th>
+            <th>#</th><th>{fab ? 'Description of Work' : 'Material'}</th><th>Project</th><th>Specification</th><th>Description</th>
             <th className="num">Qty</th><th>Per</th><th className="num">Rate</th><th className="num">Amount</th>
             <th className="num">Received</th><th className="num">Pending</th><th>Delivery</th>
           </tr></thead>
@@ -224,6 +224,7 @@ export default function PurchaseOrderDetail() {
               <tr key={l.id}>
                 <td>{i + 1}</td>
                 <td><b>{l.material || '—'}</b></td>
+                <td>{l.project || '—'}</td>
                 <td>{l.spec || '—'}</td>
                 <td>{l.description || '—'}</td>
                 <td className="num">{qfmt(l.qty)}</td>
@@ -237,7 +238,7 @@ export default function PurchaseOrderDetail() {
             ))}
           </tbody>
           <tfoot><tr>
-            <td colSpan={4}>Total · {items.length} item{items.length > 1 ? 's' : ''}</td>
+            <td colSpan={5}>Total · {items.length} item{items.length > 1 ? 's' : ''}</td>
             <td className="num">{qfmt(model.totQty)}{model.unit ? ` ${model.unit}` : ''}</td>
             <td></td><td></td>
             <td className="num">{inr(sub)}</td>

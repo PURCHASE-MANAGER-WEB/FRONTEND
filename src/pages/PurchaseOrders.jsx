@@ -18,7 +18,7 @@ const newId = () => 'L' + Date.now().toString(36) + Math.random().toString(36).s
 // One blank item row for the PO form.
 const blankItem = () => ({
   _id: newId(), isNew: true,
-  material: '', description: '', spec: '', hsn: '', make: '', weight: '',
+  material: '', description: '', spec: '', hsn: '', make: '', weight: '', itemProject: '',
   qty: '', unit: 'MT', rate: '', received: 0, expDate: '', dueDate: '', paid: 0,
 });
 
@@ -95,7 +95,7 @@ export default function PurchaseOrders() {
       deliveryDate: h.deliveryDate || '', deliveryAddress: h.deliveryAddress || '', status: h.status || 'Approved',
       items: group.map(l => ({
         _id: l.id, isNew: false,
-        material: l.material || '', description: l.description || '', spec: l.spec || '', hsn: l.hsn || '', make: l.make || '', weight: l.weight ?? '',
+        material: l.material || '', description: l.description || '', spec: l.spec || '', hsn: l.hsn || '', make: l.make || '', weight: l.weight ?? '', itemProject: l.project || '',
         qty: l.qty ?? '', unit: l.unit || 'MT', rate: l.rate ?? '', received: l.received ?? 0,
         expDate: l.expDate || '', dueDate: l.dueDate || '', paid: l.paid ?? 0,
       })),
@@ -140,7 +140,7 @@ export default function PurchaseOrders() {
 
   const setHdr = (k, val) => setEditing(e => ({ ...e, [k]: val }));
   const setItem = (id, k, val) => setEditing(e => ({ ...e, items: e.items.map(it => it._id === id ? { ...it, [k]: val } : it) }));
-  const addItem = () => setEditing(e => ({ ...e, items: [...e.items, blankItem()] }));
+  const addItem = () => setEditing(e => ({ ...e, items: [...e.items, { ...blankItem(), itemProject: (e.projects && e.projects[0]) || '' }] }));
   const removeItem = (id) => setEditing(e => ({ ...e, items: e.items.length > 1 ? e.items.filter(it => it._id !== id) : e.items }));
 
   // Picking an existing PO number pre-fills the shared header fields (new PO only).
@@ -180,6 +180,7 @@ export default function PurchaseOrders() {
     for (let i = 0; i < items.length; i++) {
       const it = items[i], n = i + 1, qty = num(it.qty), rate = num(it.rate);
       if (!String(it.material).trim()) return setFormErr(`Item ${n}: enter the material.`);
+      if (d.projects.length > 1 && !String(it.itemProject).trim()) return setFormErr(`Item ${n}: choose the project for this material.`);
       if (qty <= 0) return setFormErr(`Item ${n}: ordered quantity must be more than 0.`);
       if (rate <= 0) return setFormErr(`Item ${n}: rate must be more than 0.`);
       if (num(it.received) > qty) return setFormErr(`Item ${n}: received can't be more than ordered.`);
@@ -195,6 +196,7 @@ export default function PurchaseOrders() {
       for (const it of items) {
         const payload = {
           ...shared,
+          project: (String(it.itemProject || '').trim() || (d.projects[0] || '').trim()),
           material: String(it.material).trim(), description: String(it.description || '').trim(),
           spec: String(it.spec || '').trim(), hsn: String(it.hsn || '').trim(),
           make: String(it.make || '').trim(), weight: num(it.weight),
@@ -414,6 +416,14 @@ export default function PurchaseOrders() {
                         </>);
                       })()}
                     </label>
+                    {editing.projects && editing.projects.length > 0 && (
+                      <label className="pf">Project{editing.projects.length > 1 ? ' *' : ''}
+                        <select value={it.itemProject || ''} onChange={e => setItem(it._id, 'itemProject', e.target.value)}>
+                          <option value="">— Select project —</option>
+                          {editing.projects.map(p => <option key={p} value={p}>{p}</option>)}
+                        </select>
+                      </label>
+                    )}
                     <label className="pf">Specification<input value={it.spec} onChange={e => setItem(it._id, 'spec', e.target.value)} placeholder="e.g. Fe 500D, 16mm" /></label>
                     <label className="pf">Make<input value={it.make} onChange={e => setItem(it._id, 'make', e.target.value)} placeholder="e.g. MKK / MPL" /></label>
                     <label className="pf full">Description of goods<input value={it.description} onChange={e => setItem(it._id, 'description', e.target.value)} placeholder="Longer description as it should read on the order / invoice" /></label>
