@@ -203,6 +203,24 @@ export const poCharges = (line = {}) => ({
   transportGst: line.transportGst !== false,
 });
 
+// Total purchase value INCLUDING GST (and loading/transport) — group lines per PO,
+// run each PO through calcPO (using that PO's shared charges), and sum the grand
+// totals. Fabricator work orders carry no GST, so they add at their plain value.
+export function poValueWithGst(lines) {
+  const byPo = new Map();
+  for (const l of lines) {
+    const g = byPo.get(l.po) || { sub: 0, head: l };
+    g.sub += num(l.qty) * num(l.rate);
+    byPo.set(l.po, g);
+  }
+  let total = 0;
+  for (const { sub, head } of byPo.values()) {
+    const ch = poCharges(head);
+    total += calcPO({ sub, loading: ch.loading, transport: ch.transport, gstPct: ch.gstPct, transportGst: ch.transportGst }).grand;
+  }
+  return total;
+}
+
 // Tidy terms & conditions for display: drop tabs, collapse runs of spaces, and
 // put each numbered clause (1. 2. 3. …) on its own line. Decimals like "2.5%"
 // are left intact (a digit right after the dot is not treated as a new clause).

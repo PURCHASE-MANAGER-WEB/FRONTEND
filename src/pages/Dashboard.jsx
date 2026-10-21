@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ClipboardList, Clock, CheckCircle2, AlertTriangle, IndianRupee, Wallet, Coins, History, Store, FolderKanban, PiggyBank, Truck, Factory, ReceiptIndianRupee, HandCoins } from 'lucide-react';
 import { usePurchaseData } from '../context/PurchaseData';
-import { kpis, groupPOs, inr, num, cpOrderValue, cpReceived, cpOutstanding } from '../utils/procurement';
+import { kpis, groupPOs, inr, num, cpOrderValue, cpReceived, cpOutstanding, poValueWithGst } from '../utils/procurement';
 import { isRestrictedPM } from '../api/client';
 
 // Procurement dashboard — grouped sections of colored, clickable summary cards
@@ -14,6 +14,7 @@ export default function Dashboard() {
 
   const k = useMemo(() => kpis(lines), [lines]);
   const g = useMemo(() => groupPOs(lines), [lines]);
+  const poValueGst = useMemo(() => poValueWithGst(lines), [lines]);
 
   const poPend = g.filter((x) => x.status === 'Pending Approval').length;
   const poAppr = g.filter((x) => x.status === 'Approved').length;
@@ -34,7 +35,7 @@ export default function Dashboard() {
   const SECTIONS = [
     { title: 'Purchase Orders', cards: [
       { l: 'Total POs', v: k.poCount, sub: 'All purchase orders', icon: ClipboardList, c: 'accent', to: '/purchase-orders' },
-      { l: 'Total PO Value', v: inr(k.value), sub: 'Combined order value', icon: IndianRupee, c: 'accent', to: '/purchase-orders' },
+      { l: 'Total PO Value', v: inr(poValueGst), sub: 'Combined order value (incl. GST)', icon: IndianRupee, c: 'accent', to: '/purchase-orders' },
     ] },
     { title: 'Client Payments', pay: true, cards: [
       { l: 'Total Order Value', v: inr(cOrder), sub: 'Client order value', icon: ReceiptIndianRupee, c: 'accent', to: '/payment-progress' },
