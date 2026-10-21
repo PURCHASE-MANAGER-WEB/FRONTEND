@@ -8,6 +8,7 @@ import { num, inr, groupPOs, cpOrderValue } from '../utils/procurement';
 import { isRestrictedPM } from '../api/client';
 
 export const PROJECT_STATUS = ['Active', 'On Hold', 'Completed', 'Cancelled'];
+export const PROJECT_TYPES = ['PU Sheet Roofing', 'PUF Panel Roofing', 'Metal Sheet Roofing', 'Tensile Structure', 'Polycarbonate Structure', 'Structural Steel Fabrication', 'Wall Panel Cladding', 'Skylight / Roof Light', 'Other'];
 const tid = () => Math.random().toString(36).slice(2, 9);
 const DEFAULT_TERMS = () => [
   { _id: tid(), term: '10% Advance with PO', percentage: '10' },
@@ -28,7 +29,7 @@ const blank = () => ({
   name: '', code: '', status: 'Active', budget: '',
   leadRef: '', client: '', projectLocation: '', contactDetails: '', billingName: '', mobileNumber: '', altMobile: '',
   siteAddress: '', billingAddress: '', gstNumber: '', emailWhatsapp: '', salespersonName: '', dateOfOrder: '', proposalRefNo: '',
-  typeOfProject: '', projectSize: '', design3D: false, design2D: false, transportationScope: 'Yes', scaffoldingScope: 'Yes',
+  typeOfProject: '', projectSize: '', sizeSections: [], design3D: false, design2D: false, transportationScope: 'Yes', scaffoldingScope: 'Yes',
   startDate: '', tentativeCompletionDate: '', leadTimePromised: '',
   quotedPrice: '', paymentTerms: DEFAULT_TERMS(),
   siteEngineerVisit: false, salespersonDeclaration: false,
@@ -72,7 +73,7 @@ export default function Projects() {
       const pt = Array.isArray(p.paymentTerms) && p.paymentTerms.length
         ? p.paymentTerms.map((t) => ({ _id: tid(), term: t.term || '', percentage: t.percentage != null ? String(t.percentage) : '' }))
         : DEFAULT_TERMS();
-      setEditing({ isNew: false, data: { ...blank(), ...p, budget: p.budget ?? '', quotedPrice: p.quotedPrice != null ? String(p.quotedPrice) : '', paymentTerms: pt } });
+      setEditing({ isNew: false, data: { ...blank(), ...p, budget: p.budget ?? '', quotedPrice: p.quotedPrice != null ? String(p.quotedPrice) : '', paymentTerms: pt, sizeSections: Array.isArray(p.sizeSections) ? p.sizeSections.map((x) => ({ _id: tid(), name: x.name || '', length: x.length != null ? String(x.length) : '', width: x.width != null ? String(x.width) : '' })) : [] } });
     } else {
       setEditing({ isNew: true, data: blank() });
     }
@@ -82,6 +83,9 @@ export default function Projects() {
   const setTerm = (id, k, v) => setEditing((e) => ({ ...e, data: { ...e.data, paymentTerms: e.data.paymentTerms.map((t) => t._id === id ? { ...t, [k]: v } : t) } }));
   const addTerm = () => setEditing((e) => ({ ...e, data: { ...e.data, paymentTerms: [...e.data.paymentTerms, { _id: tid(), term: '', percentage: '' }] } }));
   const removeTerm = (id) => setEditing((e) => ({ ...e, data: { ...e.data, paymentTerms: e.data.paymentTerms.filter((t) => t._id !== id) } }));
+  const setSec = (id, k, v) => setEditing((e) => ({ ...e, data: { ...e.data, sizeSections: e.data.sizeSections.map((x) => x._id === id ? { ...x, [k]: v } : x) } }));
+  const addSec = () => setEditing((e) => ({ ...e, data: { ...e.data, sizeSections: [...e.data.sizeSections, { _id: tid(), name: '', length: '', width: '' }] } }));
+  const removeSec = (id) => setEditing((e) => ({ ...e, data: { ...e.data, sizeSections: e.data.sizeSections.filter((x) => x._id !== id) } }));
   const setPct = (id, raw) => {
     let v = String(raw).replace(/[^0-9.]/g, '');
     const dot = v.indexOf('.'); if (dot !== -1) v = v.slice(0, dot + 1) + v.slice(dot + 1).replace(/\./g, '').slice(0, 2);
@@ -91,6 +95,8 @@ export default function Projects() {
 
   const d = editing ? editing.data : null;
   const leadTime = d ? dayDiff(d.startDate, d.tentativeCompletionDate) : '';
+  const secArea = (sx) => Math.round(num(sx.length) * num(sx.width) * 100) / 100;
+  const totalArea = d ? d.sizeSections.reduce((t, sx) => t + secArea(sx), 0) : 0;
   const pctTotal = d ? d.paymentTerms.reduce((s, t) => s + (parseFloat(t.percentage) || 0), 0) : 0;
   const pricingTouched = d ? (num(d.quotedPrice) > 0 || d.paymentTerms.some((t) => String(t.percentage).trim())) : false;
   const pctValid = !pricingTouched || Math.abs(pctTotal - 100) <= 0.01;
@@ -113,7 +119,10 @@ export default function Projects() {
       siteAddress: String(d.siteAddress || '').trim(), billingAddress: String(d.billingAddress || '').trim(),
       gstNumber: String(d.gstNumber || '').trim(), emailWhatsapp: String(d.emailWhatsapp || '').trim(),
       salespersonName: String(d.salespersonName || '').trim(), dateOfOrder: d.dateOfOrder || '', proposalRefNo: String(d.proposalRefNo || '').trim(),
-      typeOfProject: String(d.typeOfProject || '').trim(), projectSize: String(d.projectSize || '').trim(),
+      typeOfProject: String(d.typeOfProject || '').trim(),
+      sizeSections: d.sizeSections.map((sx) => ({ name: String(sx.name || '').trim(), length: num(sx.length), width: num(sx.width), area: secArea(sx) })).filter((sx) => sx.name || sx.length || sx.width),
+      totalArea,
+      projectSize: String(d.projectSize || '').trim() || (totalArea > 0 ? `${totalArea.toLocaleString('en-IN')} sq.ft` : ''),
       design3D: !!d.design3D, design2D: !!d.design2D, transportationScope: d.transportationScope || 'Yes', scaffoldingScope: d.scaffoldingScope || 'Yes',
       startDate: d.startDate || '', tentativeCompletionDate: d.tentativeCompletionDate || '', leadTimePromised: leadTime === '' ? '' : `${leadTime} days`,
       quotedPrice: num(d.quotedPrice), paymentTerms,
@@ -216,9 +225,41 @@ export default function Projects() {
 
           <div className="pj-sec">2. Scope of Work</div>
           <div className="grid">
-            <Field label="Type of Project"><input value={d.typeOfProject} onChange={(e) => set('typeOfProject', e.target.value)} placeholder="e.g. PU Sheet Roof with wall panel cladding" /></Field>
-            <Field label="Project Size / Area"><input value={d.projectSize} onChange={(e) => set('projectSize', e.target.value)} placeholder="e.g. 760 Sqft." /></Field>
+            <Field label="Type of Project">
+              {(() => {
+                const KNOWN = PROJECT_TYPES.filter((t) => t !== 'Other');
+                const tv = d.typeOfProject || '';
+                const isOther = tv === 'Other' || (tv !== '' && !KNOWN.includes(tv));
+                return (<>
+                  <select value={isOther ? 'Other' : tv} onChange={(e) => set('typeOfProject', e.target.value)}>
+                    <option value="">Select type</option>
+                    {KNOWN.map((t) => <option key={t} value={t}>{t}</option>)}
+                    <option value="Other">Other</option>
+                  </select>
+                  {isOther && <input placeholder="Enter project type" value={tv === 'Other' ? '' : tv} onChange={(e) => set('typeOfProject', e.target.value)} style={{ marginTop: 6 }} />}
+                </>);
+              })()}
+            </Field>
+            <Field label="Project Size / Area (overall, optional)"><input value={d.projectSize} onChange={(e) => set('projectSize', e.target.value)} placeholder="e.g. 760 Sqft. (auto-filled from sections if blank)" /></Field>
             <Field label="Material Description" full><textarea rows={2} value={d.materialDescription} onChange={(e) => set('materialDescription', e.target.value)} placeholder="Materials / scope for this project" /></Field>
+          </div>
+          <div className="po-items-head" style={{ marginTop: 14 }}><span>Sections / Areas</span><button type="button" className="link" onClick={addSec}><Plus size={14} style={{ verticalAlign: '-2px' }} /> Add section</button></div>
+          <div className="sz-sched">
+            <div className="sz-head"><span>Section / Area</span><span>Length (ft)</span><span>Width (ft)</span><span>Area (sq.ft)</span><span></span></div>
+            {d.sizeSections.length === 0 ? (
+              <div style={{ padding: '8px 4px', color: 'var(--muted)', fontSize: 13 }}>No sections yet. Add length × width for each area — total is auto-calculated.</div>
+            ) : d.sizeSections.map((sx) => (
+              <div key={sx._id} className="sz-row">
+                <input value={sx.name} onChange={(e) => setSec(sx._id, 'name', e.target.value)} placeholder="e.g. Shed A / Roof" />
+                <input type="number" min="0" step="any" value={sx.length} onChange={(e) => setSec(sx._id, 'length', e.target.value)} placeholder="L" />
+                <input type="number" min="0" step="any" value={sx.width} onChange={(e) => setSec(sx._id, 'width', e.target.value)} placeholder="W" />
+                <input className="sz-area" value={secArea(sx) ? secArea(sx).toLocaleString('en-IN') : ''} readOnly tabIndex={-1} placeholder="0" />
+                <button type="button" className="link danger" onClick={() => removeSec(sx._id)} title="Remove section"><X size={15} /></button>
+              </div>
+            ))}
+            {d.sizeSections.length > 0 && (
+              <div className="sz-total"><span>Total Area</span><span></span><span></span><span>{totalArea.toLocaleString('en-IN')} sq.ft</span><span></span></div>
+            )}
           </div>
           <div className="pj-chips">
             <label className="pj-chk"><input type="checkbox" checked={d.design3D} onChange={(e) => set('design3D', e.target.checked)} /> 3D Design</label>
@@ -302,6 +343,15 @@ export default function Projects() {
         .pp-row input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
         .pp-row .pp-val{background:var(--sunk,#f1f5f9);font-weight:600;cursor:not-allowed}
         .pp-total{border-top:2px solid var(--line);padding-top:10px;margin-top:4px;font-weight:800;color:var(--fg)}
+        .sz-sched{margin-top:4px;border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--surface)}
+        .sz-head,.sz-row,.sz-total{display:grid;grid-template-columns:1fr 90px 90px 120px 30px;gap:8px;align-items:center}
+        .sz-head{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);padding:0 2px 8px}
+        .sz-row{margin-bottom:8px}
+        .sz-row input{width:100%;box-sizing:border-box;font:400 13.5px var(--f-body);padding:8px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg);outline:none;min-width:0}
+        .sz-row input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+        .sz-row .sz-area{background:var(--sunk,#f1f5f9);font-weight:600;cursor:not-allowed}
+        .sz-total{border-top:2px solid var(--line);padding-top:10px;margin-top:4px;font-weight:800;color:var(--fg)}
+        @media (max-width:640px){.sz-head{display:none}.sz-row,.sz-total{grid-template-columns:1fr 64px 64px 90px 28px}}
         input.ro{background:var(--sunk,#f1f5f9);cursor:not-allowed}
         .link.danger{color:var(--bad)}
         @media (max-width:640px){.pp-head{display:none}.pp-row,.pp-total{grid-template-columns:1fr 56px 100px 28px}}

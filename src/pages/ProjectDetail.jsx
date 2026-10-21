@@ -235,6 +235,9 @@ export default function ProjectDetail() {
               <div className="ov-grid">
                 <div><span className="ov-l">Type of Project</span><span className="ov-v">{V(project.typeOfProject)}</span></div>
                 <div><span className="ov-l">Project Size / Area</span><span className="ov-v">{V(project.projectSize)}</span></div>
+                {Array.isArray(project.sizeSections) && project.sizeSections.length > 0 && (
+                  <div className="ov-full"><span className="ov-l">Sections / Areas</span><span className="ov-v" style={{ whiteSpace: 'pre-wrap' }}>{project.sizeSections.map((sx) => `${sx.name ? sx.name + ' — ' : ''}${num(sx.length)} ft × ${num(sx.width)} ft = ${num(sx.area != null ? sx.area : num(sx.length) * num(sx.width)).toLocaleString('en-IN')} sq.ft`).join('\n')}{project.totalArea ? `\nTotal: ${num(project.totalArea).toLocaleString('en-IN')} sq.ft` : ''}</span></div>
+                )}
                 <div><span className="ov-l">3D Design</span><span className="ov-v">{project.design3D ? 'Yes' : 'No'}</span></div>
                 <div><span className="ov-l">2D Design</span><span className="ov-v">{project.design2D ? 'Yes' : 'No'}</span></div>
                 <div><span className="ov-l">Transportation (Client Scope)</span><span className="ov-v">{V(project.transportationScope)}</span></div>
