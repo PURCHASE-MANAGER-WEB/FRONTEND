@@ -7,6 +7,7 @@ import { useToast } from '../components/Toast';
 import { Pill, Drawer, Field, StateRow } from '../components/ui';
 import ComboBox from '../components/ComboBox';
 import FabricatorPO from '../components/FabricatorPO';
+import ProjectMultiSelect from '../components/ProjectMultiSelect';
 import { calcLine, calcPO, poCharges, amountInWords, groupPOs, num, inr, qfmt, dfmt, today, vendorName, nextPo, UNITS, PAYMENT_METHODS, PO_STATUSES, MATERIALS } from '../utils/procurement';
 import { uploadInvoice, openInvoice, downloadInvoice } from '../utils/cloudinary';
 
@@ -24,7 +25,7 @@ const blankItem = () => ({
 // A fresh PO (header + charges + one empty item).
 const blankPO = (lines, vendors) => ({
   isNew: true,
-  po: nextPo(lines), poDate: today(), vid: vendors[0]?.vid || '', project: '',
+  po: nextPo(lines), poDate: today(), vid: vendors[0]?.vid || '', project: '', projects: [],
   loading: '', transport: '', gstPct: 18, notes: '', paymentMethod: '', terms: '', invoice: null,
   deliveryDate: '', deliveryAddress: '', status: 'Approved',
   items: [blankItem()], origIds: [],
@@ -88,7 +89,7 @@ export default function PurchaseOrders() {
     const ch = poCharges(h);
     setEditing({
       isNew: false,
-      po: h.po || poKey, poDate: h.poDate || today(), vid: h.vid || vendors[0]?.vid || '', project: h.project || '',
+      po: h.po || poKey, poDate: h.poDate || today(), vid: h.vid || vendors[0]?.vid || '', project: h.project || '', projects: (Array.isArray(h.projects) && h.projects.length) ? h.projects : (h.project ? [h.project] : []),
       loading: ch.loading || '', transport: ch.transport || '', gstPct: ch.gstPct, notes: h.notes || '',
       paymentMethod: h.paymentMethod || '', terms: h.terms || '', invoice: h.invoice || null,
       deliveryDate: h.deliveryDate || '', deliveryAddress: h.deliveryAddress || '', status: h.status || 'Approved',
@@ -106,7 +107,7 @@ export default function PurchaseOrders() {
   // ── Simple (quick) PO: project + vendor + material + optional invoice ──
   const openSimple = () => {
     setSimpleErr('');
-    setSimple({ project: '', vid: '', vendorOther: '', material: '', value: '', file: null });
+    setSimple({ projects: [], vid: '', vendorOther: '', material: '', value: '', file: null });
   };
   const onSimpleFile = (file) => {
     setSimpleErr('');
@@ -118,7 +119,7 @@ export default function PurchaseOrders() {
   };
   const submitSimple = async () => {
     const d = simple;
-    if (!String(d.project).trim()) { setSimpleErr('Select or enter a project.'); return; }
+    if (!d.projects || !d.projects.length) { setSimpleErr('Select at least one project.'); return; }
     const isOther = d.vid === '__other__';
     if (!d.vid) { setSimpleErr('Select a vendor.'); return; }
     if (isOther && !String(d.vendorOther).trim()) { setSimpleErr('Enter the vendor name.'); return; }
@@ -127,7 +128,7 @@ export default function PurchaseOrders() {
     const vendorFields = isOther ? { vid: '', vendorName: d.vendorOther.trim() } : { vid: d.vid };
     setSimpleBusy(true);
     try {
-      await purchaseApi.createLine({ id: newId(), po, poDate: today(), ...vendorFields, project: d.project.trim(), material: d.material.trim(), description: d.material.trim(), qty: num(d.value) > 0 ? 1 : 0, unit: 'Nos', rate: num(d.value), received: 0, paid: 0, status: 'Approved' });
+      await purchaseApi.createLine({ id: newId(), po, poDate: today(), ...vendorFields, project: (d.projects[0] || '').trim(), projects: d.projects, material: d.material.trim(), description: d.material.trim(), qty: num(d.value) > 0 ? 1 : 0, unit: 'Nos', rate: num(d.value), received: 0, paid: 0, status: 'Approved' });
       let invMsg = '';
       if (d.file) { try { await uploadInvoice(d.file, po); } catch { invMsg = ' (invoice upload failed \u2014 add it later)'; } }
       await reload();
@@ -147,7 +148,7 @@ export default function PurchaseOrders() {
     if (!editing?.isNew) return;
     const key = String(editing.po).trim().toUpperCase();
     const ex = lines.find(x => x.po === key);
-    if (ex) { const ch = poCharges(ex); setEditing(e => ({ ...e, poDate: ex.poDate || e.poDate, vid: ex.vid, project: ex.project || '', loading: ch.loading || '', transport: ch.transport || '', gstPct: ch.gstPct })); }
+    if (ex) { const ch = poCharges(ex); setEditing(e => ({ ...e, poDate: ex.poDate || e.poDate, vid: ex.vid, project: ex.project || '', projects: (Array.isArray(ex.projects) && ex.projects.length) ? ex.projects : (ex.project ? [ex.project] : []), loading: ch.loading || '', transport: ch.transport || '', gstPct: ch.gstPct })); }
   };
 
   // Live invoice totals for the open PO.
@@ -172,7 +173,7 @@ export default function PurchaseOrders() {
     if (!po) return setFormErr('Enter a PO number.');
     if (!d.poDate) return setFormErr('Choose the PO date.');
     if (!d.vid) return setFormErr('Select a vendor.');
-    if (!String(d.project).trim()) return setFormErr('Enter the project name.');
+    if (!d.projects || !d.projects.length) return setFormErr('Select at least one project.');
 
     const items = d.items.filter(it => String(it.material).trim() || num(it.qty) || num(it.rate));
     if (!items.length) return setFormErr('Add at least one material item.');
@@ -187,7 +188,7 @@ export default function PurchaseOrders() {
 
     const loading = num(d.loading), transport = num(d.transport);
     const gstPct = (d.gstPct === '' || d.gstPct === null || d.gstPct === undefined) ? 18 : num(d.gstPct);
-    const shared = { po, poDate: d.poDate, vid: d.vid, project: d.project.trim(), loading, transport, gstPct, notes: String(d.notes || '').trim(), paymentMethod: d.paymentMethod || '', terms: String(d.terms || '').trim(), invoice: d.invoice || null, deliveryDate: d.deliveryDate || '', deliveryAddress: String(d.deliveryAddress || '').trim(), status: d.status || 'Approved' };
+    const shared = { po, poDate: d.poDate, vid: d.vid, project: (d.projects[0] || '').trim(), projects: d.projects, loading, transport, gstPct, notes: String(d.notes || '').trim(), paymentMethod: d.paymentMethod || '', terms: String(d.terms || '').trim(), invoice: d.invoice || null, deliveryDate: d.deliveryDate || '', deliveryAddress: String(d.deliveryAddress || '').trim(), status: d.status || 'Approved' };
 
     setBusy(true);
     try {
@@ -298,7 +299,7 @@ export default function PurchaseOrders() {
               return (
                 <tr key={g.po}>
                   <td className="id"><Link className="po-link" to={`/purchase-orders/${encodeURIComponent(g.po)}`}>{g.po}</Link>{g.poType === 'fabricator' ? <span className="fab-tag">Fabricator</span> : null}</td>
-                  <td>{dfmt(g.date)}</td><td>{g.vendorName || vn}</td><td>{g.project || '—'}</td>
+                  <td>{dfmt(g.date)}</td><td>{g.vendorName || vn}</td><td>{(g.projects && g.projects.length ? g.projects.join(', ') : g.project) || '—'}</td>
                   <td className="num">{g.count}</td>
                   <td className="num">{qfmt(g.qty)}{u}</td>
                   <td className="num calc">{inr(g.value)}</td>
@@ -324,8 +325,8 @@ export default function PurchaseOrders() {
           <h3>New purchase order — Simple</h3>
           <p className="hint">A quick PO with just the essentials. Quantities, rates, tax and terms can be added later via the detailed Edit.</p>
           <div className="grid">
-            <Field label="Project Name *" full>
-              <ComboBox value={simple.project} onChange={(v) => setSimple((s) => ({ ...s, project: v }))} options={projects.map((p) => p.name)} placeholder="Select or type a project" />
+            <Field label="Project Name(s) *" full>
+              <ProjectMultiSelect value={simple.projects} onChange={(v) => setSimple((s) => ({ ...s, projects: v }))} options={projects.map((p) => p.name)} placeholder="Add a project…" />
             </Field>
             <Field label="Vendor *" full>
               <select value={simple.vid} onChange={(e) => setSimple((s) => ({ ...s, vid: e.target.value }))}>
@@ -375,7 +376,7 @@ export default function PurchaseOrders() {
                 {vendors.map(v => <option key={v.vid} value={v.vid}>{v.vid} · {v.name}{v.status !== 'Active' ? ` (${v.status})` : ''}</option>)}
               </select>
             </Field>
-            <Field label="Project Name *" full><input value={editing.project} onChange={e => setHdr('project', e.target.value)} /></Field>
+            <Field label="Project Name(s) *" full><ProjectMultiSelect value={editing.projects} onChange={(v) => setHdr('projects', v)} options={projects.map((p) => p.name)} placeholder="Add a project…" /></Field>
             <Field label="Delivery Date"><input type="date" value={editing.deliveryDate || ''} onChange={e => setHdr('deliveryDate', e.target.value)} /></Field>
             <Field label="Delivery Address" full><textarea rows={2} value={editing.deliveryAddress || ''} onChange={e => setHdr('deliveryAddress', e.target.value)} placeholder="Complete delivery / site address for this order" /></Field>
           </div>

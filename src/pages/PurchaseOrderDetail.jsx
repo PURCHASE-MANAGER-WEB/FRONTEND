@@ -60,7 +60,7 @@ export default function PurchaseOrderDetail() {
         await downloadFabricatorPoPdf({
           po,
           poDateFmt: dfmt(model.h.poDate),
-          project: model.h.project,
+          project: (model.h.projects && model.h.projects.length ? model.h.projects.join(', ') : model.h.project),
           client: model.h.client,
           fab: {
             name: model.h.vendorName || (model.vendor && model.vendor.name) || '',
@@ -83,7 +83,7 @@ export default function PurchaseOrderDetail() {
         deliveryDateFmt: model.h.deliveryDate ? dfmt(model.h.deliveryDate) : model.deliveryDateFmt,
         deliveryAddress: model.h.deliveryAddress || '',
         status: model.h.status || 'Approved',
-        project: model.h.project,
+        project: (model.h.projects && model.h.projects.length ? model.h.projects.join(', ') : model.h.project),
         paymentMethod: model.h.paymentMethod,
         terms: model.h.terms,
         invoiceUrl: model.h.invoice?.url,
@@ -180,7 +180,7 @@ export default function PurchaseOrderDetail() {
           <Row k="PO Date" v={dfmt(h.poDate)} />
           <Row k="Delivery Date" v={h.deliveryDate ? dfmt(h.deliveryDate) : model.deliveryDateFmt} />
           <Row k="Delivery Address" v={h.deliveryAddress || '—'} />
-          <Row k="Project" v={h.project} />
+          <Row k={(h.projects && h.projects.length > 1) ? "Projects" : "Project"} v={(h.projects && h.projects.length ? h.projects.join(', ') : h.project)} />
           {!fab && <Row k="GST Rate" v={`${totals.gstPct}%`} />}
           <Row k="Payment Method" v={h.paymentMethod} />
           {!pm && <Row k="Invoice" v={h.invoice ? (
