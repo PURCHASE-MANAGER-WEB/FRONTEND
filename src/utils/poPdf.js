@@ -217,8 +217,9 @@ export async function downloadPoPdf(data) {
   const ap = totWeight > 0 ? ' (approx.)' : '';
   const totRows = [['Sub Total' + ap, money2(T.sub)]];
   if (T.loading) totRows.push(['Loading Charges', money2(T.loading)]);
-  if (T.transport) totRows.push(['Transport Charge', money2(T.transport)]);
+  if (T.transport && T.transportGst !== false) totRows.push(['Transport Charge', money2(T.transport)]);
   totRows.push([`GST @ ${gstPct}%`, money2(gstVal)]);
+  if (T.transport && T.transportGst === false) totRows.push(['Transport Charge (no GST)', money2(T.transport)]);
   if (Math.abs(nz(T.roundOff)) >= 0.005) totRows.push(['Round Off', (T.roundOff >= 0 ? '' : '-') + money2(Math.abs(T.roundOff))]);
 
   const notesEnd = xOf(2);

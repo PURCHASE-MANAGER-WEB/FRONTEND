@@ -30,7 +30,7 @@ export default function PurchaseOrderDetail() {
     const ch = poCharges(h);
     const items = group.map(l => ({ l, c: calcLine(l), amount: num(l.qty) * num(l.rate) }));
     const sub = items.reduce((s, x) => s + x.amount, 0);
-    const totals = calcPO({ sub, loading: ch.loading, transport: ch.transport, gstPct: ch.gstPct });
+    const totals = calcPO({ sub, loading: ch.loading, transport: ch.transport, gstPct: ch.gstPct, transportGst: ch.transportGst });
     const g = groupPOs(lines).find(x => x.po === po) || {};
     const vendor = vendors.find(v => v.vid === h.vid) || null;
 
@@ -279,10 +279,11 @@ export default function PurchaseOrderDetail() {
             <>
               <Row k="Sub Total (materials)" v={money(totals.sub)} />
               {totals.loading ? <Row k="Loading Charges" v={money(totals.loading)} /> : null}
-              {totals.transport ? <Row k="Transport Charge" v={money(totals.transport)} /> : null}
+              {totals.transport && totals.transportGst ? <Row k="Transport Charge" v={money(totals.transport)} /> : null}
               <Row k="Taxable Value" v={money(totals.taxable)} />
               <Row k={`CGST @ ${totals.gstPct / 2}%`} v={money(totals.cgst)} />
               <Row k={`SGST @ ${totals.gstPct / 2}%`} v={money(totals.sgst)} />
+              {totals.transport && !totals.transportGst ? <Row k="Transport Charge (no GST)" v={money(totals.transport)} /> : null}
               {Math.abs(totals.roundOff) >= 0.005 ? <Row k="Round Off" v={(totals.roundOff >= 0 ? '+' : '−') + '₹' + Math.abs(totals.roundOff).toFixed(2)} /> : null}
               <Row k="Grand Total" v={inr(totals.grand)} strong />
               <div className="pod-words">{amountInWords(totals.grand)}</div>

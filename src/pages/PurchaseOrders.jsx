@@ -26,7 +26,7 @@ const blankItem = () => ({
 const blankPO = (lines, vendors) => ({
   isNew: true,
   po: nextPo(lines), poDate: today(), vid: vendors[0]?.vid || '', project: '', projects: [],
-  loading: '', transport: '', gstPct: 18, notes: '', paymentMethod: '', terms: '', invoice: null,
+  loading: '', transport: '', gstPct: 18, transportGst: true, notes: '', paymentMethod: '', terms: '', invoice: null,
   deliveryDate: '', deliveryAddress: '', status: 'Approved',
   items: [blankItem()], origIds: [],
 });
@@ -90,7 +90,7 @@ export default function PurchaseOrders() {
     setEditing({
       isNew: false,
       po: h.po || poKey, poDate: h.poDate || today(), vid: h.vid || vendors[0]?.vid || '', project: h.project || '', projects: (Array.isArray(h.projects) && h.projects.length) ? h.projects : (h.project ? [h.project] : []),
-      loading: ch.loading || '', transport: ch.transport || '', gstPct: ch.gstPct, notes: h.notes || '',
+      loading: ch.loading || '', transport: ch.transport || '', gstPct: ch.gstPct, transportGst: ch.transportGst, notes: h.notes || '',
       paymentMethod: h.paymentMethod || '', terms: h.terms || '', invoice: h.invoice || null,
       deliveryDate: h.deliveryDate || '', deliveryAddress: h.deliveryAddress || '', status: h.status || 'Approved',
       items: group.map(l => ({
@@ -148,13 +148,13 @@ export default function PurchaseOrders() {
     if (!editing?.isNew) return;
     const key = String(editing.po).trim().toUpperCase();
     const ex = lines.find(x => x.po === key);
-    if (ex) { const ch = poCharges(ex); setEditing(e => ({ ...e, poDate: ex.poDate || e.poDate, vid: ex.vid, project: ex.project || '', projects: (Array.isArray(ex.projects) && ex.projects.length) ? ex.projects : (ex.project ? [ex.project] : []), loading: ch.loading || '', transport: ch.transport || '', gstPct: ch.gstPct })); }
+    if (ex) { const ch = poCharges(ex); setEditing(e => ({ ...e, poDate: ex.poDate || e.poDate, vid: ex.vid, project: ex.project || '', projects: (Array.isArray(ex.projects) && ex.projects.length) ? ex.projects : (ex.project ? [ex.project] : []), loading: ch.loading || '', transport: ch.transport || '', gstPct: ch.gstPct, transportGst: ch.transportGst })); }
   };
 
   // Live invoice totals for the open PO.
   const itemAmts = editing ? editing.items.map(it => num(it.qty) * num(it.rate)) : [];
   const sub = itemAmts.reduce((s, a) => s + a, 0);
-  const poTot = editing ? calcPO({ sub, loading: editing.loading, transport: editing.transport, gstPct: editing.gstPct }) : null;
+  const poTot = editing ? calcPO({ sub, loading: editing.loading, transport: editing.transport, gstPct: editing.gstPct, transportGst: editing.transportGst }) : null;
 
   const doDeletePO = async () => {
     if (!editing || editing.isNew) return;
@@ -189,7 +189,7 @@ export default function PurchaseOrders() {
 
     const loading = num(d.loading), transport = num(d.transport);
     const gstPct = (d.gstPct === '' || d.gstPct === null || d.gstPct === undefined) ? 18 : num(d.gstPct);
-    const shared = { po, poDate: d.poDate, vid: d.vid, project: (d.projects[0] || '').trim(), projects: d.projects, loading, transport, gstPct, notes: String(d.notes || '').trim(), paymentMethod: d.paymentMethod || '', terms: String(d.terms || '').trim(), invoice: d.invoice || null, deliveryDate: d.deliveryDate || '', deliveryAddress: String(d.deliveryAddress || '').trim(), status: d.status || 'Approved' };
+    const shared = { po, poDate: d.poDate, vid: d.vid, project: (d.projects[0] || '').trim(), projects: d.projects, loading, transport, gstPct, transportGst: d.transportGst !== false, notes: String(d.notes || '').trim(), paymentMethod: d.paymentMethod || '', terms: String(d.terms || '').trim(), invoice: d.invoice || null, deliveryDate: d.deliveryDate || '', deliveryAddress: String(d.deliveryAddress || '').trim(), status: d.status || 'Approved' };
 
     setBusy(true);
     try {
@@ -457,6 +457,12 @@ export default function PurchaseOrders() {
             <div className="po-fields">
               <label className="pf">Loading Charges (₹)<input type="number" min="0" step="any" value={editing.loading} onChange={e => setHdr('loading', e.target.value)} placeholder="0" /></label>
               <label className="pf">Transport Charge (₹)<input type="number" min="0" step="any" value={editing.transport} onChange={e => setHdr('transport', e.target.value)} placeholder="0" /></label>
+              <label className="pf">Transport GST
+                <select value={editing.transportGst === false ? 'no' : 'yes'} onChange={e => setHdr('transportGst', e.target.value === 'yes')}>
+                  <option value="yes">With GST</option>
+                  <option value="no">Without GST</option>
+                </select>
+              </label>
               <label className="pf">GST %<input type="number" min="0" step="any" value={editing.gstPct} onChange={e => setHdr('gstPct', e.target.value)} placeholder="18" /></label>
               <label className="pf">Payment Method
                 <select value={editing.paymentMethod} onChange={e => setHdr('paymentMethod', e.target.value)}>
@@ -509,10 +515,11 @@ export default function PurchaseOrders() {
           <div className="po-totals">
             <Row label="Sub Total (materials)" val={money(poTot.sub)} />
             {poTot.loading ? <Row label="Loading Charges" val={money(poTot.loading)} /> : null}
-            {poTot.transport ? <Row label="Transport Charge" val={money(poTot.transport)} /> : null}
+            {poTot.transport && poTot.transportGst ? <Row label="Transport Charge" val={money(poTot.transport)} /> : null}
             <Row label="Taxable Value" val={money(poTot.taxable)} />
             <Row label={`CGST @ ${(poTot.gstPct / 2)}%`} val={money(poTot.cgst)} />
             <Row label={`SGST @ ${(poTot.gstPct / 2)}%`} val={money(poTot.sgst)} />
+            {poTot.transport && !poTot.transportGst ? <Row label="Transport Charge (no GST)" val={money(poTot.transport)} /> : null}
             {Math.abs(poTot.roundOff) >= 0.005 ? <Row label="Round Off" val={(poTot.roundOff >= 0 ? '+' : '−') + '₹' + Math.abs(poTot.roundOff).toFixed(2)} /> : null}
             <Row label="Grand Total" val={inr(poTot.grand)} strong />
             <div className="po-words">{amountInWords(poTot.grand)}</div>

@@ -181,16 +181,17 @@ export function overdueStats(lines) {
 // loading & transport charges, GST (split into CGST/SGST halves like the
 // tax invoice), a round-off to the nearest rupee, and the grand total.
 // gstPct defaults to 18 (CGST 9% + SGST 9%) and is editable per PO.
-export function calcPO({ sub = 0, loading = 0, transport = 0, gstPct = 18 } = {}) {
+export function calcPO({ sub = 0, loading = 0, transport = 0, gstPct = 18, transportGst = true } = {}) {
   sub = num(sub); loading = num(loading); transport = num(transport);
   const rate = (gstPct === '' || gstPct === null || gstPct === undefined) ? 18 : num(gstPct);
-  const taxable = sub + loading + transport;
+  const taxGst = transportGst !== false;                 // true ⇒ transport is taxed
+  const taxable = sub + loading + (taxGst ? transport : 0);
   const gst = taxable * rate / 100;
   const cgst = gst / 2, sgst = gst / 2;
-  const pre = taxable + gst;
+  const pre = taxable + gst + (taxGst ? 0 : transport);  // untaxed transport added after GST
   const grand = Math.round(pre);
   const roundOff = grand - pre;          // + or − a few paise, rounded to ₹1
-  return { sub, loading, transport, taxable, gstPct: rate, gst, cgst, sgst, roundOff, grand };
+  return { sub, loading, transport, transportGst: taxGst, taxable, gstPct: rate, gst, cgst, sgst, roundOff, grand };
 }
 
 // Pull a PO's shared charge fields off any one of its lines (they are stored
@@ -199,6 +200,7 @@ export const poCharges = (line = {}) => ({
   loading: num(line.loading),
   transport: num(line.transport),
   gstPct: (line.gstPct === '' || line.gstPct === null || line.gstPct === undefined) ? 18 : num(line.gstPct),
+  transportGst: line.transportGst !== false,
 });
 
 // Tidy terms & conditions for display: drop tabs, collapse runs of spaces, and
