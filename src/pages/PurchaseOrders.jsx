@@ -19,7 +19,7 @@ const newId = () => 'L' + Date.now().toString(36) + Math.random().toString(36).s
 // One blank item row for the PO form.
 const blankItem = () => ({
   _id: newId(), isNew: true,
-  material: '', description: '', spec: '', hsn: '', make: '', weight: '', itemProject: '', gstPct: 18,
+  material: '', description: '', spec: '', hsn: '', make: '', weight: '', itemProject: '', gstPct: 0,
   qty: '', unit: 'MT', rate: '', received: 0, expDate: '', dueDate: '', paid: 0,
 });
 
@@ -27,7 +27,7 @@ const blankItem = () => ({
 const blankPO = (lines, vendors) => ({
   isNew: true,
   po: nextPo(lines), poDate: today(), vid: vendors[0]?.vid || '', project: '', projects: [],
-  loading: '', transport: '', chargesGstPct: 18, taxType: 'cgst_sgst', transportGst: true, notes: '', paymentMethod: '', terms: '', invoice: null,
+  loading: '', transport: '', chargesGstPct: 0, taxType: 'cgst_sgst', transportGst: true, notes: '', paymentMethod: '', terms: '', invoice: null,
   deliveryDate: '', deliveryAddress: '', status: 'Approved',
   items: [blankItem()], origIds: [],
 });
@@ -100,7 +100,7 @@ export default function PurchaseOrders() {
       deliveryDate: h.deliveryDate || '', deliveryAddress: h.deliveryAddress || '', status: h.status || 'Approved',
       items: group.map(l => ({
         _id: l.id, isNew: false,
-        material: l.material || '', description: l.description || '', spec: l.spec || '', hsn: l.hsn || '', make: l.make || '', weight: l.weight ?? '', itemProject: l.project || '', gstPct: (l.gstPct === undefined || l.gstPct === null || l.gstPct === '') ? 18 : l.gstPct,
+        material: l.material || '', description: l.description || '', spec: l.spec || '', hsn: l.hsn || '', make: l.make || '', weight: l.weight ?? '', itemProject: l.project || '', gstPct: (l.gstPct === undefined || l.gstPct === null || l.gstPct === '') ? 0 : l.gstPct,
         qty: l.qty ?? '', unit: l.unit || 'MT', rate: l.rate ?? '', received: l.received ?? 0,
         expDate: l.expDate || '', dueDate: l.dueDate || '', paid: l.paid ?? 0,
       })),
@@ -204,7 +204,7 @@ export default function PurchaseOrders() {
     }
 
     const loading = num(d.loading), transport = num(d.transport);
-    const chargesGstPct = (d.chargesGstPct === '' || d.chargesGstPct === null || d.chargesGstPct === undefined) ? 18 : num(d.chargesGstPct);
+    const chargesGstPct = (d.chargesGstPct === '' || d.chargesGstPct === null || d.chargesGstPct === undefined) ? 0 : num(d.chargesGstPct);
     const shared = { po, poDate: d.poDate, vid: d.vid, project: (d.projects[0] || '').trim(), projects: d.projects, loading, transport, chargesGstPct, taxType: d.taxType === 'igst' ? 'igst' : 'cgst_sgst', transportGst: d.transportGst !== false, notes: String(d.notes || '').trim(), paymentMethod: d.paymentMethod || '', terms: String(d.terms || '').trim(), invoice: d.invoice || null, deliveryDate: d.deliveryDate || '', deliveryAddress: String(d.deliveryAddress || '').trim(), status: d.status || 'Approved' };
 
     setBusy(true);
@@ -498,7 +498,7 @@ export default function PurchaseOrders() {
                   <option value="no">Without GST</option>
                 </select>
               </label>
-              <label className="pf">Charges GST %<input type="number" min="0" step="any" value={editing.chargesGstPct} onChange={e => setHdr('chargesGstPct', e.target.value)} placeholder="18" /></label>
+              <label className="pf">Charges GST %<input type="number" min="0" step="any" value={editing.chargesGstPct} onChange={e => setHdr('chargesGstPct', e.target.value)} placeholder="0" /></label>
               <label className="pf">Tax Type
                 <select value={editing.taxType === 'igst' ? 'igst' : 'cgst_sgst'} onChange={e => setHdr('taxType', e.target.value)}>
                   <option value="cgst_sgst">CGST + SGST</option>

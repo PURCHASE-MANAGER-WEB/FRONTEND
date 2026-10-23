@@ -58,15 +58,16 @@ export default function DeliveryChallan() {
     const supplierRef = [vName, String(c.supplierRef || '').trim()].filter(Boolean).join(' – ');
     const its = (Array.isArray(c.items) ? c.items : []).filter((x) => String(x.material).trim() || num(x.qty));
     return {
-      dcNo: `TSPL/DC/${numOf(c.id) || '____'}/${fy || '2026-27'}`,
-      dateFmt: ddmmyyyy(c.date),
+      dcNo: `TES / ${(numOf(c.id) || '').padStart(3, '0')}`,
+      dateFmt: String(c.date || '').split('-').reverse().join('/'),
       poRef: c.po ? `TSPL/PO/${numOf(c.po)}/${fy || '2026-27'}` : '',
       supplierRef,
       vehicleNo: c.vehicleNo || '',
       driver: [c.driverName, c.driverMobile].filter(Boolean).join(' / '),
-      consignee: { name: c.consigneeName || '', address: c.consigneeAddress || '', contact: c.consigneeMobile || '' },
+      consignee: { name: c.consigneeName || '', address: c.consigneeAddress || '', phone: c.consigneeMobile || '', email: c.consigneeEmail || '', gstin: c.consigneeGstin || '' },
       purpose: c.purpose || '',
       items: its.map((it) => ({ material: it.material, make: it.make || '', unit: it.unit || 'Nos', qty: num(it.qty), weight: num(it.weight), remarks: it.remarks || '' })),
+      totalQty: its.reduce((s, it) => s + num(it.qty), 0),
       fileName: c.id || 'delivery-challan',
     };
   };

@@ -212,13 +212,23 @@ export async function downloadPoPdf(data) {
 
   // ── Totals (continue the grid) ──
   const T = data.totals || {};
-  const gstPct = T.gstPct || 18;
-  const gstVal = T.gst != null ? T.gst : (nz(T.cgst) + nz(T.sgst));
+  const gstVal = T.gst != null ? T.gst : (nz(T.cgst) + nz(T.sgst) + nz(T.igst));
+  const isIgst = T.taxType === 'igst';
+  const taxRows = Array.isArray(T.byRate) ? T.byRate.filter((r) => nz(r.gst) > 0.004) : [];
   const ap = totWeight > 0 ? ' (approx.)' : '';
   const totRows = [['Sub Total' + ap, money2(T.sub)]];
   if (T.loading) totRows.push(['Loading Charges', money2(T.loading)]);
   if (T.transport && T.transportGst !== false) totRows.push(['Transport Charge', money2(T.transport)]);
-  totRows.push([`GST @ ${gstPct}%`, money2(gstVal)]);
+  if (taxRows.length) {
+    taxRows.forEach((r) => {
+      if (isIgst) { totRows.push([`IGST @ ${r.rate}%`, money2(r.igst)]); }
+      else { totRows.push([`CGST @ ${r.rate / 2}%`, money2(r.cgst)]); totRows.push([`SGST @ ${r.rate / 2}%`, money2(r.sgst)]); }
+    });
+  } else if (nz(gstVal) > 0.004) {
+    const rate = nz(T.gstPct);
+    if (isIgst) { totRows.push([`IGST @ ${rate}%`, money2(gstVal)]); }
+    else { totRows.push([`CGST @ ${rate / 2}%`, money2(gstVal / 2)]); totRows.push([`SGST @ ${rate / 2}%`, money2(gstVal / 2)]); }
+  }
   if (T.transport && T.transportGst === false) totRows.push(['Transport Charge (no GST)', money2(T.transport)]);
   if (Math.abs(nz(T.roundOff)) >= 0.005) totRows.push(['Round Off', (T.roundOff >= 0 ? '' : '-') + money2(Math.abs(T.roundOff))]);
 

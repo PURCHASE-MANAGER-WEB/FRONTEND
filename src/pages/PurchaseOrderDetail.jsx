@@ -4,7 +4,7 @@ import { ArrowLeft, Download, Printer, Pencil, FileText, Trash2 } from 'lucide-r
 import { usePurchaseData } from '../context/PurchaseData';
 import { useToast } from '../components/Toast';
 import { Pill, StateRow } from '../components/ui';
-import { calcLine, calcPO, poCharges, amountInWords, groupPOs, vendorName, num, inr, qfmt, dfmt, formatTerms } from '../utils/procurement';
+import { calcLine, calcPO, poCharges, poBreakdownFromLines, amountInWords, groupPOs, vendorName, num, inr, qfmt, dfmt, formatTerms } from '../utils/procurement';
 import { downloadPoPdf } from '../utils/poPdf';
 import { downloadFabricatorPoPdf } from '../utils/fabricatorPoPdf';
 import { openInvoice, downloadInvoice } from '../utils/cloudinary';
@@ -30,7 +30,7 @@ export default function PurchaseOrderDetail() {
     const ch = poCharges(h);
     const items = group.map(l => ({ l, c: calcLine(l), amount: num(l.qty) * num(l.rate) }));
     const sub = items.reduce((s, x) => s + x.amount, 0);
-    const totals = calcPO({ sub, loading: ch.loading, transport: ch.transport, gstPct: ch.gstPct, transportGst: ch.transportGst });
+    const totals = poBreakdownFromLines(group);
     const g = groupPOs(lines).find(x => x.po === po) || {};
     const vendor = vendors.find(v => v.vid === h.vid) || null;
 
@@ -181,7 +181,7 @@ export default function PurchaseOrderDetail() {
           <Row k="Delivery Date" v={h.deliveryDate ? dfmt(h.deliveryDate) : model.deliveryDateFmt} />
           <Row k="Delivery Address" v={h.deliveryAddress || '—'} />
           <Row k={(h.projects && h.projects.length > 1) ? "Projects" : "Project"} v={(h.projects && h.projects.length ? h.projects.join(', ') : h.project)} />
-          {!fab && <Row k="GST Rate" v={`${totals.gstPct}%`} />}
+          {!fab && <Row k="GST Rate" v={(() => { const rs = [...new Set((totals.byRate || []).filter(r => r.gst > 0.004).map(r => r.rate))]; return rs.length ? rs.map(r => `${r}%`).join(' + ') : '0% (no GST)'; })()} />}
           <Row k="Payment Method" v={h.paymentMethod} />
           {!pm && <Row k="Invoice" v={h.invoice ? (
             <span>
@@ -281,8 +281,13 @@ export default function PurchaseOrderDetail() {
               {totals.loading ? <Row k="Loading Charges" v={money(totals.loading)} /> : null}
               {totals.transport && totals.transportGst ? <Row k="Transport Charge" v={money(totals.transport)} /> : null}
               <Row k="Taxable Value" v={money(totals.taxable)} />
-              <Row k={`CGST @ ${totals.gstPct / 2}%`} v={money(totals.cgst)} />
-              <Row k={`SGST @ ${totals.gstPct / 2}%`} v={money(totals.sgst)} />
+              {(totals.byRate || []).filter((r) => r.gst > 0.004).flatMap((r) => (
+                totals.taxType === 'igst'
+                  ? [<Row key={`i${r.rate}`} k={`IGST @ ${r.rate}%`} v={money(r.igst)} />]
+                  : [<Row key={`c${r.rate}`} k={`CGST @ ${r.rate / 2}%`} v={money(r.cgst)} />,
+                     <Row key={`s${r.rate}`} k={`SGST @ ${r.rate / 2}%`} v={money(r.sgst)} />]
+              ))}
+              {totals.gst > 0.004 ? <Row k="Total GST" v={money(totals.gst)} /> : null}
               {totals.transport && !totals.transportGst ? <Row k="Transport Charge (no GST)" v={money(totals.transport)} /> : null}
               {Math.abs(totals.roundOff) >= 0.005 ? <Row k="Round Off" v={(totals.roundOff >= 0 ? '+' : '−') + '₹' + Math.abs(totals.roundOff).toFixed(2)} /> : null}
               <Row k="Grand Total" v={inr(totals.grand)} strong />

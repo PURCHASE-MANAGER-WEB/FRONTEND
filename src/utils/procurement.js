@@ -114,9 +114,9 @@ export function groupPOs(lines) {
   const map = new Map();
   for (const l of lines) {
     const c = calcLine(l);
-    const g = map.get(l.po) || { po: l.po, vid: l.vid, vendorName: l.vendorName || '', project: l.project, projects: (Array.isArray(l.projects) && l.projects.length) ? l.projects : (l.project ? [l.project] : []), date: l.poDate, status: l.status, poType: l.poType || '', loading: num(l.loading), transport: num(l.transport), gstPct: (l.gstPct === '' || l.gstPct === null || l.gstPct === undefined) ? 18 : num(l.gstPct), chargesGstPct: (l.chargesGstPct !== undefined && l.chargesGstPct !== null && l.chargesGstPct !== '') ? num(l.chargesGstPct) : ((l.gstPct === '' || l.gstPct === null || l.gstPct === undefined) ? 18 : num(l.gstPct)), transportGst: l.transportGst !== false, itemGst: 0, value: 0, paid: 0, out: 0, qty: 0, rec: 0, pend: 0, units: new Set(), delOverdue: 0, payOverdue: 0, dueToday: false, payDueToday: false, count: 0, exps: [], dues: [] };
+    const g = map.get(l.po) || { po: l.po, vid: l.vid, vendorName: l.vendorName || '', project: l.project, projects: (Array.isArray(l.projects) && l.projects.length) ? l.projects : (l.project ? [l.project] : []), date: l.poDate, status: l.status, poType: l.poType || '', loading: num(l.loading), transport: num(l.transport), gstPct: (l.gstPct === '' || l.gstPct === null || l.gstPct === undefined) ? 0 : num(l.gstPct), chargesGstPct: (l.chargesGstPct !== undefined && l.chargesGstPct !== null && l.chargesGstPct !== '') ? num(l.chargesGstPct) : ((l.gstPct === '' || l.gstPct === null || l.gstPct === undefined) ? 0 : num(l.gstPct)), transportGst: l.transportGst !== false, itemGst: 0, value: 0, paid: 0, out: 0, qty: 0, rec: 0, pend: 0, units: new Set(), delOverdue: 0, payOverdue: 0, dueToday: false, payDueToday: false, count: 0, exps: [], dues: [] };
     g.value += c.total; g.paid += num(l.paid); g.out += c.out;
-    g.itemGst += c.total * ((l.gstPct === '' || l.gstPct === null || l.gstPct === undefined) ? 18 : num(l.gstPct)) / 100;
+    g.itemGst += c.total * ((l.gstPct === '' || l.gstPct === null || l.gstPct === undefined) ? 0 : num(l.gstPct)) / 100;
     g.qty += num(l.qty); g.rec += Math.min(num(l.received), num(l.qty)); g.pend += c.pending; g.units.add(l.unit);
     g.delOverdue = Math.max(g.delOverdue, c.delOverdueDays);
     g.payOverdue = Math.max(g.payOverdue, c.payOverdueDays);
@@ -182,10 +182,10 @@ export function overdueStats(lines) {
 // Invoice-style roll-up for one PO: sub total of its item lines, plus
 // loading & transport charges, GST (split into CGST/SGST halves like the
 // tax invoice), a round-off to the nearest rupee, and the grand total.
-// gstPct defaults to 18 (CGST 9% + SGST 9%) and is editable per PO.
-export function calcPO({ sub = 0, loading = 0, transport = 0, gstPct = 18, transportGst = true } = {}) {
+// gstPct defaults to 0 (no GST is added unless a rate is selected) and is editable per PO.
+export function calcPO({ sub = 0, loading = 0, transport = 0, gstPct = 0, transportGst = true } = {}) {
   sub = num(sub); loading = num(loading); transport = num(transport);
-  const rate = (gstPct === '' || gstPct === null || gstPct === undefined) ? 18 : num(gstPct);
+  const rate = (gstPct === '' || gstPct === null || gstPct === undefined) ? 0 : num(gstPct);
   const taxGst = transportGst !== false;                 // true ⇒ transport is taxed
   const taxable = sub + loading + (taxGst ? transport : 0);
   const gst = taxable * rate / 100;
@@ -201,7 +201,7 @@ export function calcPO({ sub = 0, loading = 0, transport = 0, gstPct = 18, trans
 export const poCharges = (line = {}) => ({
   loading: num(line.loading),
   transport: num(line.transport),
-  gstPct: (line.gstPct === '' || line.gstPct === null || line.gstPct === undefined) ? 18 : num(line.gstPct),
+  gstPct: (line.gstPct === '' || line.gstPct === null || line.gstPct === undefined) ? 0 : num(line.gstPct),
   transportGst: line.transportGst !== false,
 });
 
@@ -211,10 +211,10 @@ export const poCharges = (line = {}) => ({
 // taxed at `chargesGstPct` (transport only when transportGst is true). The total GST is
 // split into CGST + SGST (intra-state) or shown as IGST (inter-state) per `taxType`.
 // `byRate` groups taxable + GST by rate so the invoice can show one CGST/SGST row per rate.
-export function computePoBreakdown({ items = [], loading = 0, transport = 0, transportGst = true, chargesGstPct = 18, taxType = 'cgst_sgst' } = {}) {
+export function computePoBreakdown({ items = [], loading = 0, transport = 0, transportGst = true, chargesGstPct = 0, taxType = 'cgst_sgst' } = {}) {
   loading = num(loading); transport = num(transport);
   const taxGst = transportGst !== false;
-  const chRate = (chargesGstPct === '' || chargesGstPct === null || chargesGstPct === undefined) ? 18 : num(chargesGstPct);
+  const chRate = (chargesGstPct === '' || chargesGstPct === null || chargesGstPct === undefined) ? 0 : num(chargesGstPct);
   const isIgst = taxType === 'igst';
 
   const rateMap = new Map(); // rate → { taxable, gst }
@@ -223,7 +223,7 @@ export function computePoBreakdown({ items = [], loading = 0, transport = 0, tra
   let itemTaxable = 0, itemGst = 0;
   for (const it of items) {
     const amt = num(it.amount);
-    const rate = (it.gstPct === '' || it.gstPct === null || it.gstPct === undefined) ? 18 : num(it.gstPct);
+    const rate = (it.gstPct === '' || it.gstPct === null || it.gstPct === undefined) ? 0 : num(it.gstPct);
     const g = amt * rate / 100;
     itemTaxable += amt; itemGst += g;
     if (amt || g) bump(rate, amt, g);
@@ -258,7 +258,7 @@ export function poBreakdownFromLines(lines = []) {
   if (!lines.length) return computePoBreakdown({ items: [] });
   const head = lines[0];
   const ch = poCharges(head);
-  const items = lines.map((l) => ({ amount: num(l.qty) * num(l.rate), gstPct: (l.gstPct === '' || l.gstPct === null || l.gstPct === undefined) ? 18 : num(l.gstPct) }));
+  const items = lines.map((l) => ({ amount: num(l.qty) * num(l.rate), gstPct: (l.gstPct === '' || l.gstPct === null || l.gstPct === undefined) ? 0 : num(l.gstPct) }));
   return computePoBreakdown({
     items,
     loading: ch.loading, transport: ch.transport, transportGst: ch.transportGst,
