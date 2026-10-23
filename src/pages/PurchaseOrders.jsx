@@ -449,7 +449,6 @@ export default function PurchaseOrders() {
                     <label className="pf full">Description of goods<input value={it.description} onChange={e => setItem(it._id, 'description', e.target.value)} placeholder="Longer description as it should read on the order / invoice" /></label>
                     <label className="pf">Qty *<input type="number" min="0" step="any" value={it.qty} onChange={e => setItem(it._id, 'qty', e.target.value)} /></label>
                     <label className="pf">Unit (Per)<select value={it.unit} onChange={e => setItem(it._id, 'unit', e.target.value)}>{UNITS.map(u => <option key={u}>{u}</option>)}</select></label>
-                    <label className="pf">Approx. Wt (MT)<input type="number" min="0" step="any" value={it.weight} onChange={e => setItem(it._id, 'weight', e.target.value)} placeholder="Per-item weight" /></label>
                     <label className="pf">Rate (₹) *<input type="number" min="0" step="any" value={it.rate} onChange={e => setItem(it._id, 'rate', e.target.value)} /></label>
                     <label className="pf">GST %
                       {(() => {
