@@ -2,14 +2,15 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Plus, Trash2, FileText, Upload, ClipboardList, Clock, CheckCircle2, IndianRupee, Wallet } from 'lucide-react';
 import { usePurchaseData } from '../context/PurchaseData';
-import { purchaseApi } from '../api/client';
+import { purchaseApi, filesApi } from '../api/client';
 import { useToast } from '../components/Toast';
 import { Pill, Drawer, Field, StateRow } from '../components/ui';
 import ComboBox from '../components/ComboBox';
 import FabricatorPO from '../components/FabricatorPO';
 import ProjectMultiSelect from '../components/ProjectMultiSelect';
-import { calcLine, calcPO, poCharges, amountInWords, groupPOs, num, inr, qfmt, dfmt, today, vendorName, nextPo, UNITS, PAYMENT_METHODS, PO_STATUSES, MATERIALS } from '../utils/procurement';
+import { calcLine, computePoBreakdown, poCharges, amountInWords, groupPOs, num, inr, qfmt, dfmt, today, vendorName, nextPo, UNITS, PAYMENT_METHODS, PO_STATUSES, MATERIALS } from '../utils/procurement';
 import { uploadInvoice, openInvoice, downloadInvoice } from '../utils/cloudinary';
+import { uploadPoFile, openPoFile, downloadPoFile, removePoFile, validatePoFile } from '../utils/poFiles';
 
 const kb = (n) => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
 
@@ -18,7 +19,7 @@ const newId = () => 'L' + Date.now().toString(36) + Math.random().toString(36).s
 // One blank item row for the PO form.
 const blankItem = () => ({
   _id: newId(), isNew: true,
-  material: '', description: '', spec: '', hsn: '', make: '', weight: '', itemProject: '',
+  material: '', description: '', spec: '', hsn: '', make: '', weight: '', itemProject: '', gstPct: 18,
   qty: '', unit: 'MT', rate: '', received: 0, expDate: '', dueDate: '', paid: 0,
 });
 
@@ -26,7 +27,7 @@ const blankItem = () => ({
 const blankPO = (lines, vendors) => ({
   isNew: true,
   po: nextPo(lines), poDate: today(), vid: vendors[0]?.vid || '', project: '', projects: [],
-  loading: '', transport: '', gstPct: 18, transportGst: true, notes: '', paymentMethod: '', terms: '', invoice: null,
+  loading: '', transport: '', chargesGstPct: 18, taxType: 'cgst_sgst', transportGst: true, notes: '', paymentMethod: '', terms: '', invoice: null,
   deliveryDate: '', deliveryAddress: '', status: 'Approved',
   items: [blankItem()], origIds: [],
 });
@@ -40,6 +41,10 @@ export default function PurchaseOrders() {
   const [busy, setBusy] = useState(false);
   const [invBusy, setInvBusy] = useState(false);
   const [invErr, setInvErr] = useState('');
+  const [files, setFiles] = useState([]);        // existing saved attachments
+  const [newFiles, setNewFiles] = useState([]);  // staged File objects to upload on save
+  const [removed, setRemoved] = useState([]);    // fileIds of existing attachments to delete on save
+  const [fileErr, setFileErr] = useState('');
   const [newMenu, setNewMenu] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
   const newMenuRef = useRef(null);
@@ -83,26 +88,37 @@ export default function PurchaseOrders() {
   const open = (poKey) => {
     if (!vendors.length) { toast('Add a vendor first'); return; }
     setFormErr('');
-    if (!poKey) { setEditing(blankPO(lines, vendors)); return; }
+    if (!poKey) { setFiles([]); setNewFiles([]); setRemoved([]); setFileErr(''); setEditing(blankPO(lines, vendors)); return; }
     const group = lines.filter(l => l.po === poKey);
     const h = group[0] || {};
     const ch = poCharges(h);
     setEditing({
       isNew: false,
       po: h.po || poKey, poDate: h.poDate || today(), vid: h.vid || vendors[0]?.vid || '', project: h.project || '', projects: (Array.isArray(h.projects) && h.projects.length) ? h.projects : (h.project ? [h.project] : []),
-      loading: ch.loading || '', transport: ch.transport || '', gstPct: ch.gstPct, transportGst: ch.transportGst, notes: h.notes || '',
+      loading: ch.loading || '', transport: ch.transport || '', chargesGstPct: (h.chargesGstPct !== undefined && h.chargesGstPct !== null && h.chargesGstPct !== '') ? h.chargesGstPct : ch.gstPct, taxType: h.taxType || 'cgst_sgst', transportGst: ch.transportGst, notes: h.notes || '',
       paymentMethod: h.paymentMethod || '', terms: h.terms || '', invoice: h.invoice || null,
       deliveryDate: h.deliveryDate || '', deliveryAddress: h.deliveryAddress || '', status: h.status || 'Approved',
       items: group.map(l => ({
         _id: l.id, isNew: false,
-        material: l.material || '', description: l.description || '', spec: l.spec || '', hsn: l.hsn || '', make: l.make || '', weight: l.weight ?? '', itemProject: l.project || '',
+        material: l.material || '', description: l.description || '', spec: l.spec || '', hsn: l.hsn || '', make: l.make || '', weight: l.weight ?? '', itemProject: l.project || '', gstPct: (l.gstPct === undefined || l.gstPct === null || l.gstPct === '') ? 18 : l.gstPct,
         qty: l.qty ?? '', unit: l.unit || 'MT', rate: l.rate ?? '', received: l.received ?? 0,
         expDate: l.expDate || '', dueDate: l.dueDate || '', paid: l.paid ?? 0,
       })),
       origIds: group.map(l => l.id),
     });
+    setNewFiles([]); setRemoved([]); setFileErr(''); loadFiles(h.po || poKey);
   };
-  const close = () => { setEditing(null); setFormErr(''); setConfirmDel(false); };
+  const loadFiles = async (po) => { try { const list = await filesApi.list(po); setFiles(Array.isArray(list) ? list : []); } catch { setFiles([]); } };
+  const onPickFiles = (e) => {
+    setFileErr('');
+    const picked = Array.from(e.target.files || []); e.target.value = '';
+    const good = []; let err = '';
+    for (const f of picked) { const v = validatePoFile(f); if (v) err = v; else good.push(f); }
+    if (err) setFileErr(err);
+    if (good.length) setNewFiles((ns) => [...ns, ...good]);
+  };
+  const removeExisting = (fileId) => { setFiles((fs) => fs.filter((f) => f.fileId !== fileId)); setRemoved((r) => [...r, fileId]); };
+  const close = () => { setEditing(null); setFormErr(''); setConfirmDel(false); setFiles([]); setNewFiles([]); setRemoved([]); setFileErr(''); };
 
   // ── Simple (quick) PO: project + vendor + material + optional invoice ──
   const openSimple = () => {
@@ -148,13 +164,13 @@ export default function PurchaseOrders() {
     if (!editing?.isNew) return;
     const key = String(editing.po).trim().toUpperCase();
     const ex = lines.find(x => x.po === key);
-    if (ex) { const ch = poCharges(ex); setEditing(e => ({ ...e, poDate: ex.poDate || e.poDate, vid: ex.vid, project: ex.project || '', projects: (Array.isArray(ex.projects) && ex.projects.length) ? ex.projects : (ex.project ? [ex.project] : []), loading: ch.loading || '', transport: ch.transport || '', gstPct: ch.gstPct, transportGst: ch.transportGst })); }
+    if (ex) { const ch = poCharges(ex); setEditing(e => ({ ...e, poDate: ex.poDate || e.poDate, vid: ex.vid, project: ex.project || '', projects: (Array.isArray(ex.projects) && ex.projects.length) ? ex.projects : (ex.project ? [ex.project] : []), loading: ch.loading || '', transport: ch.transport || '', chargesGstPct: (ex.chargesGstPct !== undefined && ex.chargesGstPct !== null && ex.chargesGstPct !== '') ? ex.chargesGstPct : ch.gstPct, taxType: ex.taxType || 'cgst_sgst', transportGst: ch.transportGst })); }
   };
 
   // Live invoice totals for the open PO.
   const itemAmts = editing ? editing.items.map(it => num(it.qty) * num(it.rate)) : [];
   const sub = itemAmts.reduce((s, a) => s + a, 0);
-  const poTot = editing ? calcPO({ sub, loading: editing.loading, transport: editing.transport, gstPct: editing.gstPct, transportGst: editing.transportGst }) : null;
+  const poTot = editing ? computePoBreakdown({ items: editing.items.map(it => ({ amount: num(it.qty) * num(it.rate), gstPct: it.gstPct })), loading: editing.loading, transport: editing.transport, transportGst: editing.transportGst, chargesGstPct: editing.chargesGstPct, taxType: editing.taxType }) : null;
 
   const doDeletePO = async () => {
     if (!editing || editing.isNew) return;
@@ -188,8 +204,8 @@ export default function PurchaseOrders() {
     }
 
     const loading = num(d.loading), transport = num(d.transport);
-    const gstPct = (d.gstPct === '' || d.gstPct === null || d.gstPct === undefined) ? 18 : num(d.gstPct);
-    const shared = { po, poDate: d.poDate, vid: d.vid, project: (d.projects[0] || '').trim(), projects: d.projects, loading, transport, gstPct, transportGst: d.transportGst !== false, notes: String(d.notes || '').trim(), paymentMethod: d.paymentMethod || '', terms: String(d.terms || '').trim(), invoice: d.invoice || null, deliveryDate: d.deliveryDate || '', deliveryAddress: String(d.deliveryAddress || '').trim(), status: d.status || 'Approved' };
+    const chargesGstPct = (d.chargesGstPct === '' || d.chargesGstPct === null || d.chargesGstPct === undefined) ? 18 : num(d.chargesGstPct);
+    const shared = { po, poDate: d.poDate, vid: d.vid, project: (d.projects[0] || '').trim(), projects: d.projects, loading, transport, chargesGstPct, taxType: d.taxType === 'igst' ? 'igst' : 'cgst_sgst', transportGst: d.transportGst !== false, notes: String(d.notes || '').trim(), paymentMethod: d.paymentMethod || '', terms: String(d.terms || '').trim(), invoice: d.invoice || null, deliveryDate: d.deliveryDate || '', deliveryAddress: String(d.deliveryAddress || '').trim(), status: d.status || 'Approved' };
 
     setBusy(true);
     try {
@@ -200,7 +216,7 @@ export default function PurchaseOrders() {
           material: String(it.material).trim(), description: String(it.description || '').trim(),
           spec: String(it.spec || '').trim(), hsn: String(it.hsn || '').trim(),
           make: String(it.make || '').trim(), weight: num(it.weight),
-          qty: num(it.qty), unit: it.unit, rate: num(it.rate), received: num(it.received),
+          qty: num(it.qty), unit: it.unit, rate: num(it.rate), gstPct: num(it.gstPct), received: num(it.received),
           expDate: it.expDate || '', dueDate: it.dueDate || '', paid: num(it.paid),
         };
         if (it.isNew) await purchaseApi.createLine({ ...payload, id: it._id });
@@ -209,9 +225,13 @@ export default function PurchaseOrders() {
       // Remove any lines that were deleted in the editor.
       const keep = new Set(items.map(it => it._id));
       for (const id of d.origIds) if (!keep.has(id)) await purchaseApi.deleteLine(id);
+      // Sync attachments: upload staged files, delete removed ones.
+      let fileWarn = '';
+      for (const f of newFiles) { try { await uploadPoFile(f, po); } catch (fe) { fileWarn = fe.message || 'Some files failed to upload.'; } }
+      for (const id of removed) { try { await removePoFile(po, id); } catch { /* ignore */ } }
       await reload();
       close();
-      toast(d.isNew ? 'Purchase order added' : 'Purchase order saved');
+      toast((d.isNew ? 'Purchase order added' : 'Purchase order saved') + (fileWarn ? ' — ' + fileWarn : ''));
     } catch (e) {
       setFormErr(e.message || 'Could not save the purchase order.');
     } finally {
@@ -364,7 +384,7 @@ export default function PurchaseOrders() {
       {editing && (
         <Drawer onClose={close}>
           <h3>{editing.isNew ? 'New purchase order' : `Edit ${editing.po}`}</h3>
-          <p className="hint">Add every material as an item row. Loading, transport and GST apply once to the whole PO.</p>
+          <p className="hint">Add every material as an item row with its own GST rate. Loading &amp; transport are charged once to the whole PO.</p>
 
           {/* ── PO header ── */}
           <div className="grid">
@@ -431,6 +451,21 @@ export default function PurchaseOrders() {
                     <label className="pf">Unit (Per)<select value={it.unit} onChange={e => setItem(it._id, 'unit', e.target.value)}>{UNITS.map(u => <option key={u}>{u}</option>)}</select></label>
                     <label className="pf">Approx. Wt (MT)<input type="number" min="0" step="any" value={it.weight} onChange={e => setItem(it._id, 'weight', e.target.value)} placeholder="Per-item weight" /></label>
                     <label className="pf">Rate (₹) *<input type="number" min="0" step="any" value={it.rate} onChange={e => setItem(it._id, 'rate', e.target.value)} /></label>
+                    <label className="pf">GST %
+                      {(() => {
+                        const raw = it.gstPct;
+                        const isCustom = (raw === '' || raw === null || raw === undefined) ? true : ![0, 5, 18].includes(num(raw));
+                        return (<>
+                          <select value={isCustom ? 'custom' : String(num(raw))} onChange={e => setItem(it._id, 'gstPct', e.target.value === 'custom' ? '' : e.target.value)}>
+                            <option value="0">0%</option>
+                            <option value="5">5%</option>
+                            <option value="18">18%</option>
+                            <option value="custom">Custom</option>
+                          </select>
+                          {isCustom && <input type="number" min="0" step="any" value={(raw === '' || raw === null || raw === undefined) ? '' : raw} onChange={e => setItem(it._id, 'gstPct', e.target.value)} placeholder="Custom %" style={{ marginTop: 6 }} />}
+                        </>);
+                      })()}
+                    </label>
                   </div>
                   <details className="po-track">
                     <summary>Delivery &amp; payment tracking</summary>
@@ -463,7 +498,13 @@ export default function PurchaseOrders() {
                   <option value="no">Without GST</option>
                 </select>
               </label>
-              <label className="pf">GST %<input type="number" min="0" step="any" value={editing.gstPct} onChange={e => setHdr('gstPct', e.target.value)} placeholder="18" /></label>
+              <label className="pf">Charges GST %<input type="number" min="0" step="any" value={editing.chargesGstPct} onChange={e => setHdr('chargesGstPct', e.target.value)} placeholder="18" /></label>
+              <label className="pf">Tax Type
+                <select value={editing.taxType === 'igst' ? 'igst' : 'cgst_sgst'} onChange={e => setHdr('taxType', e.target.value)}>
+                  <option value="cgst_sgst">CGST + SGST</option>
+                  <option value="igst">IGST</option>
+                </select>
+              </label>
               <label className="pf">Payment Method
                 <select value={editing.paymentMethod} onChange={e => setHdr('paymentMethod', e.target.value)}>
                   <option value="">— Select —</option>
@@ -511,16 +552,54 @@ export default function PurchaseOrders() {
             {invErr && <div className="err" style={{ marginTop: 8 }}>{invErr}</div>}
           </div>
 
+          {/* ── Attachments / Documents (multiple files) ── */}
+          <div className="po-charges">
+            <div className="po-items-head"><span>Attachments / Documents</span></div>
+            <label className="inv-drop">
+              <input type="file" accept=".pdf,.jpg,.jpeg,.png,.xls,.xlsx,application/pdf,image/jpeg,image/png,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" multiple hidden onChange={onPickFiles} />
+              <Upload size={17} /> Upload files
+              <span className="inv-hint">PDF, JPG, JPEG, PNG, Excel · up to 12 MB each · select multiple</span>
+            </label>
+            {fileErr && <div className="err" style={{ marginTop: 8 }}>{fileErr}</div>}
+            {(files.length > 0 || newFiles.length > 0) && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+                {files.map((f) => (
+                  <div className="inv-row" key={f.fileId}>
+                    <FileText size={16} />
+                    <button type="button" className="link inv-name" onClick={() => openPoFile(f)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit', textAlign: 'left' }}>{f.name}</button>
+                    <span className="inv-size">{kb(f.size)}</span>
+                    <button type="button" className="link" onClick={() => downloadPoFile(f)}>Download</button>
+                    <button type="button" className="link inv-remove" onClick={() => removeExisting(f.fileId)}>Remove</button>
+                  </div>
+                ))}
+                {newFiles.map((f, i) => (
+                  <div className="inv-row" key={`nf${i}`}>
+                    <FileText size={16} />
+                    <span className="inv-name">{f.name}</span>
+                    <span className="inv-size">{kb(f.size)}</span>
+                    <span style={{ color: 'var(--muted)', fontSize: 12 }}>· will upload on save</span>
+                    <button type="button" className="link inv-remove" onClick={() => setNewFiles((ns) => ns.filter((_, j) => j !== i))}>Remove</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* ── Invoice-style totals ── */}
           <div className="po-totals">
-            <Row label="Sub Total (materials)" val={money(poTot.sub)} />
+            <Row label="Sub Total (materials)" val={money(poTot.itemTaxable)} />
             {poTot.loading ? <Row label="Loading Charges" val={money(poTot.loading)} /> : null}
             {poTot.transport && poTot.transportGst ? <Row label="Transport Charge" val={money(poTot.transport)} /> : null}
             <Row label="Taxable Value" val={money(poTot.taxable)} />
-            <Row label={`CGST @ ${(poTot.gstPct / 2)}%`} val={money(poTot.cgst)} />
-            <Row label={`SGST @ ${(poTot.gstPct / 2)}%`} val={money(poTot.sgst)} />
+            {poTot.taxType === 'igst'
+              ? poTot.byRate.map((r) => <Row key={`i${r.rate}`} label={`IGST @ ${r.rate}%`} val={money(r.igst)} />)
+              : poTot.byRate.flatMap((r) => [
+                  <Row key={`c${r.rate}`} label={`CGST @ ${r.rate / 2}%`} val={money(r.cgst)} />,
+                  <Row key={`s${r.rate}`} label={`SGST @ ${r.rate / 2}%`} val={money(r.sgst)} />,
+                ])}
             {poTot.transport && !poTot.transportGst ? <Row label="Transport Charge (no GST)" val={money(poTot.transport)} /> : null}
             {Math.abs(poTot.roundOff) >= 0.005 ? <Row label="Round Off" val={(poTot.roundOff >= 0 ? '+' : '−') + '₹' + Math.abs(poTot.roundOff).toFixed(2)} /> : null}
+            <Row label="Total GST" val={money(poTot.gst)} />
             <Row label="Grand Total" val={inr(poTot.grand)} strong />
             <div className="po-words">{amountInWords(poTot.grand)}</div>
           </div>

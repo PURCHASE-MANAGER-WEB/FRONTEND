@@ -114,8 +114,9 @@ export function groupPOs(lines) {
   const map = new Map();
   for (const l of lines) {
     const c = calcLine(l);
-    const g = map.get(l.po) || { po: l.po, vid: l.vid, vendorName: l.vendorName || '', project: l.project, projects: (Array.isArray(l.projects) && l.projects.length) ? l.projects : (l.project ? [l.project] : []), date: l.poDate, status: l.status, poType: l.poType || '', loading: num(l.loading), transport: num(l.transport), gstPct: (l.gstPct === '' || l.gstPct === null || l.gstPct === undefined) ? 18 : num(l.gstPct), transportGst: l.transportGst !== false, value: 0, paid: 0, out: 0, qty: 0, rec: 0, pend: 0, units: new Set(), delOverdue: 0, payOverdue: 0, dueToday: false, payDueToday: false, count: 0, exps: [], dues: [] };
+    const g = map.get(l.po) || { po: l.po, vid: l.vid, vendorName: l.vendorName || '', project: l.project, projects: (Array.isArray(l.projects) && l.projects.length) ? l.projects : (l.project ? [l.project] : []), date: l.poDate, status: l.status, poType: l.poType || '', loading: num(l.loading), transport: num(l.transport), gstPct: (l.gstPct === '' || l.gstPct === null || l.gstPct === undefined) ? 18 : num(l.gstPct), chargesGstPct: (l.chargesGstPct !== undefined && l.chargesGstPct !== null && l.chargesGstPct !== '') ? num(l.chargesGstPct) : ((l.gstPct === '' || l.gstPct === null || l.gstPct === undefined) ? 18 : num(l.gstPct)), transportGst: l.transportGst !== false, itemGst: 0, value: 0, paid: 0, out: 0, qty: 0, rec: 0, pend: 0, units: new Set(), delOverdue: 0, payOverdue: 0, dueToday: false, payDueToday: false, count: 0, exps: [], dues: [] };
     g.value += c.total; g.paid += num(l.paid); g.out += c.out;
+    g.itemGst += c.total * ((l.gstPct === '' || l.gstPct === null || l.gstPct === undefined) ? 18 : num(l.gstPct)) / 100;
     g.qty += num(l.qty); g.rec += Math.min(num(l.received), num(l.qty)); g.pend += c.pending; g.units.add(l.unit);
     g.delOverdue = Math.max(g.delOverdue, c.delOverdueDays);
     g.payOverdue = Math.max(g.payOverdue, c.payOverdueDays);
@@ -143,7 +144,7 @@ export function groupPOs(lines) {
       : g.rec > 0 ? 'Partial'
       : 'Pending';
     g.payment = settled ? 'Paid' : g.paid > 0 ? 'Partial' : 'Unpaid';
-    g.valueGst = calcPO({ sub: g.value, loading: g.loading, transport: g.transport, gstPct: g.gstPct, transportGst: g.transportGst }).grand;
+    { const chTax = g.loading + (g.transportGst ? g.transport : 0); const chGst = chTax * g.chargesGstPct / 100; const untaxed = g.transportGst ? 0 : g.transport; g.valueGst = Math.round(g.value + chTax + g.itemGst + chGst + untaxed); }
     return g;
   }).sort((a,b) => String(a.po).localeCompare(String(b.po), undefined, { numeric: true }));
 }
@@ -204,21 +205,74 @@ export const poCharges = (line = {}) => ({
   transportGst: line.transportGst !== false,
 });
 
-// Total purchase value INCLUDING GST (and loading/transport) — group lines per PO,
-// run each PO through calcPO (using that PO's shared charges), and sum the grand
-// totals. Fabricator work orders carry no GST, so they add at their plain value.
+// ── Per-item GST breakdown ──────────────────────────────────────────
+// A PO can mix materials at different GST rates (0 / 5 / 18 / custom). GST is computed
+// PER ITEM on its taxable amount, then summed. Loading & transport are PO-level charges
+// taxed at `chargesGstPct` (transport only when transportGst is true). The total GST is
+// split into CGST + SGST (intra-state) or shown as IGST (inter-state) per `taxType`.
+// `byRate` groups taxable + GST by rate so the invoice can show one CGST/SGST row per rate.
+export function computePoBreakdown({ items = [], loading = 0, transport = 0, transportGst = true, chargesGstPct = 18, taxType = 'cgst_sgst' } = {}) {
+  loading = num(loading); transport = num(transport);
+  const taxGst = transportGst !== false;
+  const chRate = (chargesGstPct === '' || chargesGstPct === null || chargesGstPct === undefined) ? 18 : num(chargesGstPct);
+  const isIgst = taxType === 'igst';
+
+  const rateMap = new Map(); // rate → { taxable, gst }
+  const bump = (rate, taxable, gst) => { const r = rateMap.get(rate) || { taxable: 0, gst: 0 }; r.taxable += taxable; r.gst += gst; rateMap.set(rate, r); };
+
+  let itemTaxable = 0, itemGst = 0;
+  for (const it of items) {
+    const amt = num(it.amount);
+    const rate = (it.gstPct === '' || it.gstPct === null || it.gstPct === undefined) ? 18 : num(it.gstPct);
+    const g = amt * rate / 100;
+    itemTaxable += amt; itemGst += g;
+    if (amt || g) bump(rate, amt, g);
+  }
+  const chargesTaxable = loading + (taxGst ? transport : 0);
+  const chargesGst = chargesTaxable * chRate / 100;
+  if (chargesTaxable) bump(chRate, chargesTaxable, chargesGst);
+
+  const taxable = itemTaxable + chargesTaxable;
+  const gst = itemGst + chargesGst;
+  const untaxedTransport = taxGst ? 0 : transport;
+  const cgst = isIgst ? 0 : gst / 2;
+  const sgst = isIgst ? 0 : gst / 2;
+  const igst = isIgst ? gst : 0;
+  const pre = taxable + gst + untaxedTransport;
+  const grand = Math.round(pre);
+  const roundOff = grand - pre;
+
+  const byRate = [...rateMap.entries()]
+    .filter(([, v]) => v.taxable > 0 || v.gst > 0)
+    .sort((a, b) => a[0] - b[0])
+    .map(([rate, v]) => ({ rate, taxable: v.taxable, gst: v.gst, cgst: isIgst ? 0 : v.gst / 2, sgst: isIgst ? 0 : v.gst / 2, igst: isIgst ? v.gst : 0 }));
+
+  return { itemTaxable, itemGst, loading, transport, transportGst: taxGst, chargesGstPct: chRate, chargesTaxable, chargesGst,
+    taxable, gst, cgst, sgst, igst, taxType: isIgst ? 'igst' : 'cgst_sgst', byRate, untaxedTransport, roundOff, grand,
+    // legacy aliases so older callers keep working
+    sub: itemTaxable, gstPct: chRate };
+}
+
+// Build the full breakdown for one PO straight from its stored lines.
+export function poBreakdownFromLines(lines = []) {
+  if (!lines.length) return computePoBreakdown({ items: [] });
+  const head = lines[0];
+  const ch = poCharges(head);
+  const items = lines.map((l) => ({ amount: num(l.qty) * num(l.rate), gstPct: (l.gstPct === '' || l.gstPct === null || l.gstPct === undefined) ? 18 : num(l.gstPct) }));
+  return computePoBreakdown({
+    items,
+    loading: ch.loading, transport: ch.transport, transportGst: ch.transportGst,
+    chargesGstPct: (head.chargesGstPct !== undefined && head.chargesGstPct !== null && head.chargesGstPct !== '') ? head.chargesGstPct : ch.gstPct,
+    taxType: head.taxType || 'cgst_sgst',
+  });
+}
+
+// Total purchase value INCLUDING GST across every PO (per-item GST aware).
 export function poValueWithGst(lines) {
   const byPo = new Map();
-  for (const l of lines) {
-    const g = byPo.get(l.po) || { sub: 0, head: l };
-    g.sub += num(l.qty) * num(l.rate);
-    byPo.set(l.po, g);
-  }
+  for (const l of lines) { const a = byPo.get(l.po) || []; a.push(l); byPo.set(l.po, a); }
   let total = 0;
-  for (const { sub, head } of byPo.values()) {
-    const ch = poCharges(head);
-    total += calcPO({ sub, loading: ch.loading, transport: ch.transport, gstPct: ch.gstPct, transportGst: ch.transportGst }).grand;
-  }
+  for (const poLines of byPo.values()) total += poBreakdownFromLines(poLines).grand;
   return total;
 }
 

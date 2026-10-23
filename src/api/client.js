@@ -115,6 +115,20 @@ export const invoicesApi = {
   },
 };
 
+// Multiple PO attachments — stored in our own backend (purchase_files), many per PO.
+export const filesApi = {
+  list: (po) => api(`/files/${encodeURIComponent(po)}`, { auth: true }),
+  put: (po, payload) => api(`/files/${encodeURIComponent(po)}`, { method: 'POST', body: payload, auth: true }),
+  remove: (po, fileId) => api(`/files/${encodeURIComponent(po)}/${encodeURIComponent(fileId)}`, { method: 'DELETE', auth: true }),
+  blob: async (po, fileId, { download = false } = {}) => {
+    const res = await fetch(`${API_BASE}/files/${encodeURIComponent(po)}/${encodeURIComponent(fileId)}${download ? '?download=1' : ''}`, {
+      headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {},
+    });
+    if (!res.ok) throw new Error('Could not load the file.');
+    return res.blob();
+  },
+};
+
 // Procurement projects master — purchase_projects collection.
 export const projectsApi = {
   list: () => api('/projects', { auth: true }),
