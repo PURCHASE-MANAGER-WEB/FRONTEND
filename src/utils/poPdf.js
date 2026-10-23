@@ -20,6 +20,7 @@ const COMPANY = {
   addr: ['37, 15th Street, Gandhi Nagar, Ashok Nagar,', 'Chennai – 600 083,', 'Tamil Nadu, India'],
   attn: 'Kind Attn: Mr. Vishnu',
   phEmail: 'Ph: +91 77088 33911  |  tescostructures@gmail.com',
+  gstin: '33AAXFT8541N1Z8',
   web: 'www.tescostructures.com',
   email: 'tescostructures@gmail.com',
   phones: ['+91 77088 33911', '+91 90033 28229'],
@@ -134,7 +135,7 @@ export async function downloadPoPdf(data) {
   doc.setFont('helvetica', 'bold').setFontSize(10.5).setTextColor(...INK);
   doc.text(COMPANY.name, colR, ry); ry += 14;
   doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(...MUTE);
-  [...COMPANY.addr, COMPANY.attn, COMPANY.phEmail].forEach((t) => { const w = doc.splitTextToSize(String(t), rightW); doc.text(w, colR, ry); ry += 12 * w.length; });
+  [...COMPANY.addr, COMPANY.attn, COMPANY.phEmail, 'GSTIN: ' + COMPANY.gstin].forEach((t) => { const w = doc.splitTextToSize(String(t), rightW); doc.text(w, colR, ry); ry += 12 * w.length; });
 
   y = Math.max(ly, ry) + 7;
 

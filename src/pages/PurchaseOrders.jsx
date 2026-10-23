@@ -454,13 +454,24 @@ export default function PurchaseOrders() {
                     <label className="pf">GST %
                       {(() => {
                         const raw = it.gstPct;
-                        const isCustom = (raw === '' || raw === null || raw === undefined) ? true : ![0, 5, 18].includes(num(raw));
+                        const rate = num(raw);
+                        const known = (raw === '' || raw === null || raw === undefined) ? false : [0, 5, 18].includes(rate);
+                        const isCustom = (raw === '' || raw === null || raw === undefined) ? true : !known;
+                        const selValue = isCustom ? 'custom' : (rate === 18 ? (editing.taxType === 'igst' ? 'igst18' : '18') : String(rate));
+                        const onGst = (e) => {
+                          const v = e.target.value;
+                          if (v === 'custom') setItem(it._id, 'gstPct', '');
+                          else if (v === 'igst18') { setItem(it._id, 'gstPct', '18'); setHdr('taxType', 'igst'); }
+                          else if (v === '18') { setItem(it._id, 'gstPct', '18'); setHdr('taxType', 'cgst_sgst'); }
+                          else setItem(it._id, 'gstPct', v);
+                        };
                         return (<>
-                          <select value={isCustom ? 'custom' : String(num(raw))} onChange={e => setItem(it._id, 'gstPct', e.target.value === 'custom' ? '' : e.target.value)}>
+                          <select value={selValue} onChange={onGst}>
                             <option value="0">0%</option>
                             <option value="5">5%</option>
                             <option value="18">18%</option>
                             <option value="custom">Custom</option>
+                            <option value="igst18">IGST - 18%</option>
                           </select>
                           {isCustom && <input type="number" min="0" step="any" value={(raw === '' || raw === null || raw === undefined) ? '' : raw} onChange={e => setItem(it._id, 'gstPct', e.target.value)} placeholder="Custom %" style={{ marginTop: 6 }} />}
                         </>);

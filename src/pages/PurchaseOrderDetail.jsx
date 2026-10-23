@@ -177,6 +177,7 @@ export default function PurchaseOrderDetail() {
         <div className="card pod-card">
           <h3>Order</h3>
           <Row k="PO Number" v={po} />
+          {!fab && <Row k="Company GSTIN" v="33AAXFT8541N1Z8" />}
           <Row k="PO Date" v={dfmt(h.poDate)} />
           <Row k="Delivery Date" v={h.deliveryDate ? dfmt(h.deliveryDate) : model.deliveryDateFmt} />
           <Row k="Delivery Address" v={h.deliveryAddress || '—'} />
