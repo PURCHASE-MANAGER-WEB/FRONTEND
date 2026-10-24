@@ -38,30 +38,43 @@ export function PurchaseDataProvider({ children }) {
 
   useEffect(() => { load(); }, [load]);
 
+  // Targeted refreshes — refetch only the collection that changed instead of all six,
+  // so every save is one quick request, not a full reload.
+  const reloadLines = async () => { try { const l = await purchaseApi.getLines(); setLines(Array.isArray(l) ? l : []); } catch { /* ignore */ } };
+  const reloadVendors = async () => { try { const v = await purchaseApi.getVendors(); setVendors(Array.isArray(v) ? v : []); } catch { /* ignore */ } };
+  const reloadPayments = async () => { try { const pay = await paymentsApi.list(); setPayments(Array.isArray(pay) ? pay : []); } catch { /* ignore */ } };
+  const reloadProjects = async () => { try { const pr = await projectsApi.list(); setProjects(Array.isArray(pr) ? pr : []); } catch { /* ignore */ } };
+  const reloadProjectPayments = async () => { try { const pp = await projectPaymentsApi.list(); setProjectPayments(Array.isArray(pp) ? pp : []); } catch { /* ignore */ } };
+  const reloadChallans = async () => { try { const dc = await challansApi.list(); setChallans(Array.isArray(dc) ? dc : []); } catch { /* ignore */ } };
+  // Optimistically swap in one PO's saved lines after a bulk save — no network round-trip.
+  const applyPoLines = (po, savedLines) => setLines(prev => [...prev.filter(l => l.po !== po), ...(Array.isArray(savedLines) ? savedLines : [])]);
+
   // Mutations refresh from the server so every page stays in sync.
   const value = {
     vendors, lines, payments, projects, projectPayments, challans, loading, error, reload: load,
-    saveChallan: async (isNew, id, data) => { if (isNew) await challansApi.create(data); else await challansApi.update(id, data); await load(); },
-    deleteChallan: async (id) => { await challansApi.remove(id); await load(); },
-    saveProjectPayment: async (isNew, id, data) => { if (isNew) await projectPaymentsApi.create(data); else await projectPaymentsApi.update(id, data); await load(); },
-    deleteProjectPayment: async (id) => { await projectPaymentsApi.remove(id); await load(); },
-    saveProject: async (isNew, id, data) => { if (isNew) await projectsApi.create(data); else await projectsApi.update(id, data); await load(); },
-    deleteProject: async (id) => { await projectsApi.remove(id); await load(); },
-    savePayment: async (isNew, id, data) => { if (isNew) await paymentsApi.create(data); else await paymentsApi.update(id, data); await load(); },
-    deletePayment: async (id) => { await paymentsApi.remove(id); await load(); },
+    reloadLines, applyPoLines,
+    bulkSaveLines: async (po, lines, deleteIds) => { const saved = await purchaseApi.bulkSaveLines(po, lines, deleteIds); applyPoLines(po, saved); return saved; },
+    saveChallan: async (isNew, id, data) => { if (isNew) await challansApi.create(data); else await challansApi.update(id, data); await reloadChallans(); },
+    deleteChallan: async (id) => { await challansApi.remove(id); await reloadChallans(); },
+    saveProjectPayment: async (isNew, id, data) => { if (isNew) await projectPaymentsApi.create(data); else await projectPaymentsApi.update(id, data); await reloadProjectPayments(); },
+    deleteProjectPayment: async (id) => { await projectPaymentsApi.remove(id); await reloadProjectPayments(); },
+    saveProject: async (isNew, id, data) => { if (isNew) await projectsApi.create(data); else await projectsApi.update(id, data); await reloadProjects(); },
+    deleteProject: async (id) => { await projectsApi.remove(id); await reloadProjects(); },
+    savePayment: async (isNew, id, data) => { if (isNew) await paymentsApi.create(data); else await paymentsApi.update(id, data); await Promise.all([reloadPayments(), reloadLines()]); },
+    deletePayment: async (id) => { await paymentsApi.remove(id); await Promise.all([reloadPayments(), reloadLines()]); },
     saveVendor: async (isNew, vid, data) => {
       if (isNew) await purchaseApi.createVendor(data);
       else await purchaseApi.updateVendor(vid, data);
-      await load();
+      await reloadVendors();
     },
-    deleteVendor: async (vid) => { await purchaseApi.deleteVendor(vid); await load(); },
+    deleteVendor: async (vid) => { await purchaseApi.deleteVendor(vid); await reloadVendors(); },
     saveLine: async (isNew, id, data) => {
       if (isNew) await purchaseApi.createLine({ ...data, id });
       else await purchaseApi.updateLine(id, data);
-      await load();
+      await reloadLines();
     },
-    deleteLine: async (id) => { await purchaseApi.deleteLine(id); await load(); },
-    deletePO: async (po) => { await purchaseApi.deletePO(po); await load(); },
+    deleteLine: async (id) => { await purchaseApi.deleteLine(id); await reloadLines(); },
+    deletePO: async (po) => { await purchaseApi.deletePO(po); await reloadLines(); },
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

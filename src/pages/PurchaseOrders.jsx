@@ -33,7 +33,7 @@ const blankPO = (lines, vendors) => ({
 });
 
 export default function PurchaseOrders() {
-  const { vendors, lines, projects, payments, loading, error, reload } = usePurchaseData();
+  const { vendors, lines, projects, payments, loading, error, reload, bulkSaveLines } = usePurchaseData();
   const toast = useToast();
   const [q, setQ] = useState('');
   const [editing, setEditing] = useState(null);
@@ -209,27 +209,33 @@ export default function PurchaseOrders() {
 
     setBusy(true);
     try {
-      for (const it of items) {
-        const payload = {
-          ...shared,
-          project: (String(it.itemProject || '').trim() || (d.projects[0] || '').trim()),
-          material: String(it.material).trim(), description: String(it.description || '').trim(),
-          spec: String(it.spec || '').trim(), hsn: String(it.hsn || '').trim(),
-          make: String(it.make || '').trim(), weight: num(it.weight),
-          qty: num(it.qty), unit: it.unit, rate: num(it.rate), gstPct: num(it.gstPct), received: num(it.received),
-          expDate: it.expDate || '', dueDate: it.dueDate || '', paid: num(it.paid),
-        };
-        if (it.isNew) await purchaseApi.createLine({ ...payload, id: it._id });
-        else await purchaseApi.updateLine(it._id, payload);
+      // Build every line once and save the whole PO in ONE request (one DB write).
+      const payloadLines = items.map((it) => ({
+        ...shared, id: it._id,
+        project: (String(it.itemProject || '').trim() || (d.projects[0] || '').trim()),
+        material: String(it.material).trim(), description: String(it.description || '').trim(),
+        spec: String(it.spec || '').trim(), hsn: String(it.hsn || '').trim(),
+        make: String(it.make || '').trim(), weight: num(it.weight),
+        qty: num(it.qty), unit: it.unit, rate: num(it.rate), gstPct: num(it.gstPct), received: num(it.received),
+        expDate: it.expDate || '', dueDate: it.dueDate || '', paid: num(it.paid),
+      }));
+      const keep = new Set(items.map((it) => it._id));
+      const deleteIds = d.origIds.filter((id) => !keep.has(id));
+      try {
+        await bulkSaveLines(po, payloadLines, deleteIds);
+      } catch (bulkErr) {
+        // Fallback when the bulk endpoint isn't live yet: parallel per-line saves.
+        await Promise.all([
+          ...payloadLines.map((pl) => ((items.find((it) => it._id === pl.id) || {}).isNew
+            ? purchaseApi.createLine(pl) : purchaseApi.updateLine(pl.id, pl))),
+          ...deleteIds.map((id) => purchaseApi.deleteLine(id)),
+        ]);
+        await reload();
       }
-      // Remove any lines that were deleted in the editor.
-      const keep = new Set(items.map(it => it._id));
-      for (const id of d.origIds) if (!keep.has(id)) await purchaseApi.deleteLine(id);
-      // Sync attachments: upload staged files, delete removed ones.
+      // Sync attachments (upload staged, delete removed) in parallel.
       let fileWarn = '';
-      for (const f of newFiles) { try { await uploadPoFile(f, po); } catch (fe) { fileWarn = fe.message || 'Some files failed to upload.'; } }
-      for (const id of removed) { try { await removePoFile(po, id); } catch { /* ignore */ } }
-      await reload();
+      await Promise.all(newFiles.map((f) => uploadPoFile(f, po).catch((fe) => { fileWarn = fe.message || 'Some files failed to upload.'; })));
+      await Promise.all(removed.map((id) => removePoFile(po, id).catch(() => {})));
       close();
       toast((d.isNew ? 'Purchase order added' : 'Purchase order saved') + (fileWarn ? ' — ' + fileWarn : ''));
     } catch (e) {
@@ -269,6 +275,31 @@ export default function PurchaseOrders() {
   };
 
   const money = (n) => num(n) ? inr(n) : '₹0';
+
+  // Memoize the PO table so typing in the editor (GST %, qty, rate) never re-renders the
+  // whole list — the live totals then update instantly.
+  const bodyRows = useMemo(() => {
+    if (loading || error || rows.length === 0) {
+      return (<StateRow cols={11} loading={loading} error={error}
+        empty={lines.length ? 'No purchase orders match your search.' : (vendors.length ? 'No purchase orders yet. Add a PO to start tracking.' : 'Add a vendor first, then raise purchase orders against them.')} />);
+    }
+    return rows.map(({ g, vn }) => {
+      const u = g.unit === 'mixed units' ? '' : ' ' + g.unit;
+      return (
+        <tr key={g.po}>
+          <td className="id"><Link className="po-link" to={`/purchase-orders/${encodeURIComponent(g.po)}`}>{g.po}</Link>{g.poType === 'fabricator' ? <span className="fab-tag">Fabricator</span> : null}</td>
+          <td>{dfmt(g.date)}</td><td>{g.vendorName || vn}</td><td>{(g.projects && g.projects.length ? g.projects.join(', ') : g.project) || '—'}</td>
+          <td className="num">{g.count}</td>
+          <td className="num">{qfmt(g.qty)}{u}</td>
+          <td className="num calc">{inr(g.valueGst)}</td>
+          <td className="num">{qfmt(g.rec)}{u}</td>
+          <td className="num calc">{qfmt(g.pend)}{u}</td>
+          <td className={g.overdueDays > 0 ? 'overdue' : ''}>{dfmt(g.expDate)}{g.overdueDays > 0 ? ` · ${g.overdueDays}d overdue` : (g.dueToday && g.delivery !== 'Completed' ? ' · due today' : '')}</td>
+          <td><button className="link" onClick={() => g.poType === 'fabricator' ? setFab({ poKey: g.po }) : open(g.po)}>Edit</button></td>
+        </tr>
+      );
+    });
+  }, [rows, loading, error]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <section>
@@ -313,25 +344,7 @@ export default function PurchaseOrders() {
             <th>Exp. Delivery</th><th></th>
           </tr></thead>
           <tbody>
-            {loading || error || rows.length === 0 ? (
-              <StateRow cols={11} loading={loading} error={error}
-                empty={lines.length ? 'No purchase orders match your search.' : (vendors.length ? 'No purchase orders yet. Add a PO to start tracking.' : 'Add a vendor first, then raise purchase orders against them.')} />
-            ) : rows.map(({ g, vn }) => {
-              const u = g.unit === 'mixed units' ? '' : ' ' + g.unit;
-              return (
-                <tr key={g.po}>
-                  <td className="id"><Link className="po-link" to={`/purchase-orders/${encodeURIComponent(g.po)}`}>{g.po}</Link>{g.poType === 'fabricator' ? <span className="fab-tag">Fabricator</span> : null}</td>
-                  <td>{dfmt(g.date)}</td><td>{g.vendorName || vn}</td><td>{(g.projects && g.projects.length ? g.projects.join(', ') : g.project) || '—'}</td>
-                  <td className="num">{g.count}</td>
-                  <td className="num">{qfmt(g.qty)}{u}</td>
-                  <td className="num calc">{inr(g.valueGst)}</td>
-                  <td className="num">{qfmt(g.rec)}{u}</td>
-                  <td className="num calc">{qfmt(g.pend)}{u}</td>
-                  <td className={g.overdueDays > 0 ? 'overdue' : ''}>{dfmt(g.expDate)}{g.overdueDays > 0 ? ` · ${g.overdueDays}d overdue` : (g.dueToday && g.delivery !== 'Completed' ? ' · due today' : '')}</td>
-                  <td><button className="link" onClick={() => g.poType === 'fabricator' ? setFab({ poKey: g.po }) : open(g.po)}>Edit</button></td>
-                </tr>
-              );
-            })}
+            {bodyRows}
           </tbody>
           {rows.length > 0 && (
             <tfoot><tr>

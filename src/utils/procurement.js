@@ -131,8 +131,13 @@ export function groupPOs(lines) {
     g.unit = g.units.size === 1 ? [...g.units][0] : 'mixed units';
     g.expDate = g.exps.length ? g.exps.slice().sort()[0] : '';
     g.dueDate = g.dues.length ? g.dues.slice().sort()[0] : '';
+    // GST-inclusive grand total — the ONE canonical PO value used on every page so the
+    // same PO always shows the same amount (orders list, payments, dashboards, projects).
+    { const chTax = g.loading + (g.transportGst ? g.transport : 0); const chGst = chTax * g.chargesGstPct / 100; const untaxed = g.transportGst ? 0 : g.transport; g.valueEx = g.value; g.valueGst = Math.round(g.value + chTax + g.itemGst + chGst + untaxed); }
+    g.value = g.valueGst;                                  // money figures are GST-inclusive everywhere
+    g.out = Math.max(g.value - g.paid, 0);                 // outstanding against the GST-inclusive value
     const delivered = g.qty > 0 && g.rec >= g.qty;
-    const settled = g.value > 0 && g.out <= 0;
+    const settled = g.value > 0 && g.out <= 0.5;
     g.delPct = g.qty ? (delivered ? 100 : Math.min(99, Math.max(0, Math.round(g.rec / g.qty * 100)))) : 0;
     g.payPct = g.value ? (settled ? 100 : Math.min(99, Math.max(0, Math.round(g.paid / g.value * 100)))) : 0;
     g.overdueDays = delivered ? 0 : g.delOverdue;       // only while not yet delivered
@@ -144,7 +149,6 @@ export function groupPOs(lines) {
       : g.rec > 0 ? 'Partial'
       : 'Pending';
     g.payment = settled ? 'Paid' : g.paid > 0 ? 'Partial' : 'Unpaid';
-    { const chTax = g.loading + (g.transportGst ? g.transport : 0); const chGst = chTax * g.chargesGstPct / 100; const untaxed = g.transportGst ? 0 : g.transport; g.valueGst = Math.round(g.value + chTax + g.itemGst + chGst + untaxed); }
     return g;
   }).sort((a,b) => String(a.po).localeCompare(String(b.po), undefined, { numeric: true }));
 }
@@ -153,12 +157,10 @@ export function groupPOs(lines) {
 // so "Pending / Completed / Overdue POs" mean whole purchase orders, not lines.
 // Everything here is derived from the real backend records — nothing hard-coded.
 export function kpis(lines) {
-  let value = 0, paid = 0, out = 0;
-  for (const l of lines) { const c = calcLine(l); value += c.total; paid += num(l.paid); out += c.out; }
-
   const groups = groupPOs(lines);
-  let pend = 0, completed = 0, overdueCount = 0, overdueAmount = 0, maxOverdueDays = 0;
+  let value = 0, paid = 0, out = 0, pend = 0, completed = 0, overdueCount = 0, overdueAmount = 0, maxOverdueDays = 0;
   for (const g of groups) {
+    value += g.value; paid += g.paid; out += g.out;      // GST-inclusive, consistent with every page
     const od = Math.max(g.overdueDays || 0, g.payOverdueDays || 0);
     if (g.delivery === 'Completed') completed++; else pend++;
     if (od > 0) { overdueCount++; overdueAmount += g.out; maxOverdueDays = Math.max(maxOverdueDays, od); }
