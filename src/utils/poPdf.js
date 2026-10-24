@@ -16,7 +16,7 @@ const MUTE   = [110, 116, 124];
 const LINE   = [205, 210, 216];
 
 const COMPANY = {
-  name: 'Tesco Structures Pvt. Ltd.',
+  name: 'TESCO STRUCTURES LLP',
   addr: ['37, 15th Street, Gandhi Nagar, Ashok Nagar,', 'Chennai – 600 083,', 'Tamil Nadu, India'],
   attn: 'Kind Attn: Mr. Vishnu',
   phEmail: 'Ph: +91 77088 33911  |  tescostructures@gmail.com',
@@ -32,7 +32,7 @@ const DEFAULT_TERMS = [
   'Quantity & Billing: Supply strictly as per the ordered quantity and agreed specifications.',
   'Delivery: As per the delivery date mentioned above or as mutually agreed.',
   'Payment: As per the agreed payment terms for this order.',
-  'Invoice: Tax invoice to be raised in the name of Tesco Structures Pvt. Ltd. with this PO number quoted.',
+  'Invoice: Tax invoice to be raised in the name of TESCO STRUCTURES LLP with this PO number quoted.',
   'Correspondence: This PO number must be quoted on all invoices, delivery notes and correspondence.',
 ];
 

@@ -18,7 +18,7 @@ const MUTE   = [110, 116, 124];
 const LINE   = [205, 210, 216];
 
 const COMPANY = {
-  name: 'Tesco Structures Pvt. Ltd.',
+  name: 'TESCO STRUCTURES LLP',
   addr: ['37, 15th Street, Gandhi Nagar, Ashok Nagar,', 'Chennai – 600 083,', 'Tamil Nadu, India'],
   attn: 'Kind Attn: Mr. Vishnu',
   phEmail: 'Ph: +91 77088 33911  |  tescostructures@gmail.com',
