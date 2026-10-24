@@ -279,12 +279,12 @@ export default function PaymentProgress() {
           <div className="tbl">
             <table>
               <thead><tr>
-                <th>Project</th><th>Client</th><th className="num">Order Value</th><th>Payment Terms</th>
+                <th>Project</th><th>Code</th><th>Client</th><th className="num">Order Value</th><th>Payment Terms</th>
                 <th className="num">Received</th><th>Last Payment</th><th className="num">Outstanding</th><th>Status</th><th className="num">Receipts</th><th></th>
               </tr></thead>
               <tbody>
                 {loading || error || cRows.length === 0 ? (
-                  <StateRow cols={10} loading={loading} error={error}
+                  <StateRow cols={11} loading={loading} error={error}
                     empty={((projects || []).length || (projectPayments || []).length) ? 'No projects or client orders match your search.' : 'No projects yet. Add a project, or click "New client order" to start tracking a client payment.'} />
                 ) : cRows.map(({ key, projectName, r, proj, client }) => {
                   const od = r ? cpOverdueDays(r) : 0;
@@ -292,6 +292,7 @@ export default function PaymentProgress() {
                   return (
                     <tr key={key} className="row-click" onClick={manageRow}>
                       <td>{projectName || '—'}</td>
+                      <td>{(proj && proj.code) || '—'}</td>
                       <td><b>{client}</b></td>
                       <td className="num">{r ? inr(cpOrderValue(r)) : '—'}</td>
                       <td>{(r && r.paymentTerms) || '—'}</td>

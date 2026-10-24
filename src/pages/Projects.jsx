@@ -65,7 +65,12 @@ export default function Projects() {
 
   const rows = useMemo(() => projects
     .filter((p) => !q || [p.name, p.code, p.client, p.status].filter(Boolean).join(' ').toLowerCase().includes(q.toLowerCase()))
-    .sort((a, b) => String(a.name).localeCompare(String(b.name))), [projects, q]);
+    .sort((a, b) => {
+      const ca = String(a.code || '').trim(), cb = String(b.code || '').trim();
+      if (ca && cb) return ca.localeCompare(cb, undefined, { numeric: true }) || String(a.name).localeCompare(String(b.name));
+      if (ca) return -1; if (cb) return 1;
+      return String(a.name).localeCompare(String(b.name));
+    }), [projects, q]);
 
   const open = (p) => {
     setFormErr(''); setConfirmDel(false);
