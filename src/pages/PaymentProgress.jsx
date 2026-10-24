@@ -119,8 +119,9 @@ export default function PaymentProgress() {
     return [...projRows, ...extraRows]
       .filter(({ projectName, client, r }) => !q2 || [projectName, client, r && r.paymentTerms].filter(Boolean).join(' ').toLowerCase().includes(q2))
       .sort((a, b) => {
-        const la = a.r ? (cpLastDate(a.r) || '') : '', lb = b.r ? (cpLastDate(b.r) || '') : '';
-        if (la || lb) return String(lb).localeCompare(String(la));
+        const ca = String((a.proj && a.proj.code) || '').trim(), cb = String((b.proj && b.proj.code) || '').trim();
+        if (ca && cb) return ca.localeCompare(cb, undefined, { numeric: true }) || String(a.projectName).localeCompare(String(b.projectName));
+        if (ca) return -1; if (cb) return 1;
         return String(a.projectName).localeCompare(String(b.projectName), undefined, { numeric: true });
       });
   }, [projectPayments, projects, q]);
