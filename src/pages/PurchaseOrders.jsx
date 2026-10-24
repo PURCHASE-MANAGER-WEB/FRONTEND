@@ -120,6 +120,38 @@ export default function PurchaseOrders() {
   const removeExisting = (fileId) => { setFiles((fs) => fs.filter((f) => f.fileId !== fileId)); setRemoved((r) => [...r, fileId]); };
   const close = () => { setEditing(null); setFormErr(''); setConfirmDel(false); setFiles([]); setNewFiles([]); setRemoved([]); setFileErr(''); };
 
+  // Copy an existing PO into a brand-new, fully editable PO. Carries over vendor, project,
+  // materials, quantities, rates, GST, charges, delivery details and terms; gets a NEW unique
+  // PO number; resets delivery progress (received) and payments (paid) and drops attachments.
+  // The original PO is never touched — saving writes new line records with new ids.
+  const copyPO = (poKey) => {
+    if (!vendors.length) { toast('Add a vendor first'); return; }
+    const group = lines.filter((l) => l.po === poKey);
+    if (!group.length) return;
+    const h = group[0] || {};
+    const ch = poCharges(h);
+    setFormErr(''); setFiles([]); setNewFiles([]); setRemoved([]); setFileErr('');
+    setEditing({
+      isNew: true,
+      po: nextPo(lines), poDate: today(), vid: h.vid || vendors[0]?.vid || '', project: h.project || '',
+      projects: (Array.isArray(h.projects) && h.projects.length) ? h.projects : (h.project ? [h.project] : []),
+      loading: ch.loading || '', transport: ch.transport || '',
+      chargesGstPct: (h.chargesGstPct !== undefined && h.chargesGstPct !== null && h.chargesGstPct !== '') ? h.chargesGstPct : ch.gstPct,
+      taxType: h.taxType || 'cgst_sgst', transportGst: ch.transportGst, notes: h.notes || '',
+      paymentMethod: h.paymentMethod || '', terms: h.terms || '', invoice: null,
+      deliveryDate: h.deliveryDate || '', deliveryAddress: h.deliveryAddress || '', status: 'Approved',
+      items: group.map((l) => ({
+        _id: newId(), isNew: true,
+        material: l.material || '', description: l.description || '', spec: l.spec || '', hsn: l.hsn || '', make: l.make || '', weight: l.weight ?? '', itemProject: l.project || '',
+        gstPct: (l.gstPct === undefined || l.gstPct === null || l.gstPct === '') ? 0 : l.gstPct,
+        qty: l.qty ?? '', unit: l.unit || 'MT', rate: l.rate ?? '',
+        received: 0, expDate: l.expDate || '', dueDate: l.dueDate || '', paid: 0,
+      })),
+      origIds: [],
+    });
+    toast(`Copied ${poKey} \u2014 review and save as a new PO`);
+  };
+
   // ── Simple (quick) PO: project + vendor + material + optional invoice ──
   const openSimple = () => {
     setSimpleErr('');
@@ -295,7 +327,7 @@ export default function PurchaseOrders() {
           <td className="num">{qfmt(g.rec)}{u}</td>
           <td className="num calc">{qfmt(g.pend)}{u}</td>
           <td className={g.overdueDays > 0 ? 'overdue' : ''}>{dfmt(g.expDate)}{g.overdueDays > 0 ? ` · ${g.overdueDays}d overdue` : (g.dueToday && g.delivery !== 'Completed' ? ' · due today' : '')}</td>
-          <td><button className="link" onClick={() => g.poType === 'fabricator' ? setFab({ poKey: g.po }) : open(g.po)}>Edit</button></td>
+          <td><button className="link" onClick={() => g.poType === 'fabricator' ? setFab({ poKey: g.po }) : open(g.po)}>Edit</button>{g.poType !== 'fabricator' ? <button className="link" onClick={() => copyPO(g.po)} style={{ marginLeft: 10 }}>Copy</button> : null}</td>
         </tr>
       );
     });
