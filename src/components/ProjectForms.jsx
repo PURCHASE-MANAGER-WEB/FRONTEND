@@ -16,6 +16,8 @@ const today = () => { const d = new Date(); return `${String(d.getDate()).padSta
 const n = (v) => { const x = parseFloat(v); return isFinite(x) ? x : 0; };
 const money = (v) => Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const KIND_LABEL = { proposal: 'Proposal (Commercial Quotation)', handover: 'Sales → Project Handover Form', design: 'Design (2D / 3D)' };
+const NEW_LABEL = { proposal: 'Proposal', handover: 'Handover Form', design: 'Design' };
+const EMPTY_LABEL = { proposal: 'proposals', handover: 'handover forms', design: 'designs' };
 const DESIGN_TYPES = ['2D', '3D', '2D + 3D', 'Other'];
 
 function proposalDefaults(p) {
@@ -71,7 +73,7 @@ function designDefaults(p) {
   };
 }
 
-export default function ProjectForms({ project }) {
+export default function ProjectForms({ project, section = 'all' }) {
   const toast = useToast();
   const [forms, setForms] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -253,19 +255,19 @@ export default function ProjectForms({ project }) {
     <div className="card pd-card">
       <div className="pf-head">
         <h3>{KIND_LABEL[kind]}</h3>
-        <button className="btn primary" onClick={() => openNew(kind)}>+ New {kind === 'proposal' ? 'Proposal' : 'Handover Form'}</button>
+        <button className="btn primary" onClick={() => openNew(kind)}>+ New {NEW_LABEL[kind]}</button>
       </div>
       {loading ? <p className="hint" style={{ margin: 0 }}>Loading…</p>
-        : list.length === 0 ? <p className="hint" style={{ margin: 0 }}>No {kind === 'proposal' ? 'proposals' : 'handover forms'} yet. Click "New" to create one — it will be prefilled from this project.</p>
+        : list.length === 0 ? <p className="hint" style={{ margin: 0 }}>No {EMPTY_LABEL[kind]} yet. Click "New" to create one — it will be prefilled from this project.</p>
           : <div className="pf-list">{list.map(recordCard)}</div>}
     </div>
   );
 
   return (
     <>
-      {block('proposal', proposals)}
-      {block('handover', handovers)}
-      {block('design', designs)}
+      {(section === 'all' || section === 'forms') && block('proposal', proposals)}
+      {(section === 'all' || section === 'forms') && block('handover', handovers)}
+      {(section === 'all' || section === 'design') && block('design', designs)}
 
       {editing && (
         <Drawer onClose={close}>
