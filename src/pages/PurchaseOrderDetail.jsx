@@ -184,13 +184,13 @@ export default function PurchaseOrderDetail() {
           <Row k={(h.projects && h.projects.length > 1) ? "Projects" : "Project"} v={(h.projects && h.projects.length ? h.projects.join(', ') : h.project)} />
           {!fab && <Row k="GST Rate" v={(() => { const rs = [...new Set((totals.byRate || []).filter(r => r.gst > 0.004).map(r => r.rate))]; return rs.length ? rs.map(r => `${r}%`).join(' + ') : '0% (no GST)'; })()} />}
           <Row k="Payment Method" v={h.paymentMethod} />
-          {!pm && <Row k="Invoice" v={h.invoice ? (
+          <Row k="Invoice" v={h.invoice ? (
             <span>
               <button type="button" onClick={() => openInvoice(h.invoice)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent-ink)', fontWeight: 600, font: 'inherit' }}>View</button>
               <span style={{ margin: '0 8px', color: 'var(--muted, #94a3b8)' }}>·</span>
               <button type="button" onClick={() => downloadInvoice(h.invoice)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent-ink)', fontWeight: 600, font: 'inherit' }}>Download</button>
             </span>
-          ) : 'Not uploaded'} />}
+          ) : 'Not uploaded'} />
         </div>
         <div className="card pod-card">
           <h3>{fab ? 'Fabricator / Subcontractor' : 'Supplier'}</h3>

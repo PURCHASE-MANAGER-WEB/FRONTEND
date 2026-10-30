@@ -5,6 +5,7 @@ import { useToast } from '../components/Toast';
 import { Pill, Drawer, Field } from '../components/ui';
 import { num, inr, dfmt, qfmt, groupPOs, vendorName, PAYMENT_METHODS } from '../utils/procurement';
 import { openChallanDoc } from '../utils/challanDoc';
+import { openInvoice, downloadInvoice } from '../utils/cloudinary';
 import { isRestrictedPM } from '../api/client';
 
 const TABS = ['Overview', 'Purchase Orders', 'Payments', 'Budget', 'Delivery Challans'];
@@ -295,9 +296,9 @@ export default function ProjectDetail() {
       {tab === 'Purchase Orders' && (
         <div className="tbl">
           <table>
-            <thead><tr><th>PO</th><th>Vendor</th><th className="num">Value</th>{!pm && <th className="num">Paid</th>}{!pm && <th className="num">Outstanding</th>}<th>Delivery</th>{!pm && <th>Payment</th>}</tr></thead>
+            <thead><tr><th>PO</th><th>Vendor</th><th className="num">Value</th>{!pm && <th className="num">Paid</th>}{!pm && <th className="num">Outstanding</th>}<th>Delivery</th>{!pm && <th>Payment</th>}<th>Invoice</th></tr></thead>
             <tbody>
-              {projGroups.length === 0 ? (<tr><td colSpan={pm ? 4 : 7} className="state">No purchase orders linked to this project yet.</td></tr>
+              {projGroups.length === 0 ? (<tr><td colSpan={pm ? 5 : 8} className="state">No purchase orders linked to this project yet.</td></tr>
               ) : projGroups.map((g) => (
                 <tr key={g.po}>
                   <td><Link to={`/purchase-orders/${encodeURIComponent(g.po)}`} className="id" style={{ color: 'var(--accent-ink)', fontWeight: 700 }}>{g.po}</Link></td>
@@ -307,6 +308,7 @@ export default function ProjectDetail() {
                   {!pm && <td className={`num calc ${g.out > 0 ? 'overdue' : ''}`}>{inr(g.out)}</td>}
                   <td><Pill s={g.delivery} /></td>
                   {!pm && <td><Pill s={g.payment} /></td>}
+                  <td>{(() => { const inv = (lines.find((l) => l.po === g.po && l.invoice) || {}).invoice; return inv ? (<span><button type="button" className="link" onClick={() => openInvoice(inv)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent-ink)', fontWeight: 600, font: 'inherit' }}>View</button><span style={{ margin: '0 6px', color: 'var(--muted)' }}>·</span><button type="button" className="link" onClick={() => downloadInvoice(inv)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent-ink)', fontWeight: 600, font: 'inherit' }}>Download</button></span>) : '—'; })()}</td>
                 </tr>
               ))}
             </tbody>
