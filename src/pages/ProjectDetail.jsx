@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { usePurchaseData } from '../context/PurchaseData';
 import { useToast } from '../components/Toast';
 import { Pill, Drawer, Field } from '../components/ui';
-import { num, inr, dfmt, qfmt, groupPOs, vendorName, PAYMENT_METHODS } from '../utils/procurement';
+import { num, inr, dfmt, qfmt, groupPOs, vendorName, PAYMENT_METHODS, cpReceipts, cpOrderValue, cpReceived } from '../utils/procurement';
 import { openChallanDoc } from '../utils/challanDoc';
 import { openInvoice, downloadInvoice } from '../utils/cloudinary';
 import { isRestrictedPM } from '../api/client';
@@ -48,6 +48,14 @@ export default function ProjectDetail() {
     () => (project ? projectPayments.filter((r) => (r.project || r.customerName) === project.name) : []),
     [projectPayments, project]
   );
+  // All payment receipts received from the client for this project (newest first).
+  const clientReceipts = useMemo(() => {
+    const out = [];
+    for (const r of schedule) for (const p of cpReceipts(r)) out.push(p);
+    return out.sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+  }, [schedule]);
+  const cOrderValue = useMemo(() => schedule.reduce((sm, r) => sm + cpOrderValue(r), 0), [schedule]);
+  const cReceived = useMemo(() => schedule.reduce((sm, r) => sm + cpReceived(r), 0), [schedule]);
   const projChallans = useMemo(
     () => (project ? challans.filter((c) => (c.project || '') === project.name) : []),
     [challans, project]
@@ -319,53 +327,34 @@ export default function ProjectDetail() {
       {tab === 'Payments' && !pm && (
         <>
           <div className="toolbar" style={{ marginBottom: 12 }}>
-            <h2 style={{ fontSize: 17 }}>Payment Pending Cases</h2>
-            <div className="right"><button className="btn primary" onClick={() => openSched(null)}>+ Add payment record</button></div>
+            <h2 style={{ fontSize: 17 }}>Client Payment Histories</h2>
+            <div className="right"><button className="btn primary" onClick={() => openSched(schedule[0] || null)}>+ Add payment record</button></div>
           </div>
-          <div className="tbl pp-scroll">
+          {schedule.length > 0 && (
+            <p className="sub" style={{ margin: '0 0 10px' }}>
+              Order Value: <b>{inr(cOrderValue)}</b>{'  \u00b7  '}Received: <b>{inr(cReceived)}</b>{'  \u00b7  '}Outstanding: <b>{inr(Math.max(cOrderValue - cReceived, 0))}</b>
+              {schedule.length === 1 && <>{'  \u00b7  '}<button className="link" onClick={() => openSched(schedule[0])}>Edit order details</button></>}
+            </p>
+          )}
+          <div className="tbl">
             <table>
-              <thead>
-                <tr>
-                  <th>Customer</th>
-                  <th>Condition</th>
-                  <th className="num">Total Order Value</th>
-                  <th className="num">Collection so Far</th>
-                  <th className="num">Balance to Pay</th>
-                  <th className="num">Collection Amount</th>
-                  <th>Collection Date</th>
-                  <th>Method</th>
-                  <th>Update</th>
-                  <th>Payment Terms</th>
-                  {PAY_SLOTS.map((i) => (<React.Fragment key={i}><th className="num">Payment {i + 1}</th><th>Pay {i + 1} Date</th></React.Fragment>))}
-                  <th></th>
-                </tr>
-              </thead>
+              <thead><tr><th>Date</th><th className="num">Amount</th><th>Method</th><th>Reference</th><th>Remarks</th></tr></thead>
               <tbody>
-                {schedule.length === 0 ? (<tr><td colSpan={11 + PAY_SLOTS.length * 2} className="state">No payment records for this project yet. Click "Add payment record" to create one.</td></tr>
-                ) : schedule.map((r) => {
-                  const pays = ppPaymentsOf(r);
-                  return (
-                    <tr key={r.id} className="row-click" onClick={() => openSched(r)}>
-                      <td><b>{r.customerName}</b></td>
-                      <td><Pill s={r.condition || 'Payment Pending'} /></td>
-                      <td className="num">{inr(r.totalOrderValue)}</td>
-                      <td className="num calc">{inr(r.collectionSoFar)}</td>
-                      <td className={`num calc ${ppBalance(r) > 0 ? 'overdue' : ''}`}>{inr(ppBalance(r))}</td>
-                      <td className="num">{r.collectionAmount ? inr(r.collectionAmount) : '—'}</td>
-                      <td>{r.collectionDate ? dfmt(r.collectionDate) : '—'}</td>
-                      <td>{r.collectionMethod || '—'}</td>
-                      <td>{r.update || '—'}</td>
-                      <td>{r.paymentTerms || '—'}</td>
-                      {pays.map((p, i) => (<React.Fragment key={i}><td className="num">{p.amount ? inr(p.amount) : '—'}</td><td>{p.date ? dfmt(p.date) : '—'}</td></React.Fragment>))}
-                      <td onClick={(e) => e.stopPropagation()}><button className="link" onClick={() => openSched(r)}>Edit</button></td>
-                    </tr>
-                  );
-                })}
+                {clientReceipts.length === 0 ? (<tr><td colSpan={5} className="state">No client payments recorded for this project yet. Click "Add payment record" to add one.</td></tr>
+                ) : clientReceipts.map((p, i) => (
+                  <tr key={i}>
+                    <td>{p.date ? dfmt(p.date) : '—'}</td>
+                    <td className="num">{inr(p.amount)}</td>
+                    <td>{p.method || '—'}</td>
+                    <td className="id">{p.refNo || '—'}</td>
+                    <td>{p.remarks || '—'}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
 
-          <div className="po-items-head" style={{ margin: '20px 0 8px' }}><span>PO payment ledger</span></div>
+          <div className="po-items-head" style={{ margin: '20px 0 8px' }}><span>Vendor Payment</span></div>
           <div className="tbl">
             <table>
               <thead><tr><th>Date</th><th>PO</th><th className="num">Amount</th><th>Method</th><th>Reference</th><th>Remarks</th></tr></thead>
