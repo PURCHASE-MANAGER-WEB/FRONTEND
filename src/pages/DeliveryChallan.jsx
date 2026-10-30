@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { usePurchaseData } from '../context/PurchaseData';
 import { useToast } from '../components/Toast';
 import { Truck, CheckCircle2, Clock, AlertTriangle, FileDown } from 'lucide-react';
@@ -28,7 +29,9 @@ const ddmmyyyy = (ymd) => { const [y, m, d] = String(ymd || '').split('-'); retu
 export default function DeliveryChallan() {
   const { challans, vendors, projects, lines, loading, error, saveChallan, deleteChallan } = usePurchaseData();
   const toast = useToast();
-  const [q, setQ] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const q = searchParams.get('q') || '';
+  const setQ = (v) => { const sp = new URLSearchParams(searchParams); if (v) sp.set('q', v); else sp.delete('q'); setSearchParams(sp, { replace: true }); };
   const [statusF, setStatusF] = useState('all');
   const [editing, setEditing] = useState(null);
   const [newFile, setNewFile] = useState(null);
@@ -75,8 +78,8 @@ export default function DeliveryChallan() {
 
   const rows = useMemo(() => challans
     .filter((c) => statusF === 'all' || (c.status || 'Received') === statusF)
-    .filter((c) => !q || [c.id, c.po, c.project, vendorName(vendors, c.vid), c.date, matText(c)].filter(Boolean).join(' ').toLowerCase().includes(q.toLowerCase())),
-    [challans, q, statusF, vendors]);
+    .filter((c) => !q || [c.id, c.po, c.project, (projects.find((p) => p.name === c.project) || {}).code, vendorName(vendors, c.vid), c.date, matText(c)].filter(Boolean).join(' ').toLowerCase().includes(q.toLowerCase())),
+    [challans, q, statusF, vendors, projects]);
 
   const open = (c) => {
     setFormErr(''); setConfirmDel(false); setNewFile(null); setRemoveDoc(false);

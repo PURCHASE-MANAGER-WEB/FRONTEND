@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, X, ReceiptIndianRupee, IndianRupee, Wallet, Clock } from 'lucide-react';
 import { usePurchaseData } from '../context/PurchaseData';
 import { useToast } from '../components/Toast';
@@ -21,7 +22,9 @@ const msAmount = (quoted, pct) => { const p = parseFloat(pct); return Number.isN
 export default function ProjectPayments() {
   const { projectPayments, projects, loading, error, saveProjectPayment, deleteProjectPayment } = usePurchaseData();
   const toast = useToast();
-  const [q, setQ] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const q = searchParams.get('q') || '';
+  const setQ = (v) => { const sp = new URLSearchParams(searchParams); if (v) sp.set('q', v); else sp.delete('q'); setSearchParams(sp, { replace: true }); };
   const [statusF, setStatusF] = useState('all');
   const [editing, setEditing] = useState(null);
   const [formErr, setFormErr] = useState('');

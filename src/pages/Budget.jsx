@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PiggyBank, IndianRupee, Wallet, AlertTriangle } from 'lucide-react';
 import { usePurchaseData } from '../context/PurchaseData';
 import { useToast } from '../components/Toast';
@@ -13,7 +13,9 @@ export default function Budget() {
   const { projects, lines, loading, error, saveProject } = usePurchaseData();
   const toast = useToast();
   const navigate = useNavigate();
-  const [q, setQ] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const q = searchParams.get('q') || '';
+  const setQ = (v) => { const sp = new URLSearchParams(searchParams); if (v) sp.set('q', v); else sp.delete('q'); setSearchParams(sp, { replace: true }); };
   const [statusF, setStatusF] = useState('all');
   const [editing, setEditing] = useState(null); // { project, budget }
   const [formErr, setFormErr] = useState('');

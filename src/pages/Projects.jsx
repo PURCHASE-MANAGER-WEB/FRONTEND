@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FolderKanban, CheckCircle2, PiggyBank, IndianRupee, Wallet, Plus, X } from 'lucide-react';
 import { usePurchaseData } from '../context/PurchaseData';
 import { useToast } from '../components/Toast';
@@ -41,7 +41,9 @@ export default function Projects() {
   const pm = isRestrictedPM();
   const toast = useToast();
   const navigate = useNavigate();
-  const [q, setQ] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const q = searchParams.get('q') || '';
+  const setQ = (v) => { const sp = new URLSearchParams(searchParams); if (v) sp.set('q', v); else sp.delete('q'); setSearchParams(sp, { replace: true }); };
   const [editing, setEditing] = useState(null); // { isNew, data }
   const [formErr, setFormErr] = useState('');
   const [confirmDel, setConfirmDel] = useState(false);

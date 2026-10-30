@@ -35,7 +35,6 @@ const blankPO = (lines, vendors) => ({
 export default function PurchaseOrders() {
   const { vendors, lines, projects, payments, loading, error, reload, bulkSaveLines } = usePurchaseData();
   const toast = useToast();
-  const [q, setQ] = useState('');
   const [editing, setEditing] = useState(null);
   const [formErr, setFormErr] = useState('');
   const [busy, setBusy] = useState(false);
@@ -56,6 +55,8 @@ export default function PurchaseOrders() {
   const [simpleBusy, setSimpleBusy] = useState(false);
   const [fab, setFab] = useState(null); // { poKey } for the fabricator work-order form
   const [searchParams, setSearchParams] = useSearchParams();
+  const q = searchParams.get('q') || '';
+  const setQ = (v) => { const sp = new URLSearchParams(searchParams); if (v) sp.set('q', v); else sp.delete('q'); setSearchParams(sp, { replace: true }); };
 
   const filter = searchParams.get('filter') || 'all';
   const setFilter = (f) => { const n = new URLSearchParams(searchParams); if (f === 'all') n.delete('filter'); else n.set('filter', f); setSearchParams(n, { replace: true }); };
@@ -71,11 +72,12 @@ export default function PurchaseOrders() {
   const rows = useMemo(() => {
     const q2 = q.trim().toLowerCase();
     const matchLine = (po) => lines.some(l => l.po === po && [l.material, l.spec, l.description].filter(Boolean).join(' ').toLowerCase().includes(q2));
+    const codeFor = (name) => { const p = (projects || []).find(x => x.name === name); return p ? p.code : ''; };
     return groupPOs(lines)
       .map(g => ({ g, vn: vendorName(vendors, g.vid) }))
-      .filter(({ g, vn }) => statusOkG(g) && (!q2 || [g.po, g.vid, g.vendorName || vn, g.project, ...(Array.isArray(g.projects) ? g.projects : [])].filter(Boolean).join(' ').toLowerCase().includes(q2) || matchLine(g.po)))
+      .filter(({ g, vn }) => statusOkG(g) && (!q2 || [g.po, g.vid, g.vendorName || vn, g.project, codeFor(g.project), ...(Array.isArray(g.projects) ? g.projects : []), ...(Array.isArray(g.projects) ? g.projects.map(codeFor) : []), g.valueGst, g.value, g.paid, g.out].filter(Boolean).join(' ').toLowerCase().includes(q2) || matchLine(g.po)))
       .sort((a, b) => String(a.g.po).localeCompare(String(b.g.po), undefined, { numeric: true }));
-  }, [lines, vendors, q, filter]);
+  }, [lines, vendors, q, filter, projects]);
 
   const totals = rows.reduce((s, { g }) => ({ total: s.total + g.valueGst, paid: s.paid + g.paid, out: s.out + g.out }), { total: 0, paid: 0, out: 0 });
   const poNums = [...new Set(lines.map(l => l.po))];

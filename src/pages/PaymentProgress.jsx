@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, FileDown, Trash2, HandCoins, Wallet, ReceiptIndianRupee } from 'lucide-react';
 import { usePurchaseData } from '../context/PurchaseData';
 import { getUser } from '../api/client';
@@ -26,7 +27,9 @@ export default function PaymentProgress() {
   } = usePurchaseData();
   const toast = useToast();
   const [tab, setTab] = useState('Client Payment');
-  const [q, setQ] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const q = searchParams.get('q') || '';
+  const setQ = (v) => { const sp = new URLSearchParams(searchParams); if (v) sp.set('q', v); else sp.delete('q'); setSearchParams(sp, { replace: true }); };
 
   // ───────────────────────── VENDOR PAYMENT ─────────────────────────
   const [manage, setManage] = useState(null);   // PO group being managed
@@ -40,11 +43,12 @@ export default function PaymentProgress() {
 
   const vRows = useMemo(() => {
     const q2 = q.trim().toLowerCase();
+    const codeFor = (name) => { const p = (projects || []).find(x => x.name === name); return p ? p.code : ''; };
     return groups
       .map(g => ({ g, vn: g.vendorName || vendorName(vendors, g.vid) }))
-      .filter(({ g, vn }) => !q2 || [g.po, g.vid, vn, g.project].filter(Boolean).join(' ').toLowerCase().includes(q2))
+      .filter(({ g, vn }) => !q2 || [g.po, g.vid, vn, g.project, codeFor(g.project), g.value, g.paid, g.out].filter(Boolean).join(' ').toLowerCase().includes(q2))
       .sort((a, b) => String(a.g.po).localeCompare(String(b.g.po), undefined, { numeric: true }));
-  }, [groups, vendors, q]);
+  }, [groups, vendors, q, projects]);
 
   const vCards = useMemo(() => {
     const gs = vRows.map((row) => row.g);       // only the rows currently shown (respects the search)
@@ -118,7 +122,7 @@ export default function PaymentProgress() {
     const extraRows = pays.filter(r => !projNames.includes(r.project || r.customerName))
       .map(r => ({ key: 'r:' + r.id, projectName: r.project || r.customerName || '—', r, proj: null, client: clientOf(r) }));
     return [...projRows, ...extraRows]
-      .filter(({ projectName, client, r }) => !q2 || [projectName, client, r && r.paymentTerms].filter(Boolean).join(' ').toLowerCase().includes(q2))
+      .filter(({ projectName, client, r, proj }) => !q2 || [projectName, client, (proj && proj.code), r && r.paymentTerms, r && cpOrderValue(r), r && cpReceived(r)].filter(Boolean).join(' ').toLowerCase().includes(q2))
       .sort((a, b) => {
         const ca = String((a.proj && a.proj.code) || '').trim(), cb = String((b.proj && b.proj.code) || '').trim();
         if (ca && cb) return ca.localeCompare(cb, undefined, { numeric: true }) || String(a.projectName).localeCompare(String(b.projectName));

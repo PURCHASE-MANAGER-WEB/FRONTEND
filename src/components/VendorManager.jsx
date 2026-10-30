@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Store, Factory, CheckCircle2, IndianRupee, Wallet, Coins, Clock } from 'lucide-react';
 import { usePurchaseData } from '../context/PurchaseData';
 import { useToast } from '../components/Toast';
@@ -17,7 +18,9 @@ export default function VendorManager({ kind = 'Supplier' }) {
 
   const { vendors, lines, loading, error, saveVendor, deleteVendor } = usePurchaseData();
   const toast = useToast();
-  const [q, setQ] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const q = searchParams.get('q') || '';
+  const setQ = (v) => { const sp = new URLSearchParams(searchParams); if (v) sp.set('q', v); else sp.delete('q'); setSearchParams(sp, { replace: true }); };
   const [editing, setEditing] = useState(null);
   const [formErr, setFormErr] = useState('');
   const [confirmDel, setConfirmDel] = useState(false);

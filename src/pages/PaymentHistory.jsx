@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { History, IndianRupee, Wallet, ClipboardList } from 'lucide-react';
 import { usePurchaseData } from '../context/PurchaseData';
 import { Pill, Drawer, Field, StateRow } from '../components/ui';
@@ -9,7 +9,9 @@ const fmtDateTime = (iso) => { if (!iso) return '—'; try { return new Date(iso
 
 export default function PaymentHistory() {
   const { payments, vendors, lines, loading, error } = usePurchaseData();
-  const [q, setQ] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const q = searchParams.get('q') || '';
+  const setQ = (v) => { const sp = new URLSearchParams(searchParams); if (v) sp.set('q', v); else sp.delete('q'); setSearchParams(sp, { replace: true }); };
   const [methodF, setMethodF] = useState('all');
   const [view, setView] = useState(null);
 
