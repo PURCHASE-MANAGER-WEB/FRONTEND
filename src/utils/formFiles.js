@@ -5,7 +5,7 @@
 import { formsApi } from '../api/client';
 
 const MAX_BYTES = 12 * 1024 * 1024; // 12 MB — fits inside a single Mongo document
-const ALLOWED_EXT = /\.(pdf|jpe?g|png|xls|xlsx|doc|docx)$/i;
+const ALLOWED_EXT = /\.(pdf|jpe?g|png|xls|xlsx|doc|docx|dwg|dxf|zip)$/i;
 
 export const newFormFileId = () => 'FF' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
@@ -19,7 +19,7 @@ const readAsBase64 = (file) => new Promise((resolve, reject) => {
 // Returns '' when valid, else an error message. Allowed: PDF, JPG, JPEG, PNG, Word, Excel.
 export function validateFormFile(file) {
   if (!file) return 'No file selected.';
-  if (!ALLOWED_EXT.test(file.name || '')) return `"${file.name}" is not a supported type. Use PDF, JPG, JPEG, PNG, Word or Excel.`;
+  if (!ALLOWED_EXT.test(file.name || '')) return `"${file.name}" is not a supported type. Use PDF, JPG, JPEG, PNG, Word, Excel, DWG, DXF or ZIP.`;
   if (file.size > MAX_BYTES) return `"${file.name}" is larger than 12 MB.`;
   return '';
 }

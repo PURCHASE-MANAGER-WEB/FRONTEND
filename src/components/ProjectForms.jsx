@@ -15,7 +15,8 @@ const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT
 const today = () => { const d = new Date(); return `${String(d.getDate()).padStart(2, '0')}-${MON[d.getMonth()]}-${d.getFullYear()}`; };
 const n = (v) => { const x = parseFloat(v); return isFinite(x) ? x : 0; };
 const money = (v) => Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const KIND_LABEL = { proposal: 'Proposal (Commercial Quotation)', handover: 'Sales → Project Handover Form' };
+const KIND_LABEL = { proposal: 'Proposal (Commercial Quotation)', handover: 'Sales → Project Handover Form', design: 'Design (2D / 3D)' };
+const DESIGN_TYPES = ['2D', '3D', '2D + 3D', 'Other'];
 
 function proposalDefaults(p) {
   return {
@@ -62,6 +63,14 @@ function handoverDefaults(p) {
   };
 }
 
+function designDefaults(p) {
+  return {
+    title: p.typeOfProject ? `${p.typeOfProject} — Design` : 'Design',
+    designType: '2D', date: today(),
+    designer: '', revision: '', status: 'In Progress', notes: '',
+  };
+}
+
 export default function ProjectForms({ project }) {
   const toast = useToast();
   const [forms, setForms] = useState([]);
@@ -87,16 +96,18 @@ export default function ProjectForms({ project }) {
 
   const proposals = useMemo(() => forms.filter((f) => f.kind === 'proposal'), [forms]);
   const handovers = useMemo(() => forms.filter((f) => f.kind === 'handover'), [forms]);
+  const designs = useMemo(() => forms.filter((f) => f.kind === 'design'), [forms]);
+
+  const defaultsFor = (kind) => kind === 'proposal' ? proposalDefaults(project) : kind === 'design' ? designDefaults(project) : handoverDefaults(project);
 
   // ── editor ──
   const openNew = (kind) => {
     setFormErr('');
-    setEditing({ kind, isNew: true, formId: undefined, data: kind === 'proposal' ? proposalDefaults(project) : handoverDefaults(project) });
+    setEditing({ kind, isNew: true, formId: undefined, data: defaultsFor(kind) });
   };
   const openEdit = (f) => {
     setFormErr('');
-    const base = f.kind === 'proposal' ? proposalDefaults(project) : handoverDefaults(project);
-    setEditing({ kind: f.kind, isNew: false, formId: f.formId, data: { ...base, ...(f.data || {}) } });
+    setEditing({ kind: f.kind, isNew: false, formId: f.formId, data: { ...defaultsFor(f.kind), ...(f.data || {}) } });
   };
   const close = () => { setEditing(null); setFormErr(''); };
   const setD = (k, v) => setEditing((e) => ({ ...e, data: { ...e.data, [k]: v } }));
@@ -118,10 +129,11 @@ export default function ProjectForms({ project }) {
 
   const submit = async () => {
     const { kind, data } = editing;
-    const ref = kind === 'proposal' ? data.referenceCode : (data.proposalRef || data.proposalRefNo);
-    const title = kind === 'proposal' ? (data.structure || data.subject) : data.structureSummary;
-    const date = kind === 'proposal' ? data.date : data.dateOfOrder;
+    const ref = kind === 'proposal' ? data.referenceCode : kind === 'design' ? (data.revision || '') : (data.proposalRef || data.proposalRefNo);
+    const title = kind === 'proposal' ? (data.structure || data.subject) : kind === 'design' ? data.title : data.structureSummary;
+    const date = kind === 'proposal' ? data.date : kind === 'design' ? data.date : data.dateOfOrder;
     if (kind === 'proposal' && !String(data.clientName || '').trim()) { setFormErr('Enter the client name.'); return; }
+    if (kind === 'design' && !String(data.title || '').trim()) { setFormErr('Enter a design title.'); return; }
     const payload = {
       kind, project: project.name, projectId: project.id, projectCode: project.code || '',
       ref: ref || '', title: title || '', date: date || '', data,
@@ -178,7 +190,7 @@ export default function ProjectForms({ project }) {
 
   const fileRow = (id, f) => (
     <div className="pf-file" key={f.fileId}>
-      <span className={`pf-tag ${f.category === 'completed' ? 'done' : ''}`}>{f.category === 'completed' ? 'Completed form' : 'Supporting'}</span>
+      <span className={`pf-tag ${f.category !== 'support' ? 'done' : ''}`}>{f.category === 'completed' ? 'Completed form' : f.category === 'design' ? 'Design file' : 'Supporting'}</span>
       <span className="pf-fname" title={f.name}>{f.name}</span>
       <span className="pf-facts">
         <button type="button" className="link" onClick={() => openFormFile({ ...f, formId: id })}>View</button>
@@ -193,15 +205,19 @@ export default function ProjectForms({ project }) {
   const recordCard = (f) => {
     const files = filesMap[f.formId] || [];
     const open = openId === f.formId;
+    const isDesign = f.kind === 'design';
+    const subBits = isDesign ? [f.formId, f.data && f.data.designType ? (f.data.designType + ' design') : '', f.data && f.data.status, f.date] : [f.formId, f.ref, f.date];
+    const primaryCat = isDesign ? 'design' : 'completed';
+    const primaryLabel = isDesign ? 'Upload design file' : 'Upload completed form';
     return (
       <div className="pf-card" key={f.formId}>
         <div className="pf-top">
           <div className="pf-meta">
             <div className="pf-title">{f.title || f.ref || f.formId}</div>
-            <div className="pf-sub">{[f.formId, f.ref, f.date].filter(Boolean).join('  ·  ')}</div>
+            <div className="pf-sub">{subBits.filter(Boolean).join('  ·  ')}</div>
           </div>
           <div className="pf-acts">
-            <button className="btn" onClick={() => downloadPdf(f)}>Download PDF</button>
+            {!isDesign && <button className="btn" onClick={() => downloadPdf(f)}>Download PDF</button>}
             <button className="btn" onClick={() => openEdit(f)}>Edit</button>
             <button className="btn" onClick={() => toggleFiles(f.formId)}>{open ? 'Hide files' : `Files${files.length ? ` (${files.length})` : ''}`}</button>
             <button className="link danger" onClick={() => setConfirmDel(f.formId)} title="Delete">Delete</button>
@@ -216,16 +232,16 @@ export default function ProjectForms({ project }) {
         {open && (
           <div className="pf-files">
             <div className="pf-uprow">
-              <label className="btn sm">Upload completed form
-                <input type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" hidden onChange={(e) => onPick(f.formId, 'completed', e)} />
+              <label className="btn sm">{primaryLabel}
+                <input type="file" multiple={isDesign} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.dwg,.dxf,.zip" hidden onChange={(e) => onPick(f.formId, primaryCat, e)} />
               </label>
               <label className="btn sm">+ Supporting document
-                <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" hidden onChange={(e) => onPick(f.formId, 'support', e)} />
+                <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.dwg,.dxf,.zip" hidden onChange={(e) => onPick(f.formId, 'support', e)} />
               </label>
               {fileBusy && <span className="hint">Working…</span>}
             </div>
             {fileErr && <div className="err">{fileErr}</div>}
-            {files.length === 0 ? <p className="hint" style={{ margin: '6px 0 0' }}>No files uploaded yet. Upload the signed/completed form and any supporting documents.</p>
+            {files.length === 0 ? <p className="hint" style={{ margin: '6px 0 0' }}>{isDesign ? 'No files uploaded yet. Upload the 2D / 3D design files and any supporting documents.' : 'No files uploaded yet. Upload the signed/completed form and any supporting documents.'}</p>
               : <div className="pf-filelist">{files.map((x) => fileRow(f.formId, x))}</div>}
           </div>
         )}
@@ -249,6 +265,7 @@ export default function ProjectForms({ project }) {
     <>
       {block('proposal', proposals)}
       {block('handover', handovers)}
+      {block('design', designs)}
 
       {editing && (
         <Drawer onClose={close}>
@@ -256,7 +273,9 @@ export default function ProjectForms({ project }) {
           <p className="hint">For <b>{project.name}</b>{project.code ? ` · ${project.code}` : ''}. Fields are prefilled from the project — edit anything, then save and download the branded PDF.</p>
 
           {editing.kind === 'proposal' ? <ProposalFields d={editing.data} setD={setD} setItem={setItem} addItem={addItem} removeItem={removeItem} setRow={setRow} addRow={addRow} removeRow={removeRow} totals={liveTotals} />
-            : <HandoverFields d={editing.data} setD={setD} setItem={setItem} addItem={addItem} removeItem={removeItem} totals={liveTotals} />}
+            : editing.kind === 'design' ? <DesignFields d={editing.data} setD={setD} />
+              : <HandoverFields d={editing.data} setD={setD} setItem={setItem} addItem={addItem} removeItem={removeItem} totals={liveTotals} />}
+          {editing.kind === 'design' && <p className="hint" style={{ marginTop: 8 }}>After saving, open <b>Files</b> on the record to upload the 2D / 3D design files and supporting documents.</p>}
 
           {formErr && <div className="err">{formErr}</div>}
           <div className="actions">
@@ -379,6 +398,29 @@ function RowEditor({ title, field, rows, setRow, addRow, removeRow }) {
           <button type="button" className="pf-del" onClick={() => removeRow(field, i)}>×</button>
         </div>
       ))}
+    </div>
+  );
+}
+
+// ── Design editor fields ──
+function DesignFields({ d, setD }) {
+  return (
+    <div className="grid">
+      <Field label="Design Title *" full><input value={d.title || ''} onChange={(e) => setD('title', e.target.value)} placeholder="e.g. Terrace Polycarbonate — Design" /></Field>
+      <Field label="Design Type">
+        <select value={d.designType || '2D'} onChange={(e) => setD('designType', e.target.value)}>
+          {DESIGN_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
+      </Field>
+      <Field label="Status">
+        <select value={d.status || 'In Progress'} onChange={(e) => setD('status', e.target.value)}>
+          {['In Progress', 'Submitted to Client', 'Approved', 'Revision Required'].map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+      </Field>
+      <Field label="Date"><input value={d.date || ''} onChange={(e) => setD('date', e.target.value)} placeholder="07-JUL-2026" /></Field>
+      <Field label="Designer / Prepared by"><input value={d.designer || ''} onChange={(e) => setD('designer', e.target.value)} /></Field>
+      <Field label="Revision"><input value={d.revision || ''} onChange={(e) => setD('revision', e.target.value)} placeholder="e.g. R0, R1" /></Field>
+      <Field label="Notes" full><textarea rows={3} value={d.notes || ''} onChange={(e) => setD('notes', e.target.value)} placeholder="Scope of the design, what's included, any remarks…" /></Field>
     </div>
   );
 }
