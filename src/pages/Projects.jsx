@@ -72,6 +72,17 @@ export default function Projects() {
       return String(a.name).localeCompare(String(b.name));
     }), [projects, q]);
 
+  // Card totals follow the projects currently listed (respects the search); cleared → all.
+  const summary = useMemo(() => {
+    const budget = rows.reduce((s2, p2) => s2 + num(p2.budget), 0);
+    const active = rows.filter((p2) => String(p2.status || 'Active') === 'Active').length;
+    const pays = Array.isArray(projectPayments) ? projectPayments : [];
+    const recFor = (name) => pays.find((r) => (r.project || r.customerName) === name) || null;
+    const orderValue = rows.reduce((s2, p2) => { const r = recFor(p2.name); return s2 + (r ? cpOrderValue(r) : 0); }, 0);
+    const out = rows.reduce((s2, p2) => s2 + rollup(p2.name).out, 0);
+    return { count: rows.length, active, budget, orderValue, out };
+  }, [rows, projectPayments, groups]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const open = (p) => {
     setFormErr(''); setConfirmDel(false);
     if (p) {
@@ -150,11 +161,11 @@ export default function Projects() {
   return (
     <section>
       <section className="kpis" aria-label="Project summary" style={{ marginBottom: 16 }}>
-        <div className="kpi"><span className="kpi-ic"><FolderKanban size={16} /></span><div className="l">Total Projects</div><div className="v">{projects.length}</div></div>
-        <div className="kpi"><span className="kpi-ic"><CheckCircle2 size={16} /></span><div className="l">Active Projects</div><div className="v">{activeCount}</div></div>
-        <div className="kpi"><span className="kpi-ic"><PiggyBank size={16} /></span><div className="l">Total Budget</div><div className="v">{inr(totalBudget)}</div></div>
-        {!pm && <div className="kpi"><span className="kpi-ic"><IndianRupee size={16} /></span><div className="l">Total Order Value</div><div className="v">{inr(totalOrderValue)}</div></div>}
-        {!pm && <div className="kpi"><span className="kpi-ic"><Wallet size={16} /></span><div className="l">Outstanding</div><div className="v">{inr(portfolio.out)}</div></div>}
+        <div className="kpi"><span className="kpi-ic"><FolderKanban size={16} /></span><div className="l">Total Projects</div><div className="v">{summary.count}</div></div>
+        <div className="kpi"><span className="kpi-ic"><CheckCircle2 size={16} /></span><div className="l">Active Projects</div><div className="v">{summary.active}</div></div>
+        <div className="kpi"><span className="kpi-ic"><PiggyBank size={16} /></span><div className="l">Total Budget</div><div className="v">{inr(summary.budget)}</div></div>
+        {!pm && <div className="kpi"><span className="kpi-ic"><IndianRupee size={16} /></span><div className="l">Total Order Value</div><div className="v">{inr(summary.orderValue)}</div></div>}
+        {!pm && <div className="kpi"><span className="kpi-ic"><Wallet size={16} /></span><div className="l">Outstanding</div><div className="v">{inr(summary.out)}</div></div>}
       </section>
 
       <div className="toolbar">

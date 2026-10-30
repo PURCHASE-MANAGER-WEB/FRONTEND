@@ -33,13 +33,22 @@ export default function VendorManager({ kind = 'Supplier' }) {
   const blank = () => ({ vid: nextId(), name: '', contact: '', mobile: '', email: '', address: '', gst: '', material: '', creditLimit: '', terms: '30 Days', status: 'Active', type: kind });
 
   const outstandingFor = (vid) => lines.filter(l => l.vid === vid).reduce((s, l) => s + calcLine(l).out, 0);
-  const k = useMemo(() => kpis(lines), [lines]);
-  const pendingPayments = useMemo(() => groupPOs(lines).filter(g => g.payment !== 'Paid').length, [lines]);
-  const activeCount = scoped.filter(v => String(v.status || 'Active') === 'Active').length;
 
   const rows = useMemo(() => scoped
     .filter(v => !q || Object.values(v).join(' ').toLowerCase().includes(q.toLowerCase()))
     .sort((a, b) => String(a.vid).localeCompare(String(b.vid), undefined, { numeric: true })), [scoped, q]);
+
+  // Card totals reflect the vendors currently listed (respects the search); cleared → all.
+  const summary = useMemo(() => {
+    const vids = new Set(rows.map((v) => v.vid));
+    const grps = groupPOs(lines).filter((g) => vids.has(g.vid));
+    const value = grps.reduce((a, g) => a + g.value, 0);
+    const paid = grps.reduce((a, g) => a + g.paid, 0);
+    const pending = grps.filter((g) => g.payment !== 'Paid').length;
+    const out = rows.reduce((a, v) => a + outstandingFor(v.vid), 0);
+    const active = rows.filter((v) => String(v.status || 'Active') === 'Active').length;
+    return { count: rows.length, active, value, paid, out, pending };
+  }, [rows, lines]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const open = (v) => { setFormErr(''); setConfirmDel(false); setEditing(v ? { isNew: false, data: { ...v, creditLimit: v.creditLimit ?? '' } } : { isNew: true, data: blank() }); };
   const close = () => { setEditing(null); setConfirmDel(false); };
@@ -78,12 +87,12 @@ export default function VendorManager({ kind = 'Supplier' }) {
   return (
     <section>
       <section className="kpis" aria-label={`${Label} summary`} style={{ marginBottom: 16 }}>
-        <div className="kpi"><span className="kpi-ic">{isFab ? <Factory size={16} /> : <Store size={16} />}</span><div className="l">Total {Label}s</div><div className="v">{scoped.length}</div></div>
-        <div className="kpi"><span className="kpi-ic"><CheckCircle2 size={16} /></span><div className="l">Active {Label}s</div><div className="v">{activeCount}</div></div>
-        <div className="kpi"><span className="kpi-ic"><IndianRupee size={16} /></span><div className="l">Total Purchase Value</div><div className="v">{inr(k.value)}</div></div>
-        {!pm && <div className="kpi"><span className="kpi-ic"><Wallet size={16} /></span><div className="l">Paid Amount</div><div className="v">{inr(k.paid)}</div></div>}
-        {!pm && <div className="kpi"><span className="kpi-ic"><Coins size={16} /></span><div className="l">Outstanding</div><div className="v">{inr(k.out)}</div></div>}
-        {!pm && <div className="kpi"><span className="kpi-ic"><Clock size={16} /></span><div className="l">Pending Payments</div><div className="v">{pendingPayments}</div></div>}
+        <div className="kpi"><span className="kpi-ic">{isFab ? <Factory size={16} /> : <Store size={16} />}</span><div className="l">Total {Label}s</div><div className="v">{summary.count}</div></div>
+        <div className="kpi"><span className="kpi-ic"><CheckCircle2 size={16} /></span><div className="l">Active {Label}s</div><div className="v">{summary.active}</div></div>
+        <div className="kpi"><span className="kpi-ic"><IndianRupee size={16} /></span><div className="l">Total Purchase Value</div><div className="v">{inr(summary.value)}</div></div>
+        {!pm && <div className="kpi"><span className="kpi-ic"><Wallet size={16} /></span><div className="l">Paid Amount</div><div className="v">{inr(summary.paid)}</div></div>}
+        {!pm && <div className="kpi"><span className="kpi-ic"><Coins size={16} /></span><div className="l">Outstanding</div><div className="v">{inr(summary.out)}</div></div>}
+        {!pm && <div className="kpi"><span className="kpi-ic"><Clock size={16} /></span><div className="l">Pending Payments</div><div className="v">{summary.pending}</div></div>}
       </section>
       <div className="toolbar">
         <h2>{Label} Registration</h2>

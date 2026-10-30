@@ -142,12 +142,12 @@ export default function DeliveryChallan() {
   };
 
   const hasDoc = editing && !removeDoc && (newFile || editing.data.docName);
-  const byStatus = (s) => challans.filter((c) => (c.status || 'Received') === s).length;
+  const byStatus = (s) => rows.filter((c) => (c.status || 'Received') === s).length;
 
   return (
     <section>
       <section className="kpis" aria-label="Delivery challan summary" style={{ marginBottom: 16 }}>
-        <div className="kpi"><span className="kpi-ic"><Truck size={16} /></span><div className="l">Total Challans</div><div className="v">{challans.length}</div></div>
+        <div className="kpi"><span className="kpi-ic"><Truck size={16} /></span><div className="l">Total Challans</div><div className="v">{rows.length}</div></div>
         <div className="kpi"><span className="kpi-ic"><CheckCircle2 size={16} /></span><div className="l">Received</div><div className="v">{byStatus('Received')}</div></div>
         <div className="kpi"><span className="kpi-ic"><Clock size={16} /></span><div className="l">Partial</div><div className="v">{byStatus('Partial')}</div></div>
         <div className="kpi"><span className="kpi-ic"><AlertTriangle size={16} /></span><div className="l">Pending</div><div className="v">{byStatus('Pending')}</div></div>
