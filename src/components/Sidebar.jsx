@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Store, ClipboardList, TrendingUp, Wallet, LogOut, FileText, CheckSquare, Users, FolderKanban, ReceiptIndianRupee, PiggyBank, Truck, History, Factory } from 'lucide-react';
+import { LayoutDashboard, Store, ClipboardList, Wallet, LogOut, FileText, CheckSquare, Users, FolderKanban, ReceiptIndianRupee, PiggyBank, Truck, History, Factory } from 'lucide-react';
 import { getUser, clearSession, authApi, isRestrictedPM } from '../api/client';
 
 const NAV = [
@@ -10,7 +10,6 @@ const NAV = [
   { to: '/projects', label: 'Projects', icon: FolderKanban },
   { to: '/purchase-orders', label: 'Purchase Orders', icon: ClipboardList },
   { to: '/delivery-challan', label: 'Delivery Challan', icon: Truck },
-  { to: '/purchase-progress', label: 'Purchase Progress', icon: TrendingUp },
   { to: '/payment-progress', label: 'Payment Progress', icon: Wallet, pmHidden: true },
 ];
 

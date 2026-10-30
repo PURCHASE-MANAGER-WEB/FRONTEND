@@ -47,15 +47,16 @@ export default function PaymentProgress() {
   }, [groups, vendors, q]);
 
   const vCards = useMemo(() => {
-    const totalValue = groups.reduce((a, g) => a + g.value, 0);
-    const totalPaid = groups.reduce((a, g) => a + g.paid, 0);
-    const outstanding = groups.reduce((a, g) => a + g.out, 0);
-    const fully = groups.filter(g => g.payment === 'Paid').length;
-    const partial = groups.filter(g => g.payment === 'Partial').length;
-    const unpaid = groups.filter(g => g.payment === 'Unpaid').length;
-    const overdue = groups.filter(g => g.payOverdueDays > 0).length;
+    const gs = vRows.map((row) => row.g);       // only the rows currently shown (respects the search)
+    const totalValue = gs.reduce((a, g) => a + g.value, 0);
+    const totalPaid = gs.reduce((a, g) => a + g.paid, 0);
+    const outstanding = gs.reduce((a, g) => a + g.out, 0);
+    const fully = gs.filter(g => g.payment === 'Paid').length;
+    const partial = gs.filter(g => g.payment === 'Partial').length;
+    const unpaid = gs.filter(g => g.payment === 'Unpaid').length;
+    const overdue = gs.filter(g => g.payOverdueDays > 0).length;
     return { totalValue, totalPaid, outstanding, fully, partial, unpaid, overdue };
-  }, [groups]);
+  }, [vRows]);
 
   const openManage = (g) => { setForm(blankPay()); setFormErr(''); setManage(g); };
   const close = () => { setManage(null); setFormErr(''); };
@@ -127,7 +128,7 @@ export default function PaymentProgress() {
   }, [projectPayments, projects, q]);
 
   const cCards = useMemo(() => {
-    const list = Array.isArray(projectPayments) ? projectPayments : [];
+    const list = cRows.map((row) => row.r).filter(Boolean);   // only the client orders currently shown
     const orderValue = list.reduce((a, r) => a + cpOrderValue(r), 0);
     const received = list.reduce((a, r) => a + cpReceived(r), 0);
     const outstanding = list.reduce((a, r) => a + cpOutstanding(r), 0);
@@ -136,7 +137,7 @@ export default function PaymentProgress() {
     const unpaid = list.filter(r => cpStatus(r) === 'Unpaid').length;
     const overdue = list.filter(r => cpOverdueDays(r) > 0).length;
     return { orderValue, received, outstanding, fully, partial, unpaid, overdue };
-  }, [projectPayments]);
+  }, [cRows]);
 
   const cmg = cDrawer && !cDrawer.isNew ? ((projectPayments || []).find(r => r.id === cDrawer.id) || null) : null;
 
@@ -307,6 +308,17 @@ export default function PaymentProgress() {
                   );
                 })}
               </tbody>
+              {cRows.length > 0 && (
+                <tfoot><tr>
+                  <td colSpan={3}>Total ({cRows.filter((x) => x.r).length} order{cRows.filter((x) => x.r).length > 1 ? 's' : ''})</td>
+                  <td className="num">{inr(cCards.orderValue)}</td>
+                  <td></td>
+                  <td className="num">{inr(cCards.received)}</td>
+                  <td></td>
+                  <td className="num">{inr(cCards.outstanding)}</td>
+                  <td colSpan={3}></td>
+                </tr></tfoot>
+              )}
             </table>
           </div>
         </>
@@ -353,6 +365,15 @@ export default function PaymentProgress() {
                   </tr>
                 ))}
               </tbody>
+              {vRows.length > 0 && (
+                <tfoot><tr>
+                  <td colSpan={3}>Total ({vRows.length} PO{vRows.length > 1 ? 's' : ''})</td>
+                  <td className="num">{inr(vCards.totalValue)}</td>
+                  <td className="num">{inr(vCards.totalPaid)}</td>
+                  <td className="num">{inr(vCards.outstanding)}</td>
+                  <td colSpan={5}></td>
+                </tr></tfoot>
+              )}
             </table>
           </div>
         </>

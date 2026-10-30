@@ -16,7 +16,6 @@ const TITLES = {
   '/project-payments': ['Project Payments', 'Milestone payment schedule and installment tracking'],
   '/budget': ['Budget', 'Project-wise budget allocation and utilization'],
   '/delivery-challan': ['Delivery Challan', 'Material delivery challans linked to vendors, projects and POs'],
-  '/purchase-progress': ['Purchase Progress', 'Delivery & payment progress across every PO'],
   '/payment-progress': ['Payment Progress', 'Payment progress across every PO'],
   '/payment-history': ['Payment History', 'Chronological record of every PO payment'],
   '/accounts/dashboard': ['Accounts Dashboard', 'Financial overview across all purchase orders'],

@@ -9,7 +9,6 @@ import Vendors from './pages/Vendors';
 import Fabricators from './pages/Fabricators';
 import PurchaseOrders from './pages/PurchaseOrders';
 import PurchaseOrderDetail from './pages/PurchaseOrderDetail';
-import PurchaseProgress from './pages/PurchaseProgress';
 import PaymentProgress from './pages/PaymentProgress';
 import Projects from './pages/Projects';
 import ProjectDetail from './pages/ProjectDetail';
@@ -70,7 +69,6 @@ export default function App() {
           <Route path="/fabricators" element={<Fabricators />} />
           <Route path="/purchase-orders" element={<PurchaseOrders />} />
           <Route path="/purchase-orders/:poId" element={<PurchaseOrderDetail />} />
-          <Route path="/purchase-progress" element={<PurchaseProgress />} />
           <Route path="/payment-progress" element={<PaymentProgress />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/projects/:id" element={<ProjectDetail />} />
