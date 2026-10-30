@@ -89,6 +89,7 @@ export const purchaseApi = {
   deleteLine: (id) => api(`/orders/${encodeURIComponent(id)}`, { method: 'DELETE', auth: true }),
   deletePO: (po) => api(`/orders/po/${encodeURIComponent(po)}`, { method: 'DELETE', auth: true }),
   bulkSaveLines: (po, lines, deleteIds = []) => api(`/orders/po/${encodeURIComponent(po)}/bulk`, { method: 'PUT', body: { lines, deleteIds }, auth: true }),
+  relinkPOs: (from, to) => api('/orders/relink', { method: 'POST', body: { from, to }, auth: true }),
 };
 
 // Purchase payment ledger — purchase_payments collection.

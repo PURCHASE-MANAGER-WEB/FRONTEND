@@ -5,7 +5,7 @@ import { usePurchaseData } from '../context/PurchaseData';
 import { useToast } from '../components/Toast';
 import { Pill, Drawer, Field, StateRow } from '../components/ui';
 import { num, inr, groupPOs, cpOrderValue } from '../utils/procurement';
-import { isRestrictedPM } from '../api/client';
+import { isRestrictedPM, purchaseApi } from '../api/client';
 
 export const PROJECT_STATUS = ['Active', 'On Hold', 'Completed', 'Cancelled'];
 export const PROJECT_TYPES = ['PU Sheet Roofing', 'PUF Panel Roofing', 'Metal Sheet Roofing', 'Tensile Structure', 'Polycarbonate Structure', 'Structural Steel Fabrication', 'Wall Panel Cladding', 'Skylight / Roof Light', 'Other'];
@@ -37,7 +37,7 @@ const blank = () => ({
 });
 
 export default function Projects() {
-  const { projects, lines, projectPayments, loading, error, saveProject, deleteProject } = usePurchaseData();
+  const { projects, lines, projectPayments, loading, error, saveProject, deleteProject, reloadLines } = usePurchaseData();
   const pm = isRestrictedPM();
   const toast = useToast();
   const navigate = useNavigate();
@@ -46,8 +46,19 @@ export default function Projects() {
   const [formErr, setFormErr] = useState('');
   const [confirmDel, setConfirmDel] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [fixOpen, setFixOpen] = useState(false);
+  const [relinkTo, setRelinkTo] = useState({});
+  const [relinkBusy, setRelinkBusy] = useState('');
 
   const groups = useMemo(() => groupPOs(lines), [lines]);
+  // Purchase orders whose project name doesn't match any existing project (orphaned —
+  // usually a rename/typo). These don't appear under any project until relinked.
+  const orphans = useMemo(() => {
+    const names = new Set(projects.map((pp) => String(pp.name || '').trim()).filter(Boolean));
+    const map = new Map();
+    for (const l of lines) { const pr = String(l.project || '').trim(); if (pr && !names.has(pr)) { const set = map.get(pr) || new Set(); set.add(l.po); map.set(pr, set); } }
+    return [...map.entries()].map(([name, pos]) => ({ name, pos: [...pos].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true })) })).sort((a, b) => b.pos.length - a.pos.length);
+  }, [lines, projects]);
   const rollup = (name) => {
     const g = groups.filter((x) => (x.project || '') === name);
     return { poCount: g.length, value: g.reduce((s, x) => s + x.value, 0), paid: g.reduce((s, x) => s + x.paid, 0), out: g.reduce((s, x) => s + x.out, 0) };
@@ -158,6 +169,20 @@ export default function Projects() {
     finally { setBusy(false); }
   };
 
+  // Move every PO on an orphaned (old/misspelled) project name onto a real project.
+  const doRelink = async (from) => {
+    const to = relinkTo[from];
+    if (!to) { toast('Pick the project to move these POs into.'); return; }
+    setRelinkBusy(from);
+    try {
+      const r = await purchaseApi.relinkPOs(from, to);
+      await reloadLines();
+      setRelinkTo((m) => { const n = { ...m }; delete n[from]; return n; });
+      toast(`Moved ${r && r.updated != null ? r.updated : ''} PO line(s) into "${to}"`.replace('  ', ' '));
+    } catch (e) { toast(e.message || 'Could not relink the purchase orders.'); }
+    finally { setRelinkBusy(''); }
+  };
+
   return (
     <section>
       <section className="kpis" aria-label="Project summary" style={{ marginBottom: 16 }}>
@@ -175,6 +200,30 @@ export default function Projects() {
           {!pm && <button className="btn primary" onClick={() => open(null)}>+ Add project</button>}
         </div>
       </div>
+
+      {!pm && orphans.length > 0 && (
+        <div style={{ margin: '12px 0 0', border: '1px solid var(--warn, #e0a800)', background: 'var(--warn-bg, #fff8e1)', borderRadius: 10, padding: '12px 14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: 600 }}>⚠ {orphans.reduce((s2, o) => s2 + o.pos.length, 0)} purchase order line(s) are linked to {orphans.length} project name(s) that don't exist — they won't show under any project.</span>
+            <button className="link" onClick={() => setFixOpen((o) => !o)}>{fixOpen ? 'Hide' : 'Review & fix'}</button>
+          </div>
+          {fixOpen && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
+              {orphans.map((o) => (
+                <div key={o.name} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+                  <span style={{ minWidth: 220 }}><b>{o.name}</b> <span className="id" style={{ fontSize: 11 }}>({o.pos.length} PO: {o.pos.join(', ')})</span></span>
+                  <span style={{ color: 'var(--muted)' }}>→</span>
+                  <select value={relinkTo[o.name] || ''} onChange={(e) => setRelinkTo((m) => ({ ...m, [o.name]: e.target.value }))} style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface)' }}>
+                    <option value="">— Move to project —</option>
+                    {projects.map((pp) => <option key={pp.id} value={pp.name}>{pp.name}</option>)}
+                  </select>
+                  <button className="btn primary" disabled={relinkBusy === o.name || !relinkTo[o.name]} onClick={() => doRelink(o.name)}>{relinkBusy === o.name ? 'Moving…' : 'Relink'}</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="tbl" style={{ marginTop: 12 }}>
         <table>
