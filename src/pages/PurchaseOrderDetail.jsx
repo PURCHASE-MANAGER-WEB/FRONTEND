@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Download, Printer, Pencil, FileText, Trash2 } from 'lucide-react';
 import { usePurchaseData } from '../context/PurchaseData';
@@ -8,7 +8,8 @@ import { calcLine, calcPO, poCharges, poBreakdownFromLines, amountInWords, group
 import { downloadPoPdf } from '../utils/poPdf';
 import { downloadFabricatorPoPdf } from '../utils/fabricatorPoPdf';
 import { openInvoice, downloadInvoice } from '../utils/cloudinary';
-import { isRestrictedPM } from '../api/client';
+import { openPoFile, downloadPoFile } from '../utils/poFiles';
+import { isRestrictedPM, filesApi } from '../api/client';
 
 const dtfmt = (s) => { if (!s) return '—'; const d = new Date(s); return isNaN(d) ? '—' : d.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }); };
 
@@ -22,6 +23,7 @@ export default function PurchaseOrderDetail() {
   const [confirmDel, setConfirmDel] = useState(false);
   const [delBusy, setDelBusy] = useState(false);
   const [delErr, setDelErr] = useState('');
+  const [attachments, setAttachments] = useState([]);
 
   const model = useMemo(() => {
     const group = lines.filter(l => l.po === po);
@@ -51,6 +53,13 @@ export default function PurchaseOrderDetail() {
 
     return { group, h, ch, items, sub, totals, g, vendor, expDates, deliveryDateFmt, createdAt, updatedAt, notes, totQty, totRec, totPend, unit };
   }, [lines, vendors, po]);
+
+  // This PO's attachments (same files uploaded on the PO form) — load so they show here too.
+  useEffect(() => {
+    let alive = true;
+    filesApi.list(po).then((list) => { if (alive) setAttachments(Array.isArray(list) ? list : []); }).catch(() => { if (alive) setAttachments([]); });
+    return () => { alive = false; };
+  }, [po]);
 
   const onDownload = async () => {
     if (!model) return;
@@ -260,6 +269,22 @@ export default function PurchaseOrderDetail() {
           <div className="card pod-card">
             <h3>Notes / remarks</h3>
             {notes.length ? <ul className="pod-notes">{notes.map((n, i) => <li key={i}>{n}</li>)}</ul> : <p className="pod-empty">No notes recorded for this PO.</p>}
+          </div>
+          <div className="card pod-card">
+            <h3>Attachments / Documents</h3>
+            {attachments.length === 0 ? <p className="pod-empty">No attachments uploaded for this PO.</p> : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {attachments.map((f) => (
+                  <div key={f.fileId} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    <FileText size={16} />
+                    <button type="button" className="link" onClick={() => openPoFile(f)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent-ink)', fontWeight: 600, font: 'inherit' }}>{f.name}</button>
+                    <span className="id" style={{ fontSize: 11 }}>{Math.max(1, Math.round((f.size || 0) / 1024))} KB</span>
+                    <button type="button" className="link" onClick={() => openPoFile(f)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent-ink)', fontWeight: 600, font: 'inherit' }}>View</button>
+                    <button type="button" className="link" onClick={() => downloadPoFile(f)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent-ink)', fontWeight: 600, font: 'inherit' }}>Download</button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <div className="card pod-card">
             <h3>Record</h3>

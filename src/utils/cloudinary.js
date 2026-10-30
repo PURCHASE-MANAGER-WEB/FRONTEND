@@ -21,8 +21,9 @@ const readAsBase64 = (file) => new Promise((resolve, reject) => {
 export async function uploadInvoice(file, po) {
   if (!file) throw new Error('No file selected.');
   const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
-  if (!isPdf) throw new Error('Please choose a PDF file.');
-  if (file.size > MAX_BYTES) throw new Error('That file is larger than 12 MB. Please upload a smaller PDF.');
+  const isImg = /^image\/(jpe?g|png)$/i.test(file.type || '') || /\.(jpe?g|png)$/i.test(file.name || '');
+  if (!isPdf && !isImg) throw new Error('Please choose a PDF or an image (JPG, JPEG, PNG).');
+  if (file.size > MAX_BYTES) throw new Error('That file is larger than 12 MB. Please upload a smaller file.');
   const poKey = String(po || '').trim();
   if (!poKey) throw new Error('Enter the PO number first, then attach the invoice.');
   const dataBase64 = await readAsBase64(file);

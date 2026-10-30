@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Plus, Trash2, FileText, Upload, ClipboardList, Clock, CheckCircle2, IndianRupee, Wallet } from 'lucide-react';
 import { usePurchaseData } from '../context/PurchaseData';
-import { purchaseApi, filesApi } from '../api/client';
+import { purchaseApi, filesApi, invoicesApi } from '../api/client';
 import { useToast } from '../components/Toast';
 import { Pill, Drawer, Field, StateRow } from '../components/ui';
 import ComboBox from '../components/ComboBox';
@@ -41,10 +41,13 @@ export default function PurchaseOrders() {
   const [busy, setBusy] = useState(false);
   const [invBusy, setInvBusy] = useState(false);
   const [invErr, setInvErr] = useState('');
+  const [invKind, setInvKind] = useState('pdf');
+  const [invPreview, setInvPreview] = useState('');
   const [files, setFiles] = useState([]);        // existing saved attachments
   const [newFiles, setNewFiles] = useState([]);  // staged File objects to upload on save
   const [removed, setRemoved] = useState([]);    // fileIds of existing attachments to delete on save
   const [fileErr, setFileErr] = useState('');
+  const [filesBusy, setFilesBusy] = useState(false);
   const [newMenu, setNewMenu] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
   const newMenuRef = useRef(null);
@@ -109,15 +112,26 @@ export default function PurchaseOrders() {
     setNewFiles([]); setRemoved([]); setFileErr(''); loadFiles(h.po || poKey);
   };
   const loadFiles = async (po) => { try { const list = await filesApi.list(po); setFiles(Array.isArray(list) ? list : []); } catch { setFiles([]); } };
-  const onPickFiles = (e) => {
+  const onPickFiles = async (e) => {
     setFileErr('');
     const picked = Array.from(e.target.files || []); e.target.value = '';
-    const good = []; let err = '';
-    for (const f of picked) { const v = validatePoFile(f); if (v) err = v; else good.push(f); }
-    if (err) setFileErr(err);
-    if (good.length) setNewFiles((ns) => [...ns, ...good]);
+    if (!picked.length) return;
+    const po = String(editing?.po || '').trim().toUpperCase();
+    if (!po) { setFileErr('Enter the PO number first, then attach files.'); return; }
+    setFilesBusy(true);
+    for (const f of picked) {
+      const v = validatePoFile(f);
+      if (v) { setFileErr(v); continue; }
+      try { const meta = await uploadPoFile(f, po); setFiles((fs) => [...fs.filter((x) => x.fileId !== meta.fileId), meta]); }
+      catch (err) { setFileErr(err.message || `Could not upload ${f.name}.`); }
+    }
+    setFilesBusy(false);
   };
-  const removeExisting = (fileId) => { setFiles((fs) => fs.filter((f) => f.fileId !== fileId)); setRemoved((r) => [...r, fileId]); };
+  const removeExisting = async (fileId) => {
+    const po = String(editing?.po || '').trim().toUpperCase();
+    setFiles((fs) => fs.filter((f) => f.fileId !== fileId));
+    try { await removePoFile(po, fileId); } catch { /* ignore */ }
+  };
   const close = () => { setEditing(null); setFormErr(''); setConfirmDel(false); setFiles([]); setNewFiles([]); setRemoved([]); setFileErr(''); };
 
   // Copy an existing PO into a brand-new, fully editable PO. Carries over vendor, project,
@@ -264,12 +278,8 @@ export default function PurchaseOrders() {
         ]);
         await reload();
       }
-      // Sync attachments (upload staged, delete removed) in parallel.
-      let fileWarn = '';
-      await Promise.all(newFiles.map((f) => uploadPoFile(f, po).catch((fe) => { fileWarn = fe.message || 'Some files failed to upload.'; })));
-      await Promise.all(removed.map((id) => removePoFile(po, id).catch(() => {})));
       close();
-      toast((d.isNew ? 'Purchase order added' : 'Purchase order saved') + (fileWarn ? ' — ' + fileWarn : ''));
+      toast(d.isNew ? 'Purchase order added' : 'Purchase order saved');
     } catch (e) {
       setFormErr(e.message || 'Could not save the purchase order.');
     } finally {
@@ -305,6 +315,19 @@ export default function PurchaseOrders() {
     catch (err) { setInvErr(err.message || 'Could not upload the invoice.'); }
     finally { setInvBusy(false); }
   };
+
+  // Inline thumbnail for an image invoice (PDFs preview via the View action / new tab).
+  useEffect(() => {
+    const inv = editing && editing.invoice;
+    if (!inv || !inv.po || !/^image\//i.test(inv.type || '')) { setInvPreview(''); return; }
+    let url = '';
+    let alive = true;
+    invoicesApi.blob(inv.po, { download: false })
+      .then((blob) => { if (alive) { url = URL.createObjectURL(blob); setInvPreview(url); } })
+      .catch(() => { if (alive) setInvPreview(''); });
+    return () => { alive = false; if (url) URL.revokeObjectURL(url); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing && editing.invoice ? `${editing.invoice.po}|${editing.invoice.type}|${editing.invoice.uploadedAt || ''}` : '']);
 
   const money = (n) => num(n) ? inr(n) : '₹0';
 
@@ -589,20 +612,32 @@ export default function PurchaseOrders() {
           <div className="po-charges">
             <div className="po-items-head"><span>Invoice (PDF)</span></div>
             {editing.invoice ? (
-              <div className="inv-row">
-                <FileText size={18} />
-                <button type="button" className="link inv-name" onClick={() => openInvoice(editing.invoice)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit', textAlign: 'left' }}>{editing.invoice.name || 'Invoice.pdf'}</button>
-                {editing.invoice.size ? <span className="inv-size">{kb(editing.invoice.size)}</span> : null}
-                <button type="button" className="link" onClick={() => downloadInvoice(editing.invoice)}>Download</button>
-                <label className="link inv-replace">{invBusy ? 'Uploading…' : 'Replace'}<input type="file" accept="application/pdf" hidden onChange={onInvoice} disabled={invBusy} /></label>
-                <button type="button" className="link inv-remove" onClick={() => setHdr('invoice', null)}>Remove</button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {invPreview ? (
+                  <img src={invPreview} alt="Invoice preview" onClick={() => openInvoice(editing.invoice)} title="Click to view full size" style={{ maxWidth: 170, maxHeight: 170, objectFit: 'contain', border: '1px solid var(--line)', borderRadius: 8, cursor: 'pointer', background: 'var(--surface)', padding: 4 }} />
+                ) : null}
+                <div className="inv-row">
+                  <FileText size={18} />
+                  <button type="button" className="link inv-name" onClick={() => openInvoice(editing.invoice)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit', textAlign: 'left' }}>{editing.invoice.name || 'Invoice.pdf'}</button>
+                  {editing.invoice.size ? <span className="inv-size">{kb(editing.invoice.size)}</span> : null}
+                  <button type="button" className="link" onClick={() => openInvoice(editing.invoice)}>View</button>
+                  <button type="button" className="link" onClick={() => downloadInvoice(editing.invoice)}>Download</button>
+                  <label className="link inv-replace">{invBusy ? 'Uploading…' : 'Replace'}<input type="file" accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png" hidden onChange={onInvoice} disabled={invBusy} /></label>
+                  <button type="button" className="link inv-remove" onClick={() => setHdr('invoice', null)}>Remove</button>
+                </div>
               </div>
             ) : (
-              <label className={`inv-drop ${invBusy ? 'busy' : ''}`}>
-                <input type="file" accept="application/pdf" hidden onChange={onInvoice} disabled={invBusy} />
-                <Upload size={17} /> {invBusy ? 'Uploading…' : 'Upload invoice PDF'}
-                <span className="inv-hint">PDF only · up to 12 MB</span>
-              </label>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'stretch', flexWrap: 'wrap' }}>
+                <select value={invKind} onChange={(e) => setInvKind(e.target.value)} aria-label="Invoice format" style={{ padding: '9px 12px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface)' }}>
+                  <option value="pdf">Upload PDF</option>
+                  <option value="photo">Upload Photo</option>
+                </select>
+                <label className={`inv-drop ${invBusy ? 'busy' : ''}`} style={{ flex: '1 1 220px' }}>
+                  <input type="file" accept={invKind === 'photo' ? 'image/jpeg,image/png,.jpg,.jpeg,.png' : 'application/pdf,.pdf'} hidden onChange={onInvoice} disabled={invBusy} />
+                  <Upload size={17} /> {invBusy ? 'Uploading…' : (invKind === 'photo' ? 'Upload invoice photo' : 'Upload invoice PDF')}
+                  <span className="inv-hint">{invKind === 'photo' ? 'JPG, JPEG, PNG · up to 12 MB' : 'PDF only · up to 12 MB'}</span>
+                </label>
+              </div>
             )}
             {invErr && <div className="err" style={{ marginTop: 8 }}>{invErr}</div>}
           </div>
@@ -610,30 +645,22 @@ export default function PurchaseOrders() {
           {/* ── Attachments / Documents (multiple files) ── */}
           <div className="po-charges">
             <div className="po-items-head"><span>Attachments / Documents</span></div>
-            <label className="inv-drop">
-              <input type="file" accept=".pdf,.jpg,.jpeg,.png,.xls,.xlsx,application/pdf,image/jpeg,image/png,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" multiple hidden onChange={onPickFiles} />
-              <Upload size={17} /> Upload files
+            <label className={`inv-drop ${filesBusy ? 'busy' : ''}`}>
+              <input type="file" accept=".pdf,.jpg,.jpeg,.png,.xls,.xlsx,application/pdf,image/jpeg,image/png,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" multiple hidden onChange={onPickFiles} disabled={filesBusy} />
+              <Upload size={17} /> {filesBusy ? 'Uploading…' : 'Upload files'}
               <span className="inv-hint">PDF, JPG, JPEG, PNG, Excel · up to 12 MB each · select multiple</span>
             </label>
             {fileErr && <div className="err" style={{ marginTop: 8 }}>{fileErr}</div>}
-            {(files.length > 0 || newFiles.length > 0) && (
+            {files.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
                 {files.map((f) => (
                   <div className="inv-row" key={f.fileId}>
                     <FileText size={16} />
                     <button type="button" className="link inv-name" onClick={() => openPoFile(f)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit', textAlign: 'left' }}>{f.name}</button>
                     <span className="inv-size">{kb(f.size)}</span>
+                    <button type="button" className="link" onClick={() => openPoFile(f)}>View</button>
                     <button type="button" className="link" onClick={() => downloadPoFile(f)}>Download</button>
                     <button type="button" className="link inv-remove" onClick={() => removeExisting(f.fileId)}>Remove</button>
-                  </div>
-                ))}
-                {newFiles.map((f, i) => (
-                  <div className="inv-row" key={`nf${i}`}>
-                    <FileText size={16} />
-                    <span className="inv-name">{f.name}</span>
-                    <span className="inv-size">{kb(f.size)}</span>
-                    <span style={{ color: 'var(--muted)', fontSize: 12 }}>· will upload on save</span>
-                    <button type="button" className="link inv-remove" onClick={() => setNewFiles((ns) => ns.filter((_, j) => j !== i))}>Remove</button>
                   </div>
                 ))}
               </div>
