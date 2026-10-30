@@ -155,3 +155,27 @@ export const challansApi = {
   remove: (id) => api(`/challans/${encodeURIComponent(id)}`, { method: 'DELETE', auth: true }),
   doc: (id) => api(`/challans/${encodeURIComponent(id)}/doc`, { auth: true }),
 };
+
+
+// Proposal & Handover forms — purchase_forms (structured data) + purchase_form_files
+// (uploaded completed forms + supporting documents), all in our own backend (Mongo).
+export const formsApi = {
+  list: (project, kind) => {
+    const qs = new URLSearchParams({ ...(project ? { project } : {}), ...(kind ? { kind } : {}) }).toString();
+    return api(`/forms${qs ? '?' + qs : ''}`, { auth: true });
+  },
+  get: (id) => api(`/forms/${encodeURIComponent(id)}`, { auth: true }),
+  create: (f) => api('/forms', { method: 'POST', body: f, auth: true }),
+  update: (id, f) => api(`/forms/${encodeURIComponent(id)}`, { method: 'PUT', body: f, auth: true }),
+  remove: (id) => api(`/forms/${encodeURIComponent(id)}`, { method: 'DELETE', auth: true }),
+  listFiles: (id) => api(`/forms/${encodeURIComponent(id)}/files`, { auth: true }),
+  putFile: (id, payload) => api(`/forms/${encodeURIComponent(id)}/files`, { method: 'POST', body: payload, auth: true }),
+  removeFile: (id, fileId) => api(`/forms/${encodeURIComponent(id)}/files/${encodeURIComponent(fileId)}`, { method: 'DELETE', auth: true }),
+  fileBlob: async (id, fileId, { download = false } = {}) => {
+    const res = await fetch(`${API_BASE}/forms/${encodeURIComponent(id)}/files/${encodeURIComponent(fileId)}${download ? '?download=1' : ''}`, {
+      headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {},
+    });
+    if (!res.ok) throw new Error('Could not load the file.');
+    return res.blob();
+  },
+};

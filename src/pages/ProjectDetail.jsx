@@ -6,9 +6,10 @@ import { Pill, Drawer, Field } from '../components/ui';
 import { num, inr, dfmt, qfmt, groupPOs, vendorName, PAYMENT_METHODS, cpReceipts, cpOrderValue, cpReceived } from '../utils/procurement';
 import { openChallanDoc } from '../utils/challanDoc';
 import { openInvoice, downloadInvoice } from '../utils/cloudinary';
+import ProjectForms from '../components/ProjectForms';
 import { isRestrictedPM } from '../api/client';
 
-const TABS = ['Overview', 'Purchase Orders', 'Payments', 'Budget', 'Delivery Challans'];
+const TABS = ['Overview', 'Purchase Orders', 'Payments', 'Budget', 'Delivery Challans', 'Proposal & Handover'];
 const CONDITIONS = ['Payment Pending', 'Ongoing', 'Completed'];
 const PAY_SLOTS = [0, 1, 2, 3, 4]; // Payment 1..5
 
@@ -208,7 +209,7 @@ export default function ProjectDetail() {
       </section>
 
       <div className="tabs">
-        {(pm ? TABS.filter((t) => t !== 'Payments') : TABS).map((t) => (<button key={t} className={`tab ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>{t}</button>))}
+        {(pm ? TABS.filter((t) => t !== 'Payments' && t !== 'Proposal & Handover') : TABS).map((t) => (<button key={t} className={`tab ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>{t}</button>))}
       </div>
 
       {tab === 'Overview' && (() => {
@@ -460,6 +461,8 @@ export default function ProjectDetail() {
           </table>
         </div>
       )}
+
+      {tab === 'Proposal & Handover' && <ProjectForms project={project} />}
 
       {sched && (
         <Drawer onClose={closeSched}>
