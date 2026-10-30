@@ -1,21 +1,59 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 
 // Assign a PO to one or more projects. Selected projects show as removable chips;
-// pick more from the dropdown of existing projects, or type a new name and press Enter.
-// The first selected project is treated as the PO's primary project by the rest of the app.
+// search the existing projects by NAME or CODE and click a match to add it, or type
+// a new name and press Enter to add a custom one. The first selected project is the
+// PO's primary project. `value`/`onChange` stay arrays of project NAMES, so the rest
+// of the app is unchanged; `options` may be plain names or {name, code} objects.
 export default function ProjectMultiSelect({ value = [], onChange, options = [], placeholder = 'Add a project…' }) {
   const [input, setInput] = useState('');
+  const [open, setOpen] = useState(false);
+  const [hi, setHi] = useState(0);              // highlighted match (keyboard)
+  const wrapRef = useRef(null);
   const sel = Array.isArray(value) ? value : [];
+
+  // Normalize options to { name, code } so search can use both.
+  const norm = useMemo(() => (options || [])
+    .map((o) => (typeof o === 'string' ? { name: o, code: '' } : { name: (o && o.name) || '', code: (o && o.code) || '' }))
+    .filter((o) => o.name), [options]);
+
   const add = (name) => {
     const n = String(name || '').trim();
-    if (!n || sel.includes(n)) return;
+    if (!n || sel.includes(n)) { setInput(''); setOpen(false); return; }
     onChange([...sel, n]);
+    setInput(''); setOpen(false); setHi(0);
   };
   const remove = (name) => onChange(sel.filter((v) => v !== name));
-  const avail = options.filter((o) => o && !sel.includes(o));
+
+  const q = input.trim().toLowerCase();
+  const avail = norm.filter((o) => !sel.includes(o.name));
+  const matches = useMemo(
+    () => (q ? avail.filter((o) => `${o.name} ${o.code}`.toLowerCase().includes(q)) : avail),
+    [avail, q]
+  );
+
+  useEffect(() => { setHi(0); }, [q, open]);
+  useEffect(() => {
+    const onDoc = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, []);
+
+  const onKey = (e) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setHi((h) => Math.min(h + 1, matches.length - 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setHi((h) => Math.max(h - 1, 0)); }
+    else if (e.key === 'Enter') {
+      e.preventDefault();
+      const exact = avail.find((o) => o.name.toLowerCase() === input.trim().toLowerCase());
+      if (open && matches[hi]) add(matches[hi].name);
+      else if (exact) add(exact.name);
+      else if (matches.length === 1) add(matches[0].name);
+      else if (input.trim()) add(input.trim());
+    } else if (e.key === 'Escape') { setOpen(false); }
+  };
 
   return (
-    <div className="mps">
+    <div className="mps" ref={wrapRef}>
       {sel.length > 0 && (
         <div className="mps-chips">
           {sel.map((v, i) => (
@@ -27,17 +65,34 @@ export default function ProjectMultiSelect({ value = [], onChange, options = [],
           ))}
         </div>
       )}
-      <div className="mps-add">
-        <select value="" onChange={(e) => { add(e.target.value); e.target.value = ''; }}>
-          <option value="">{placeholder}</option>
-          {avail.map((o) => <option key={o} value={o}>{o}</option>)}
-        </select>
+      <div className="mps-search">
         <input
           value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(input); setInput(''); } }}
-          placeholder="or type &amp; press Enter"
+          onChange={(e) => { setInput(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={onKey}
+          placeholder={placeholder}
+          aria-label="Search projects by name or code"
+          autoComplete="off"
         />
+        {open && (
+          <div className="mps-menu" role="listbox">
+            {matches.length === 0 ? (
+              <div className="mps-empty">{input.trim() ? `No match — press Enter to add “${input.trim()}”` : 'No projects yet.'}</div>
+            ) : matches.map((o, idx) => (
+              <button
+                type="button"
+                className={`mps-opt ${idx === hi ? 'hi' : ''}`}
+                key={o.name}
+                onMouseEnter={() => setHi(idx)}
+                onClick={() => add(o.name)}
+              >
+                <span className="mps-opt-name">{o.name}</span>
+                {o.code ? <span className="mps-code">{o.code}</span> : null}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       <style>{`
         .mps{display:flex;flex-direction:column;gap:8px;min-width:0}
@@ -46,10 +101,15 @@ export default function ProjectMultiSelect({ value = [], onChange, options = [],
         .mps-primary{color:var(--accent);font-size:11px;line-height:1}
         .mps-chip button{border:0;background:none;color:var(--accent-ink);cursor:pointer;font-size:15px;line-height:1;padding:0;opacity:.7}
         .mps-chip button:hover{opacity:1}
-        .mps-add{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-        .mps-add select,.mps-add input{width:100%;box-sizing:border-box;font:400 14px var(--f-body);padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--fg);outline:none;min-width:0}
-        .mps-add select:focus,.mps-add input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
-        @media (max-width:560px){.mps-add{grid-template-columns:1fr}}
+        .mps-search{position:relative;min-width:0}
+        .mps-search>input{width:100%;box-sizing:border-box;font:400 14px var(--f-body);padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--fg);outline:none;min-width:0}
+        .mps-search>input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+        .mps-menu{position:absolute;z-index:50;top:calc(100% + 4px);left:0;right:0;max-height:240px;overflow-y:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 18px 40px -16px rgba(0,0,0,.4);padding:4px}
+        .mps-opt{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left;border:0;background:none;cursor:pointer;padding:9px 10px;border-radius:7px;font:400 13.5px var(--f-body);color:var(--fg)}
+        .mps-opt:hover,.mps-opt.hi{background:var(--accent-soft);color:var(--accent-ink)}
+        .mps-opt-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .mps-code{flex:none;font:600 11px var(--f-mono,var(--f-body));color:var(--muted);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:1px 7px}
+        .mps-empty{padding:10px;font-size:13px;color:var(--muted)}
       `}</style>
     </div>
   );

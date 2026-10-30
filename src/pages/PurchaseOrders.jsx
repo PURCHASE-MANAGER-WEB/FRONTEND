@@ -416,7 +416,7 @@ export default function PurchaseOrders() {
           <p className="hint">A quick PO with just the essentials. Quantities, rates, tax and terms can be added later via the detailed Edit.</p>
           <div className="grid">
             <Field label="Project Name(s) *" full>
-              <ProjectMultiSelect value={simple.projects} onChange={(v) => setSimple((s) => ({ ...s, projects: v }))} options={projects.map((p) => p.name)} placeholder="Add a project…" />
+              <ProjectMultiSelect value={simple.projects} onChange={(v) => setSimple((s) => ({ ...s, projects: v }))} options={projects} placeholder="Add a project…" />
             </Field>
             <Field label="Vendor *" full>
               <select value={simple.vid} onChange={(e) => setSimple((s) => ({ ...s, vid: e.target.value }))}>
@@ -466,7 +466,7 @@ export default function PurchaseOrders() {
                 {vendors.map(v => <option key={v.vid} value={v.vid}>{v.vid} · {v.name}{v.status !== 'Active' ? ` (${v.status})` : ''}</option>)}
               </select>
             </Field>
-            <Field label="Project Name(s) *" full><ProjectMultiSelect value={editing.projects} onChange={(v) => setHdr('projects', v)} options={projects.map((p) => p.name)} placeholder="Add a project…" /></Field>
+            <Field label="Project Name(s) *" full><ProjectMultiSelect value={editing.projects} onChange={(v) => setHdr('projects', v)} options={projects} placeholder="Add a project…" /></Field>
             <Field label="Delivery Date"><input type="date" value={editing.deliveryDate || ''} onChange={e => setHdr('deliveryDate', e.target.value)} /></Field>
             <Field label="Delivery Address" full><textarea rows={2} value={editing.deliveryAddress || ''} onChange={e => setHdr('deliveryAddress', e.target.value)} placeholder="Complete delivery / site address for this order" /></Field>
           </div>
