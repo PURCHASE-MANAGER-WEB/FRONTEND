@@ -73,7 +73,7 @@ export default function PurchaseOrders() {
     const matchLine = (po) => lines.some(l => l.po === po && [l.material, l.spec, l.description].filter(Boolean).join(' ').toLowerCase().includes(q2));
     return groupPOs(lines)
       .map(g => ({ g, vn: vendorName(vendors, g.vid) }))
-      .filter(({ g, vn }) => statusOkG(g) && (!q2 || [g.po, g.vid, g.vendorName || vn, g.project].filter(Boolean).join(' ').toLowerCase().includes(q2) || matchLine(g.po)))
+      .filter(({ g, vn }) => statusOkG(g) && (!q2 || [g.po, g.vid, g.vendorName || vn, g.project, ...(Array.isArray(g.projects) ? g.projects : [])].filter(Boolean).join(' ').toLowerCase().includes(q2) || matchLine(g.po)))
       .sort((a, b) => String(a.g.po).localeCompare(String(b.g.po), undefined, { numeric: true }));
   }, [lines, vendors, q, filter]);
 
@@ -371,7 +371,7 @@ export default function PurchaseOrders() {
             <option value="completed">Completed</option>
             <option value="overdue">Overdue</option>
           </select>
-          <input className="search" value={q} onChange={e => setQ(e.target.value)} placeholder="Search PO, vendor, material…" aria-label="Search purchase orders" />
+          <input className="search" value={q} onChange={e => setQ(e.target.value)} placeholder="Search PO, vendor, project, material…" aria-label="Search purchase orders" />
           <div className="newpo-wrap" ref={newMenuRef}>
             <button className="btn primary" onClick={() => setNewMenu((o) => !o)} aria-haspopup="true" aria-expanded={newMenu}>+ New PO ▾</button>
             {newMenu && (
