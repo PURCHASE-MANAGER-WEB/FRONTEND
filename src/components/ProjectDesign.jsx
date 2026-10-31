@@ -48,7 +48,7 @@ export default function ProjectDesign({ project }) {
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [project && project.id]);
 
   const submit = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     setErr(''); setBusy(true);
     try {
       const created = await designRequestsApi.create({
@@ -134,7 +134,7 @@ export default function ProjectDesign({ project }) {
         <Drawer onClose={() => setOpen(false)}>
           <h3>Raise Design Request</h3>
           <p className="hint">For <b>{project.name}</b>{project.code ? ` · ${project.code}` : ''}. This is sent to the Design team and tracked here.</p>
-          <form onSubmit={submit}>
+          <div>
             <div className="grid">
               <Field label="Project Type"><select value={form.projectType} onChange={(e) => setF('projectType', e.target.value)}>{TYPES.map((o) => <option key={o}>{o}</option>)}</select></Field>
               <Field label="Design Requirement"><select value={form.requirement} onChange={(e) => setF('requirement', e.target.value)}>{REQUIREMENTS.map((o) => <option key={o}>{o}</option>)}</select></Field>
@@ -161,10 +161,10 @@ export default function ProjectDesign({ project }) {
               <div />
               <div style={{ display: 'flex', gap: 8 }}>
                 <button type="button" className="btn" onClick={() => { setOpen(false); setFiles([]); }}>Cancel</button>
-                <button type="submit" className="btn primary" disabled={busy}>{busy ? 'Sending…' : 'Send Request'}</button>
+                <button type="button" className="btn primary" onClick={submit} disabled={busy}>{busy ? 'Sending…' : 'Send Request'}</button>
               </div>
             </div>
-          </form>
+          </div>
         </Drawer>
       )}
     </div>
