@@ -17,7 +17,8 @@ const readAsBase64 = (file) => new Promise((res, rej) => {
 
 const STATUS = {
   New: '#64748b', Assigned: '#6366f1', 'In Progress': '#2563eb',
-  'Pending Review': '#8b5cf6', 'Rework Required': '#ef4444', Rejected: '#dc2626',
+  'Submitted for Approval': '#8b5cf6', 'Resubmitted': '#8b5cf6', 'Pending Review': '#8b5cf6',
+  'Changes Requested': '#ef4444', 'Rework Required': '#ef4444', Rejected: '#dc2626',
   Approved: '#16a34a', Completed: '#16a34a',
 };
 const badge = (s) => (
@@ -124,7 +125,7 @@ export default function ProjectDesign({ project }) {
                     </div>
                   )}
                   {r.status === 'Rejected' && r.rejectionReason && <div style={{ marginTop: 8, color: 'var(--bad)', fontSize: 13 }}>Rejected: {r.rejectionReason}</div>}
-                  {r.status === 'Rework Required' && r.changeRemarks && <div style={{ marginTop: 8, color: '#b45309', fontSize: 13 }}>Changes requested: {r.changeRemarks}</div>}
+                  {['Changes Requested', 'Rework Required', 'Revision Requested'].includes(r.status) && r.changeRemarks && <div style={{ marginTop: 8, color: '#b45309', fontSize: 13 }}>Changes requested: {r.changeRemarks}</div>}
                 </div>
               ))}
             </div>
