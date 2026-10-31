@@ -53,6 +53,7 @@ export default function PurchaseOrders() {
   const [simple, setSimple] = useState(null);
   const [simpleErr, setSimpleErr] = useState('');
   const [simpleBusy, setSimpleBusy] = useState(false);
+  const [simpleInvKind, setSimpleInvKind] = useState('pdf');
   const [fab, setFab] = useState(null); // { poKey } for the fabricator work-order form
   const [searchParams, setSearchParams] = useSearchParams();
   const q = searchParams.get('q') || '';
@@ -177,7 +178,8 @@ export default function PurchaseOrders() {
     setSimpleErr('');
     if (!file) { setSimple((s) => ({ ...s, file: null })); return; }
     const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
-    if (!isPdf) { setSimpleErr('Invoice must be a PDF.'); return; }
+    const isImg = /^image\/(jpe?g|png)$/i.test(file.type || '') || /\.(jpe?g|png)$/i.test(file.name || '');
+    if (!isPdf && !isImg) { setSimpleErr('Invoice must be a PDF or an image (JPG, JPEG, PNG).'); return; }
     if (file.size > 12 * 1024 * 1024) { setSimpleErr('Invoice is larger than 12 MB.'); return; }
     setSimple((s) => ({ ...s, file }));
   };
@@ -432,11 +434,21 @@ export default function PurchaseOrders() {
             </Field>
             <Field label="Material Description *" full><textarea rows={3} value={simple.material} onChange={(e) => setSimple((s) => ({ ...s, material: e.target.value }))} placeholder="What is being ordered" /></Field>
             <Field label="PO Value (₹)" full><input type="number" min="0" step="any" value={simple.value} onChange={(e) => setSimple((s) => ({ ...s, value: e.target.value }))} placeholder="Total order value (optional)" /></Field>
-            <Field label="Invoice (PDF, optional)" full>
+            <Field label="Invoice (PDF or Photo, optional)" full>
               {simple.file ? (
                 <div className="inv-row"><FileText size={18} /><span className="inv-name">{simple.file.name}</span><span className="inv-size">{kb(simple.file.size)}</span><button type="button" className="link" onClick={() => setSimple((s) => ({ ...s, file: null }))}>Remove</button></div>
               ) : (
-                <label className="inv-drop"><input type="file" accept="application/pdf" hidden onChange={(e) => { onSimpleFile(e.target.files && e.target.files[0]); e.target.value = ''; }} /><Upload size={17} /> Upload invoice PDF<span className="inv-hint">PDF · up to 12 MB</span></label>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
+                  <select value={simpleInvKind} onChange={(e) => setSimpleInvKind(e.target.value)} aria-label="Invoice format" style={{ padding: '9px 12px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface)' }}>
+                    <option value="pdf">Upload PDF</option>
+                    <option value="photo">Upload Photo</option>
+                  </select>
+                  <label className="inv-drop" style={{ flex: 1 }}>
+                    <input type="file" accept={simpleInvKind === 'photo' ? 'image/jpeg,image/png,.jpg,.jpeg,.png' : 'application/pdf,.pdf'} hidden onChange={(e) => { onSimpleFile(e.target.files && e.target.files[0]); e.target.value = ''; }} />
+                    <Upload size={17} /> {simpleInvKind === 'photo' ? 'Upload invoice photo' : 'Upload invoice PDF'}
+                    <span className="inv-hint">{simpleInvKind === 'photo' ? 'JPG, JPEG, PNG · up to 12 MB' : 'PDF · up to 12 MB'}</span>
+                  </label>
+                </div>
               )}
             </Field>
           </div>
