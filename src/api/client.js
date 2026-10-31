@@ -179,3 +179,18 @@ export const formsApi = {
     return res.blob();
   },
 };
+
+
+// Design requests bridge — raises requests into the shared Design CRM database and
+// reads status + approved files back. (Stored in design_requests / design_files.)
+export const designRequestsApi = {
+  list: (params) => { const qs = params ? ('?' + new URLSearchParams(params).toString()) : ''; return api(`/design-requests${qs}`, { auth: true }); },
+  get: (id) => api(`/design-requests/${encodeURIComponent(id)}`, { auth: true }),
+  create: (body) => api('/design-requests', { method: 'POST', body, auth: true }),
+  addAttachment: (id, payload) => api(`/design-requests/${encodeURIComponent(id)}/attachments`, { method: 'POST', body: payload, auth: true }),
+  fileBlob: async (fileId, { download = false } = {}) => {
+    const res = await fetch(`${API_BASE}/design-requests/files/${encodeURIComponent(fileId)}${download ? '?download=1' : ''}`, { headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {} });
+    if (!res.ok) throw new Error('Could not load the file.');
+    return res.blob();
+  },
+};

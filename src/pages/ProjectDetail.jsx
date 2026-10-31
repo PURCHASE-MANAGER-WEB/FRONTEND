@@ -7,6 +7,7 @@ import { num, inr, dfmt, qfmt, groupPOs, vendorName, PAYMENT_METHODS, cpReceipts
 import { openChallanDoc } from '../utils/challanDoc';
 import { openInvoice, downloadInvoice } from '../utils/cloudinary';
 import ProjectForms from '../components/ProjectForms';
+import ProjectDesign from '../components/ProjectDesign';
 import { isRestrictedPM } from '../api/client';
 
 const TABS = ['Overview', 'Purchase Orders', 'Payments', 'Budget', 'Delivery Challans', 'Proposal & Handover', 'Design'];
@@ -463,7 +464,7 @@ export default function ProjectDetail() {
       )}
 
       {tab === 'Proposal & Handover' && <ProjectForms project={project} section="forms" />}
-      {tab === 'Design' && <ProjectForms project={project} section="design" />}
+      {tab === 'Design' && <ProjectDesign project={project} />}
 
       {sched && (
         <Drawer onClose={closeSched}>
