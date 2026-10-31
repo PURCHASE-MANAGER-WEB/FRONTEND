@@ -248,7 +248,9 @@ export default function PurchaseOrders() {
       if (qty <= 0) return setFormErr(`Item ${n}: ordered quantity must be more than 0.`);
       if (rate <= 0) return setFormErr(`Item ${n}: rate must be more than 0.`);
       if (num(it.received) > qty) return setFormErr(`Item ${n}: received can't be more than ordered.`);
-      if (num(it.paid) > qty * rate) return setFormErr(`Item ${n}: paid can't be more than the item value.`);
+      // Payment is NOT validated per-item against the ex-GST value here: a GST-inclusive
+      // payment legitimately exceeds qty*rate, and uploaded invoices never restrict saving.
+      // Payment tracking is handled against the PO total and the payment records elsewhere.
     }
 
     const loading = num(d.loading), transport = num(d.transport);

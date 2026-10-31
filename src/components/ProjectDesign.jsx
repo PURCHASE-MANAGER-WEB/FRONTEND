@@ -97,7 +97,7 @@ export default function ProjectDesign({ project }) {
     <div className="card pd-card">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
         <h3 style={{ margin: 0 }}>Design Requests</h3>
-        <button className="btn primary" onClick={() => setOpen(true)}>+ Raise Design Request</button>
+        <button className="btn primary" onClick={() => { setForm(blank()); setFiles([]); setErr(''); setOpen(true); }}>+ Raise Design Request</button>
       </div>
 
       {loading ? <p className="hint" style={{ margin: 0 }}>Loading…</p>
@@ -142,15 +142,25 @@ export default function ProjectDesign({ project }) {
               <Field label="Required Completion Date"><input type="date" value={form.dueDate} onChange={(e) => setF('dueDate', e.target.value)} /></Field>
               <Field label="Description / Requirements" full><textarea rows={4} value={form.description} onChange={(e) => setF('description', e.target.value)} placeholder="Describe the design scope, deliverables and any specifications…" /></Field>
               <Field label="Supporting attachments" full>
-                <input type="file" multiple onChange={(e) => setFiles(Array.from(e.target.files || []))} />
-                {files.length > 0 && <div className="hint" style={{ marginTop: 4 }}>{files.length} file(s) selected</div>}
+                <input type="file" multiple onChange={(e) => { setFiles((prev) => [...prev, ...Array.from(e.target.files || [])]); e.target.value = ''; }} />
+                {files.length > 0 && (
+                  <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {files.map((f, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, padding: '6px 10px' }}>
+                        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                        <span className="sub" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{(f.size / 1024 / 1024).toFixed(1)} MB</span>
+                        <button type="button" className="link danger" onClick={() => setFiles((prev) => prev.filter((_, idx) => idx !== i))}>Remove</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </Field>
             </div>
             {err && <div className="err">{err}</div>}
             <div className="actions">
               <div />
               <div style={{ display: 'flex', gap: 8 }}>
-                <button type="button" className="btn" onClick={() => setOpen(false)}>Cancel</button>
+                <button type="button" className="btn" onClick={() => { setOpen(false); setFiles([]); }}>Cancel</button>
                 <button type="submit" className="btn primary" disabled={busy}>{busy ? 'Sending…' : 'Send Request'}</button>
               </div>
             </div>
