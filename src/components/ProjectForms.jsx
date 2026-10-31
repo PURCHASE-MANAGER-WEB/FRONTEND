@@ -305,13 +305,15 @@ export default function ProjectForms({ project, section = 'all' }) {
           <p className="hint">For <b>{project.name}</b>{project.code ? ` · ${project.code}` : ''}. Fields are prefilled from the project — edit anything, then save and download the branded PDF.</p>
 
           {editing.kind === 'proposal' && (() => {
-            const V = (x) => (x === 0 || x) ? x : '—';
-            const YN = (b) => b ? 'Yes' : 'No';
+            const has = (x) => x != null && String(x).trim() !== '';
+            const yn = (b) => (b === true || b === 'Yes' || b === 'yes') ? 'Yes' : (b === false ? '' : (has(b) ? String(b) : ''));
+            // Only keep fields that actually have data, and drop empty groups.
             const groups = [
-              ['Client Details', [['Client', V(project.client || project.billingName)], ['Contact', V(project.mobileNumber || project.contactDetails)], ['Email / WhatsApp', V(project.emailWhatsapp)], ['GSTIN', V(project.gstNumber)]]],
-              ['Project Details', [['Project Name', V(project.name)], ['Project Code', V(project.code)], ['Location', V(project.projectLocation || project.siteAddress)], ['Project Type', V(project.typeOfProject)], ['Project Size', V(project.projectSize)]]],
-              ['Scope of Work', [['2D Design', YN(project.design2D)], ['3D Design', YN(project.design3D)], ['Transportation', V(project.transportationScope)], ['Scaffolding', V(project.scaffoldingScope)], ['Material / Scope', V(project.materialDescription)], ['Lead Time', V(project.leadTimePromised)]]],
-            ];
+              ['Client Details', [['Client', project.client || project.billingName], ['Contact', project.mobileNumber || project.contactDetails], ['Email / WhatsApp', project.emailWhatsapp], ['GSTIN', project.gstNumber]]],
+              ['Project Details', [['Project Name', project.name], ['Project Code', project.code], ['Location', project.projectLocation || project.siteAddress], ['Project Type', project.typeOfProject], ['Project Size', project.projectSize]]],
+              ['Scope of Work', [['2D Design', yn(project.design2D)], ['3D Design', yn(project.design3D)], ['Transportation', yn(project.transportationScope)], ['Scaffolding', yn(project.scaffoldingScope)], ['Material / Scope', project.materialDescription], ['Lead Time', project.leadTimePromised]]],
+            ].map(([g, rows]) => [g, rows.filter(([, v]) => has(v))]).filter(([, rows]) => rows.length);
+            if (!groups.length) return null;
             return (
               <div className="pf-overview">
                 <div className="pf-ov-title">Project Overview</div>
