@@ -142,7 +142,7 @@ export default function ProjectDesign({ project }) {
               <Field label="Required Completion Date"><input type="date" value={form.dueDate} onChange={(e) => setF('dueDate', e.target.value)} /></Field>
               <Field label="Description / Requirements" full><textarea rows={4} value={form.description} onChange={(e) => setF('description', e.target.value)} placeholder="Describe the design scope, deliverables and any specifications…" /></Field>
               <Field label="Supporting attachments" full>
-                <input type="file" multiple onChange={(e) => { setFiles((prev) => [...prev, ...Array.from(e.target.files || [])]); e.target.value = ''; }} />
+                <input type="file" multiple onChange={(e) => { const picked = Array.from(e.target.files || []); e.target.value = ''; if (picked.length) setFiles((prev) => [...prev, ...picked]); }} />
                 {files.length > 0 && (
                   <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {files.map((f, i) => (
