@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useToast } from './Toast';
 import { Drawer, Field } from './ui';
 import { formsApi } from '../api/client';
-import { uploadFormFile, openFormFile, downloadFormFile, removeFormFile } from '../utils/formFiles';
+import { uploadFormFile, openFormFile, downloadFormFile, removeFormFile, validateFormFile } from '../utils/formFiles';
 import { downloadProposalPdf, downloadHandoverPdf } from '../utils/formPdf';
 
 // Proposal & Handover forms for a project — lives inside the Project Details page.
@@ -86,6 +86,11 @@ export default function ProjectForms({ project, section = 'all' }) {
   const [filesMap, setFilesMap] = useState({});       // formId -> [files]
   const [fileBusy, setFileBusy] = useState(false);
   const [fileErr, setFileErr] = useState('');
+  // In-editor attachments: files picked while creating/editing a form.
+  const [pendingFiles, setPendingFiles] = useState([]); // [{ file, key }] not yet uploaded
+  const [editFiles, setEditFiles] = useState([]);       // already-saved files for the form being edited
+  const [attachErr, setAttachErr] = useState('');
+  const [attachBusy, setAttachBusy] = useState(false);
 
   const loadForms = async () => {
     if (!project) return;
@@ -104,14 +109,33 @@ export default function ProjectForms({ project, section = 'all' }) {
 
   // ── editor ──
   const openNew = (kind) => {
-    setFormErr('');
+    setFormErr(''); setAttachErr(''); setPendingFiles([]); setEditFiles([]);
     setEditing({ kind, isNew: true, formId: undefined, data: defaultsFor(kind) });
   };
   const openEdit = (f) => {
-    setFormErr('');
+    setFormErr(''); setAttachErr(''); setPendingFiles([]); setEditFiles([]);
     setEditing({ kind: f.kind, isNew: false, formId: f.formId, data: { ...defaultsFor(f.kind), ...(f.data || {}) } });
+    formsApi.listFiles(f.formId).then((list) => setEditFiles(list || [])).catch(() => setEditFiles([]));
   };
-  const close = () => { setEditing(null); setFormErr(''); };
+  const close = () => { setEditing(null); setFormErr(''); setAttachErr(''); setPendingFiles([]); setEditFiles([]); };
+
+  // ── in-editor attachments ──
+  const onPickAttach = (e) => {
+    const picked = Array.from(e.target.files || []);
+    e.target.value = ''; setAttachErr('');
+    const good = [];
+    for (const file of picked) { const err = validateFormFile(file); if (err) { setAttachErr(err); continue; } good.push({ file, key: Math.random().toString(36).slice(2) }); }
+    if (good.length) setPendingFiles((prev) => [...prev, ...good]);
+  };
+  const removePending = (key) => setPendingFiles((prev) => prev.filter((x) => x.key !== key));
+  const previewPending = (pf) => { const href = URL.createObjectURL(pf.file); window.open(href, '_blank', 'noopener'); setTimeout(() => URL.revokeObjectURL(href), 60000); };
+  const removeSaved = async (fileId) => {
+    if (!editing) return;
+    setAttachBusy(true);
+    try { await removeFormFile(editing.formId, fileId); const list = await formsApi.listFiles(editing.formId); setEditFiles(list || []); }
+    catch (err) { setAttachErr(err.message || 'Could not remove the file.'); }
+    finally { setAttachBusy(false); }
+  };
   const setD = (k, v) => setEditing((e) => ({ ...e, data: { ...e.data, [k]: v } }));
   const setItem = (i, k, v) => setEditing((e) => ({ ...e, data: { ...e.data, items: e.data.items.map((it, idx) => idx === i ? { ...it, [k]: v } : it) } }));
   const addItem = () => setEditing((e) => ({ ...e, data: { ...e.data, items: [...e.data.items, e.kind === 'proposal' ? { description: '', specification: '', unit: '', qty: '', rate: '', amount: '' } : { description: '', qty: '', rate: '', amount: '' }] } }));
@@ -142,9 +166,15 @@ export default function ProjectForms({ project, section = 'all' }) {
     };
     setSaving(true);
     try {
-      if (editing.isNew) await formsApi.create(payload);
-      else await formsApi.update(editing.formId, payload);
+      let formId = editing.formId;
+      if (editing.isNew) { const created = await formsApi.create(payload); formId = created && created.formId; }
+      else { await formsApi.update(editing.formId, payload); }
+      // Upload any files attached in the editor, now that we have a form id.
+      if (formId && pendingFiles.length) {
+        for (const pf of pendingFiles) { try { await uploadFormFile(pf.file, formId, 'support'); } catch (e2) { setFormErr(`Saved, but "${pf.file.name}" could not be attached: ${e2.message}`); } }
+      }
       await loadForms();
+      if (formId) { try { await reloadFiles(formId); } catch { /* ignore */ } }
       close();
       toast(editing.isNew ? `${KIND_LABEL[kind]} created` : 'Form saved');
     } catch (e) { setFormErr(e.message || 'Could not save the form.'); }
@@ -274,10 +304,74 @@ export default function ProjectForms({ project, section = 'all' }) {
           <h3>{editing.isNew ? `New ${KIND_LABEL[editing.kind]}` : `Edit ${KIND_LABEL[editing.kind]}`}</h3>
           <p className="hint">For <b>{project.name}</b>{project.code ? ` · ${project.code}` : ''}. Fields are prefilled from the project — edit anything, then save and download the branded PDF.</p>
 
+          {editing.kind === 'proposal' && (() => {
+            const V = (x) => (x === 0 || x) ? x : '—';
+            const YN = (b) => b ? 'Yes' : 'No';
+            const groups = [
+              ['Client Details', [['Client', V(project.client || project.billingName)], ['Contact', V(project.mobileNumber || project.contactDetails)], ['Email / WhatsApp', V(project.emailWhatsapp)], ['GSTIN', V(project.gstNumber)]]],
+              ['Project Details', [['Project Name', V(project.name)], ['Project Code', V(project.code)], ['Location', V(project.projectLocation || project.siteAddress)], ['Project Type', V(project.typeOfProject)], ['Project Size', V(project.projectSize)]]],
+              ['Scope of Work', [['2D Design', YN(project.design2D)], ['3D Design', YN(project.design3D)], ['Transportation', V(project.transportationScope)], ['Scaffolding', V(project.scaffoldingScope)], ['Material / Scope', V(project.materialDescription)], ['Lead Time', V(project.leadTimePromised)]]],
+            ];
+            return (
+              <div className="pf-overview">
+                <div className="pf-ov-title">Project Overview</div>
+                {groups.map(([g, rows]) => (
+                  <div key={g} className="pf-ov-group">
+                    <div className="pf-ov-gh">{g}</div>
+                    <div className="pf-ov-grid">
+                      {rows.map(([k, v]) => (<div key={k} className="pf-ov-cell"><span className="pf-ov-k">{k}</span><span className="pf-ov-v">{v}</span></div>))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+
           {editing.kind === 'proposal' ? <ProposalFields d={editing.data} setD={setD} setItem={setItem} addItem={addItem} removeItem={removeItem} setRow={setRow} addRow={addRow} removeRow={removeRow} totals={liveTotals} />
             : editing.kind === 'design' ? <DesignFields d={editing.data} setD={setD} />
               : <HandoverFields d={editing.data} setD={setD} setItem={setItem} addItem={addItem} removeItem={removeItem} totals={liveTotals} />}
           {editing.kind === 'design' && <p className="hint" style={{ marginTop: 8 }}>After saving, open <b>Files</b> on the record to upload the 2D / 3D design files and supporting documents.</p>}
+
+          {editing.kind === 'proposal' && (
+            <div className="pf-attach">
+              <div className="pf-attach-head">
+                <div className="pf-ov-title" style={{ margin: 0 }}>Attach Files</div>
+                <label className="btn sm">Choose Files
+                  <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.xls,.xlsx,.doc,.docx,.dwg,.dxf,.zip" hidden onChange={onPickAttach} />
+                </label>
+              </div>
+              <p className="hint" style={{ margin: '4px 0 0' }}>PDF, Word, Excel, JPG, PNG and more — up to 12 MB each. Files are saved with the proposal and available when viewing or editing it.</p>
+              {attachErr && <div className="err">{attachErr}</div>}
+              {(pendingFiles.length > 0 || editFiles.length > 0) ? (
+                <div className="pf-filelist" style={{ marginTop: 8 }}>
+                  {editFiles.map((f) => (
+                    <div className="pf-file" key={f.fileId}>
+                      <span className="pf-tag done">Saved</span>
+                      <span className="pf-fname" title={f.name}>{f.name}</span>
+                      <span className="pf-facts">
+                        <button type="button" className="link" onClick={() => openFormFile({ ...f, formId: editing.formId })}>Preview</button>
+                        <span className="dot">·</span>
+                        <button type="button" className="link" onClick={() => downloadFormFile({ ...f, formId: editing.formId })}>Download</button>
+                        <span className="dot">·</span>
+                        <button type="button" className="link danger" onClick={() => removeSaved(f.fileId)} disabled={attachBusy}>Remove</button>
+                      </span>
+                    </div>
+                  ))}
+                  {pendingFiles.map((pf) => (
+                    <div className="pf-file" key={pf.key}>
+                      <span className="pf-tag">New</span>
+                      <span className="pf-fname" title={pf.file.name}>{pf.file.name} <span className="hint">({(pf.file.size / 1024 / 1024).toFixed(1)} MB)</span></span>
+                      <span className="pf-facts">
+                        <button type="button" className="link" onClick={() => previewPending(pf)}>Preview</button>
+                        <span className="dot">·</span>
+                        <button type="button" className="link danger" onClick={() => removePending(pf.key)}>Remove</button>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : <p className="hint" style={{ margin: '6px 0 0' }}>No files attached yet.</p>}
+            </div>
+          )}
 
           {formErr && <div className="err">{formErr}</div>}
           <div className="actions">
@@ -322,7 +416,16 @@ export default function ProjectForms({ project, section = 'all' }) {
         .pf-tot b{font-variant-numeric:tabular-nums}
         .pf-srow{display:grid;grid-template-columns:150px 1fr 26px;gap:6px;align-items:start;margin-bottom:6px}
         .pf-srow input{width:100%;box-sizing:border-box;font:400 12.5px var(--f-body);padding:6px 7px;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--fg);outline:none;min-width:0}
-        @media (max-width:720px){.pf-irow.prop,.pf-irow.hand{grid-template-columns:1fr 1fr;}.pf-srow{grid-template-columns:1fr}}
+.pf-overview,.pf-attach{border:1px solid var(--line);border-radius:10px;padding:12px;margin:8px 0 14px;background:var(--bg)}
+        .pf-ov-title{font:700 13px var(--f-body);text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:8px}
+        .pf-ov-group{margin-bottom:8px}
+        .pf-ov-gh{font:700 12px var(--f-body);color:var(--fg);margin:6px 0 4px}
+        .pf-ov-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 18px}
+        .pf-ov-cell{display:flex;flex-direction:column;min-width:0}
+        .pf-ov-k{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--muted)}
+        .pf-ov-v{font-size:13px;color:var(--fg);word-break:break-word}
+        .pf-attach-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+        @media (max-width:720px){.pf-irow.prop,.pf-irow.hand{grid-template-columns:1fr 1fr;}.pf-srow{grid-template-columns:1fr}.pf-ov-grid{grid-template-columns:1fr}}
       `}</style>
     </>
   );
