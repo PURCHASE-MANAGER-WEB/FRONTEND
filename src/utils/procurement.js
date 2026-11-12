@@ -109,6 +109,16 @@ export function calcLine(l) {
 
 export const vendorName = (vendors, vid) => (vendors.find(v => v.vid === vid) || {}).name || 'Unknown vendor';
 
+// A (grouped) PO belongs to a project if its primary `project` OR any of its
+// header-assigned `projects[]` matches the name (trim + case tolerant). POs are
+// assigned to a project via the PO header multi-select, so match that — not only
+// the per-line `project`, which can lag behind after a header change.
+export const poInProject = (g, name) => {
+  const eq = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+  if (eq(g.project, name)) return true;
+  return Array.isArray(g.projects) && g.projects.some((p) => eq(p, name));
+};
+
 // Roll PO lines up into one row per PO number.
 export function groupPOs(lines) {
   const map = new Map();
@@ -354,7 +364,7 @@ export const ppTermsCount = (terms) => String(terms || '').split(',').map((s) =>
 export const BUDGET_STATUS_CLS = { 'On Track': 'p-ok', 'Near Limit': 'p-warn', 'Over Budget': 'p-bad', 'No Budget': 'p-mute' };
 export function budgetFor(project, groups) {
   const allocated = num(project && project.budget);
-  const g = (groups || []).filter((x) => (x.project || '') === (project && project.name));
+  const g = (groups || []).filter((x) => poInProject(x, project && project.name));
   const utilized = g.reduce((s, x) => s + x.value, 0);   // committed PO value
   const paid = g.reduce((s, x) => s + x.paid, 0);
   const out = g.reduce((s, x) => s + x.out, 0);

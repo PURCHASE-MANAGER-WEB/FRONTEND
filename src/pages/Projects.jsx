@@ -4,7 +4,7 @@ import { FolderKanban, CheckCircle2, PiggyBank, IndianRupee, Wallet, Plus, X } f
 import { usePurchaseData } from '../context/PurchaseData';
 import { useToast } from '../components/Toast';
 import { Pill, Drawer, Field, StateRow } from '../components/ui';
-import { num, inr, groupPOs, cpOrderValue } from '../utils/procurement';
+import { num, inr, groupPOs, poInProject, cpOrderValue } from '../utils/procurement';
 import { isRestrictedPM, purchaseApi } from '../api/client';
 
 export const PROJECT_STATUS = ['Active', 'On Hold', 'Completed', 'Cancelled'];
@@ -62,7 +62,7 @@ export default function Projects() {
     return [...map.entries()].map(([name, pos]) => ({ name, pos: [...pos].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true })) })).sort((a, b) => b.pos.length - a.pos.length);
   }, [lines, projects]);
   const rollup = (name) => {
-    const g = groups.filter((x) => (x.project || '') === name);
+    const g = groups.filter((x) => poInProject(x, name));
     return { poCount: g.length, value: g.reduce((s, x) => s + x.value, 0), paid: g.reduce((s, x) => s + x.paid, 0), out: g.reduce((s, x) => s + x.out, 0) };
   };
 

@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { usePurchaseData } from '../context/PurchaseData';
 import { useToast } from '../components/Toast';
 import { Pill, Drawer, Field } from '../components/ui';
-import { num, inr, dfmt, qfmt, groupPOs, vendorName, PAYMENT_METHODS, cpReceipts, cpOrderValue, cpReceived } from '../utils/procurement';
+import { num, inr, dfmt, qfmt, groupPOs, vendorName, poInProject, PAYMENT_METHODS, cpReceipts, cpOrderValue, cpReceived } from '../utils/procurement';
 import { openChallanDoc } from '../utils/challanDoc';
 import { openInvoice, downloadInvoice } from '../utils/cloudinary';
 import ProjectForms from '../components/ProjectForms';
@@ -38,7 +38,7 @@ export default function ProjectDetail() {
 
   const { projGroups, poSet } = useMemo(() => {
     const name = project?.name;
-    const g = name ? groupPOs(lines).filter((x) => (x.project || '') === name) : [];
+    const g = name ? groupPOs(lines).filter((x) => poInProject(x, name)) : [];
     return { projGroups: g, poSet: new Set(g.map((x) => x.po)) };
   }, [project, lines]);
 
