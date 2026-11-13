@@ -56,11 +56,18 @@ export default function Projects() {
   // Purchase orders whose project name doesn't match any existing project (orphaned —
   // usually a rename/typo). These don't appear under any project until relinked.
   const orphans = useMemo(() => {
-    const names = new Set(projects.map((pp) => String(pp.name || '').trim()).filter(Boolean));
+    // A PO is "orphaned" only if it matches NO existing project by name, code or id
+    // (across its primary project and projects[]). POs linked via projects[]/code are
+    // NOT orphans — they show under their project, consistent with the counts above.
     const map = new Map();
-    for (const l of lines) { const pr = String(l.project || '').trim(); if (pr && !names.has(pr)) { const set = map.get(pr) || new Set(); set.add(l.po); map.set(pr, set); } }
+    for (const g of groups) {
+      if (projects.some((p) => poInProject(g, p))) continue;
+      const name = String(g.project || '').trim() || (Array.isArray(g.projects) && g.projects.length ? String(g.projects[0]).trim() : '');
+      if (!name) continue;
+      const set = map.get(name) || new Set(); set.add(g.po); map.set(name, set);
+    }
     return [...map.entries()].map(([name, pos]) => ({ name, pos: [...pos].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true })) })).sort((a, b) => b.pos.length - a.pos.length);
-  }, [lines, projects]);
+  }, [groups, projects]);
   const rollup = (proj) => {
     const g = groups.filter((x) => poInProject(x, proj));
     return { poCount: g.length, value: g.reduce((s, x) => s + x.value, 0), paid: g.reduce((s, x) => s + x.paid, 0), out: g.reduce((s, x) => s + x.out, 0) };
@@ -206,7 +213,7 @@ export default function Projects() {
       {!pm && orphans.length > 0 && (
         <div style={{ margin: '12px 0 0', border: '1px solid var(--warn, #e0a800)', background: 'var(--warn-bg, #fff8e1)', borderRadius: 10, padding: '12px 14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-            <span style={{ fontWeight: 600 }}>⚠ {orphans.reduce((s2, o) => s2 + o.pos.length, 0)} purchase order line(s) are linked to {orphans.length} project name(s) that don't exist — they won't show under any project.</span>
+            <span style={{ fontWeight: 600 }}>⚠ {orphans.reduce((s2, o) => s2 + o.pos.length, 0)} purchase order(s) are linked to {orphans.length} project name(s) that don't exist — they won't show under any project.</span>
             <button className="link" onClick={() => setFixOpen((o) => !o)}>{fixOpen ? 'Hide' : 'Review & fix'}</button>
           </div>
           {fixOpen && (

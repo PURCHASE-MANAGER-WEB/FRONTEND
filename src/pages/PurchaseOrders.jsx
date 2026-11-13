@@ -8,7 +8,7 @@ import { Pill, Drawer, Field, StateRow } from '../components/ui';
 import ComboBox from '../components/ComboBox';
 import FabricatorPO from '../components/FabricatorPO';
 import ProjectMultiSelect from '../components/ProjectMultiSelect';
-import { calcLine, computePoBreakdown, poCharges, amountInWords, groupPOs, num, inr, qfmt, dfmt, today, vendorName, nextPo, UNITS, PAYMENT_METHODS, PO_STATUSES, MATERIALS } from '../utils/procurement';
+import { calcLine, computePoBreakdown, poCharges, amountInWords, groupPOs, poInProject, num, inr, qfmt, dfmt, today, vendorName, nextPo, UNITS, PAYMENT_METHODS, PO_STATUSES, MATERIALS } from '../utils/procurement';
 import { uploadInvoice, openInvoice, downloadInvoice } from '../utils/cloudinary';
 import { uploadPoFile, openPoFile, downloadPoFile, removePoFile, validatePoFile } from '../utils/poFiles';
 
@@ -72,11 +72,19 @@ export default function PurchaseOrders() {
   // One row per PO (rolled up from its material lines), like Purchase Progress.
   const rows = useMemo(() => {
     const q2 = q.trim().toLowerCase();
+    const eqs = (a) => String(a || '').trim().toLowerCase() === q2;
+    // Exact project mode: if the query is exactly a project (a master project's
+    // name/code, or any project value used on POs), show ONLY POs linked to that
+    // project (by name/code/id; multi-project POs included). Stops a project search
+    // from leaking POs that merely mention the name in a material/description.
+    const masterProj = q2 ? (projects || []).find((p) => eqs(p.name) || eqs(p.code)) : null;
+    const isKnownProject = !!masterProj || (!!q2 && lines.some((l) => eqs(l.project) || (Array.isArray(l.projects) && l.projects.some(eqs))));
+    const projKey = masterProj || (isKnownProject ? q2 : null);
     const matchLine = (po) => lines.some(l => l.po === po && [l.material, l.spec, l.description].filter(Boolean).join(' ').toLowerCase().includes(q2));
     const codeFor = (name) => { const p = (projects || []).find(x => x.name === name); return p ? p.code : ''; };
     return groupPOs(lines)
       .map(g => ({ g, vn: vendorName(vendors, g.vid) }))
-      .filter(({ g, vn }) => statusOkG(g) && (!q2 || [g.po, g.vid, g.vendorName || vn, g.project, codeFor(g.project), ...(Array.isArray(g.projects) ? g.projects : []), ...(Array.isArray(g.projects) ? g.projects.map(codeFor) : []), g.valueGst, g.value, g.paid, g.out].filter(Boolean).join(' ').toLowerCase().includes(q2) || matchLine(g.po)))
+      .filter(({ g, vn }) => statusOkG(g) && (!q2 ? true : projKey ? poInProject(g, projKey) : ([g.po, g.vid, g.vendorName || vn, g.project, codeFor(g.project), ...(Array.isArray(g.projects) ? g.projects : []), ...(Array.isArray(g.projects) ? g.projects.map(codeFor) : [])].filter(Boolean).join(' ').toLowerCase().includes(q2) || matchLine(g.po))))
       .sort((a, b) => String(a.g.po).localeCompare(String(b.g.po), undefined, { numeric: true }));
   }, [lines, vendors, q, filter, projects]);
 
