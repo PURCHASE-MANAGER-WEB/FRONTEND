@@ -5,7 +5,7 @@ import { useToast } from '../components/Toast';
 import { Truck, CheckCircle2, Clock, AlertTriangle, FileDown } from 'lucide-react';
 import { Drawer, Field, StateRow } from '../components/ui';
 import ComboBox from '../components/ComboBox';
-import { num, qfmt, dfmt, today, groupPOs, vendorName, MATERIALS, UNITS } from '../utils/procurement';
+import { num, inr, qfmt, dfmt, today, groupPOs, vendorName, MATERIALS, UNITS } from '../utils/procurement';
 import { readFileBase64, openChallanDoc, downloadChallanDoc, DOC_MAX_BYTES } from '../utils/challanDoc';
 import { downloadChallanPdf } from '../utils/challanPdf';
 
@@ -15,7 +15,7 @@ const PURPOSES = ['Supply to Site', 'Job Work', 'Returnable', 'Non-Returnable'];
 const DCStatus = ({ s }) => <span className={`pill ${DC_CLS[s] || 'p-mute'}`}>{s}</span>;
 const blankItem = () => ({ _id: Math.random().toString(36).slice(2), material: '', qty: '', unit: 'Nos', make: '', weight: '', remarks: '' });
 const blank = () => ({
-  date: today(), vid: '', project: '', po: '', status: 'Received', items: [blankItem()], notes: '',
+  date: today(), vid: '', project: '', po: '', status: 'Received', value: '', items: [blankItem()], notes: '',
   supplierRef: '', vehicleNo: '', driverName: '', driverMobile: '',
   consigneeName: '', consigneeAddress: '', consigneeMobile: '', purpose: 'Supply to Site',
   docName: '', docType: '', docSize: 0,
@@ -116,6 +116,7 @@ export default function DeliveryChallan() {
     const payload = {
       date: d.date, vid: d.vid || '', project: d.project || '', po: d.po || '',
       status: d.status || 'Received',
+      value: num(d.value),
       items: items.map((it) => ({ material: it.material.trim(), qty: num(it.qty), unit: it.unit || 'Nos', make: String(it.make || '').trim(), weight: num(it.weight), remarks: String(it.remarks || '').trim() })),
       supplierRef: String(d.supplierRef || '').trim(),
       vehicleNo: String(d.vehicleNo || '').trim(),
@@ -172,7 +173,7 @@ export default function DeliveryChallan() {
         <table>
           <thead><tr>
             <th>DC Number</th><th>DC Date</th><th>Vendor</th><th>Project</th><th>PO</th>
-            <th>Material</th><th className="num">Quantity</th><th>Status</th><th>Challan PDF</th><th></th>
+            <th>Material</th><th className="num">Quantity</th><th className="num">Value</th><th>Status</th><th>Challan PDF</th><th></th>
           </tr></thead>
           <tbody>
             {loading || error || rows.length === 0 ? (
@@ -187,6 +188,7 @@ export default function DeliveryChallan() {
                 <td className="id">{c.po || '—'}</td>
                 <td>{matText(c)}</td>
                 <td className="num">{qtyText(c)}</td>
+                <td className="num">{c.value ? inr(c.value) : '—'}</td>
                 <td><DCStatus s={c.status || 'Received'} /></td>
                 <td><button className="link" onClick={() => genPdf(c)}><FileDown size={13} style={{ verticalAlign: '-2px' }} /> PDF</button>{c.docName ? <> · <button className="link" onClick={() => openChallanDoc(c.id).catch(() => toast('Could not open document'))}>Doc</button></> : null}</td>
                 <td><button className="link" onClick={() => open(c)}>Edit</button></td>
@@ -209,6 +211,7 @@ export default function DeliveryChallan() {
             </Field>
             <Field label="Related PO"><select value={editing.data.po} onChange={(e) => onPO(e.target.value)}><option value="">— None —</option>{poList.map((g) => <option key={g.po} value={g.po}>{g.po}</option>)}</select></Field>
             <Field label="Supplier Ref (Quotation No.)"><input value={editing.data.supplierRef} onChange={(e) => set('supplierRef', e.target.value)} placeholder="e.g. Quotation No. 334" /></Field>
+            <Field label="Value (₹)"><input type="number" min="0" step="any" value={editing.data.value} onChange={(e) => set('value', e.target.value)} placeholder="Total value of goods" /></Field>
           </div>
 
           <div className="po-items" style={{ marginTop: 6 }}>

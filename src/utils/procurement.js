@@ -124,7 +124,11 @@ export const poInProject = (g, project) => {
   if (!project) return false;
   const eq = (a, b) => { const x = String(a || '').trim().toLowerCase(); const y = String(b || '').trim().toLowerCase(); return x !== '' && x === y; };
   const keys = (typeof project === 'string') ? [project] : [project.name, project.code, project.id];
-  const refs = [g.project, ...(Array.isArray(g.projects) ? g.projects : [])];
+  // Match on the HEADER projects[] (what the Project column shows and what the user
+  // assigned) when present; only fall back to the legacy line `project` when there is
+  // no header list. This keeps search/counts consistent with the displayed project and
+  // stops a stale line value from linking a PO to the wrong project.
+  const refs = (Array.isArray(g.projects) && g.projects.length) ? g.projects : [g.project];
   return refs.some((r) => keys.some((k) => eq(r, k)));
 };
 
