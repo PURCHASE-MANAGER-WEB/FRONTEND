@@ -277,7 +277,7 @@ export default function PurchaseOrders() {
       // Build every line once and save the whole PO in ONE request (one DB write).
       const payloadLines = items.map((it) => ({
         ...shared, id: it._id,
-        project: (String(it.itemProject || '').trim() || (d.projects[0] || '').trim()),
+        project: ((d.projects || []).map((x) => String(x || '').trim()).includes(String(it.itemProject || '').trim()) ? String(it.itemProject).trim() : (d.projects[0] || '').trim()),
         material: String(it.material).trim(), description: String(it.description || '').trim(),
         spec: String(it.spec || '').trim(), hsn: String(it.hsn || '').trim(),
         make: String(it.make || '').trim(), weight: num(it.weight),

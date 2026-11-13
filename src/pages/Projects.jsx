@@ -51,6 +51,7 @@ export default function Projects() {
   const [busy, setBusy] = useState(false);
   const [fixOpen, setFixOpen] = useState(false);
   const [sortBy, setSortBy] = useState('code');
+  const [reconBusy, setReconBusy] = useState(false);
   const [relinkTo, setRelinkTo] = useState({});
   const [relinkBusy, setRelinkBusy] = useState('');
 
@@ -77,6 +78,18 @@ export default function Projects() {
 
   const totalBudget = useMemo(() => projects.reduce((s, p) => s + num(p.budget), 0), [projects]);
   const totalOrderValue = useMemo(() => (Array.isArray(projectPayments) ? projectPayments : []).reduce((a, r) => a + cpOrderValue(r), 0), [projectPayments]);
+  const reconcile = async () => {
+    if (reconBusy) return; setReconBusy(true);
+    try {
+      const pre = await purchaseApi.reconcileProjects(true);
+      if (!pre.fixed) { toast(`All ${pre.scanned} PO line(s) already consistent — nothing to fix.`); return; }
+      if (!window.confirm(`${pre.fixed} PO line(s) across ${pre.affectedPOs.length} PO(s) have a project that doesn't match their assigned project. Correct them to the assigned project now? Payments and attachments are not touched.`)) return;
+      const res = await purchaseApi.reconcileProjects(false);
+      await reloadLines();
+      toast(`Fixed ${res.fixed} PO project mapping(s) across ${res.affectedPOs.length} PO(s).`);
+    } catch (e) { toast((e && e.message) || 'Could not reconcile project mappings.'); }
+    finally { setReconBusy(false); }
+  };
   const activeCount = projects.filter((p) => isOngoing(p.status)).length;
   const portfolio = useMemo(() => {
     let value = 0, out = 0;
@@ -220,6 +233,7 @@ export default function Projects() {
             <option value="newest">Created: Newest first</option>
             <option value="oldest">Created: Oldest first</option>
           </select>
+          {!pm && <button className="btn" onClick={reconcile} disabled={reconBusy} title="Correct any PO whose project doesn't match its assigned project">{reconBusy ? 'Checking…' : 'Fix project mappings'}</button>}
           {!pm && <button className="btn primary" onClick={() => open(null)}>+ Add project</button>}
         </div>
       </div>
