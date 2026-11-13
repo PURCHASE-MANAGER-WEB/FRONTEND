@@ -46,7 +46,7 @@ export default function PaymentProgress() {
     const codeFor = (name) => { const p = (projects || []).find(x => x.name === name); return p ? p.code : ''; };
     return groups
       .map(g => ({ g, vn: g.vendorName || vendorName(vendors, g.vid) }))
-      .filter(({ g, vn }) => !q2 || [g.po, g.vid, vn, g.project, codeFor(g.project), g.value, g.paid, g.out].filter(Boolean).join(' ').toLowerCase().includes(q2))
+      .filter(({ g, vn }) => !q2 || [g.po, g.vid, vn, g.project, codeFor(g.project), ...(Array.isArray(g.projects) ? g.projects : []), ...(Array.isArray(g.projects) ? g.projects.map(codeFor) : []), g.value, g.paid, g.out].filter(Boolean).join(' ').toLowerCase().includes(q2))
       .sort((a, b) => String(a.g.po).localeCompare(String(b.g.po), undefined, { numeric: true }));
   }, [groups, vendors, q, projects]);
 
@@ -357,7 +357,7 @@ export default function PaymentProgress() {
                   <tr key={g.po} className="row-click" onClick={() => openManage(g)}>
                     <td className="id">{g.po}</td>
                     <td>{vn}</td>
-                    <td>{g.project || '—'}</td>
+                    <td>{(g.projects && g.projects.length ? g.projects.join(', ') : g.project) || '—'}</td>
                     <td className="num">{inr(g.value)}</td>
                     <td className="num">{inr(g.paid)}</td>
                     <td className="num calc">{inr(g.out)}</td>
@@ -387,7 +387,7 @@ export default function PaymentProgress() {
       {mg && (
         <Drawer onClose={close}>
           <h3>Vendor Payments · {mg.po}</h3>
-          <p className="hint">{mg.vendorName || vendorName(vendors, mg.vid)} · {mg.project || 'No project'}</p>
+          <p className="hint">{mg.vendorName || vendorName(vendors, mg.vid)} · {(mg.projects && mg.projects.length ? mg.projects.join(', ') : mg.project) || 'No project'}</p>
 
           <div className="kpis" style={{ gridTemplateColumns: 'repeat(3,1fr)', margin: '4px 0 14px' }}>
             <div className="kpi"><div className="l">PO Value</div><div className="v">{inr(mg.value)}</div></div>
