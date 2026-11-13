@@ -4,10 +4,11 @@ import { FolderKanban, CheckCircle2, PiggyBank, IndianRupee, Wallet, Plus, X } f
 import { usePurchaseData } from '../context/PurchaseData';
 import { useToast } from '../components/Toast';
 import { Pill, Drawer, Field, StateRow } from '../components/ui';
-import { num, inr, groupPOs, poInProject, projStatus, isOngoing, cpOrderValue } from '../utils/procurement';
+import { num, inr, groupPOs, poInProject, projStatus, isOngoing, cdfmt, cdkey, cpOrderValue } from '../utils/procurement';
 import { isRestrictedPM, purchaseApi } from '../api/client';
 
 export const PROJECT_STATUS = ['Ongoing', 'On Hold', 'Completed', 'Cancelled'];
+const STATUS_STYLE = { 'Ongoing': { color: '#92400e', background: '#fef3c7' }, 'On Hold': { color: '#334155', background: '#e2e8f0' }, 'Completed': { color: '#166534', background: '#dcfce7' }, 'Cancelled': { color: '#991b1b', background: '#fee2e2' } };
 export const PROJECT_TYPES = ['PU Sheet Roofing', 'PUF Panel Roofing', 'Metal Sheet Roofing', 'Tensile Structure', 'Polycarbonate Structure', 'Structural Steel Fabrication', 'Wall Panel Cladding', 'Skylight / Roof Light', 'Other'];
 const tid = () => Math.random().toString(36).slice(2, 9);
 const DEFAULT_TERMS = () => [
@@ -26,7 +27,7 @@ const dayDiff = (start, end) => {
 const msAmount = (quoted, pct) => { const p = parseFloat(pct); return Number.isNaN(p) ? 0 : Math.round(num(quoted) * p) / 100; };
 
 const blank = () => ({
-  name: '', code: '', status: 'Ongoing', budget: '',
+  name: '', code: '', status: 'Ongoing', budget: '', creationDate: '',
   leadRef: '', client: '', projectLocation: '', contactDetails: '', billingName: '', mobileNumber: '', altMobile: '',
   siteAddress: '', billingAddress: '', gstNumber: '', emailWhatsapp: '', salespersonName: '', dateOfOrder: '', proposalRefNo: '',
   typeOfProject: '', projectSize: '', sizeSections: [], design3D: false, design2D: false, transportationScope: 'Yes', scaffoldingScope: 'Yes',
@@ -49,6 +50,7 @@ export default function Projects() {
   const [confirmDel, setConfirmDel] = useState(false);
   const [busy, setBusy] = useState(false);
   const [fixOpen, setFixOpen] = useState(false);
+  const [sortBy, setSortBy] = useState('code');
   const [relinkTo, setRelinkTo] = useState({});
   const [relinkBusy, setRelinkBusy] = useState('');
 
@@ -84,13 +86,20 @@ export default function Projects() {
   }, [projects, groups]);
 
   const rows = useMemo(() => projects
-    .filter((p) => !q || [p.name, p.code, p.client, p.status].filter(Boolean).join(' ').toLowerCase().includes(q.toLowerCase()))
+    .filter((p) => !q || [p.name, p.code, p.client, p.status, cdfmt(p.creationDate || p.createdAt)].filter(Boolean).join(' ').toLowerCase().includes(q.toLowerCase()))
     .sort((a, b) => {
+      if (sortBy === 'newest') return cdkey(b.creationDate || b.createdAt) - cdkey(a.creationDate || a.createdAt);
+      if (sortBy === 'oldest') return cdkey(a.creationDate || a.createdAt) - cdkey(b.creationDate || b.createdAt);
       const ca = String(a.code || '').trim(), cb = String(b.code || '').trim();
       if (ca && cb) return ca.localeCompare(cb, undefined, { numeric: true }) || String(a.name).localeCompare(String(b.name));
       if (ca) return -1; if (cb) return 1;
       return String(a.name).localeCompare(String(b.name));
-    }), [projects, q]);
+    }), [projects, q, sortBy]);
+
+  const onStatus = async (p, status) => {
+    try { await saveProject(false, p.id, { status }); toast('Status updated'); }
+    catch (e) { toast((e && e.message) || 'Could not update status'); }
+  };
 
   // Card totals follow the projects currently listed (respects the search); cleared → all.
   const summary = useMemo(() => {
@@ -109,7 +118,7 @@ export default function Projects() {
       const pt = Array.isArray(p.paymentTerms) && p.paymentTerms.length
         ? p.paymentTerms.map((t) => ({ _id: tid(), term: t.term || '', percentage: t.percentage != null ? String(t.percentage) : '' }))
         : DEFAULT_TERMS();
-      setEditing({ isNew: false, data: { ...blank(), ...p, status: projStatus(p.status), budget: p.budget ?? '', quotedPrice: p.quotedPrice != null ? String(p.quotedPrice) : '', paymentTerms: pt, sizeSections: Array.isArray(p.sizeSections) ? p.sizeSections.map((x) => ({ _id: tid(), name: x.name || '', length: x.length != null ? String(x.length) : '', width: x.width != null ? String(x.width) : '' })) : [] } });
+      setEditing({ isNew: false, data: { ...blank(), ...p, status: projStatus(p.status), creationDate: p.creationDate || (p.createdAt ? String(p.createdAt).slice(0, 10) : ''), budget: p.budget ?? '', quotedPrice: p.quotedPrice != null ? String(p.quotedPrice) : '', paymentTerms: pt, sizeSections: Array.isArray(p.sizeSections) ? p.sizeSections.map((x) => ({ _id: tid(), name: x.name || '', length: x.length != null ? String(x.length) : '', width: x.width != null ? String(x.width) : '' })) : [] } });
     } else {
       setEditing({ isNew: true, data: blank() });
     }
@@ -148,7 +157,7 @@ export default function Projects() {
       .filter((t) => String(t.term).trim() || String(t.percentage).trim())
       .map((t) => ({ term: String(t.term).trim(), percentage: num(t.percentage), value: msAmount(d.quotedPrice, t.percentage) }));
     const payload = {
-      name, code: String(d.code || '').trim(), status: projStatus(d.status), budget: num(d.budget),
+      name, code: String(d.code || '').trim(), status: projStatus(d.status), creationDate: d.creationDate || undefined, budget: num(d.budget),
       client: String(d.client || '').trim(), leadRef: String(d.leadRef || '').trim(),
       projectLocation: String(d.projectLocation || '').trim(), contactDetails: String(d.contactDetails || '').trim(),
       billingName: String(d.billingName || '').trim(), mobileNumber: String(d.mobileNumber || '').trim(), altMobile: String(d.altMobile || '').trim(),
@@ -206,6 +215,11 @@ export default function Projects() {
         <h2>Projects</h2>
         <div className="right">
           <input className="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search projects…" aria-label="Search projects" />
+          <select className="po-filter" value={sortBy} onChange={(e) => setSortBy(e.target.value)} aria-label="Sort projects">
+            <option value="code">Sort: Code</option>
+            <option value="newest">Created: Newest first</option>
+            <option value="oldest">Created: Oldest first</option>
+          </select>
           {!pm && <button className="btn primary" onClick={() => open(null)}>+ Add project</button>}
         </div>
       </div>
@@ -239,11 +253,11 @@ export default function Projects() {
           <thead><tr>
             <th>Project</th><th>Code</th><th>Client</th><th className="num">Budget</th>
             {!pm && (<><th className="num">PO Value</th><th className="num">Payments</th><th className="num">Outstanding</th></>)}
-            <th>Status</th><th></th>
+            <th>Created</th><th>Status</th><th></th>
           </tr></thead>
           <tbody>
             {loading || error || rows.length === 0 ? (
-              <StateRow cols={pm ? 6 : 9} loading={loading} error={error}
+              <StateRow cols={pm ? 7 : 10} loading={loading} error={error}
                 empty={projects.length ? 'No projects match your search.' : 'No projects yet. Add your first project to start tracking budget, orders and payments.'} />
             ) : rows.map((p) => {
               const r = rollup(p);
@@ -258,7 +272,12 @@ export default function Projects() {
                   <td className="num calc">{inr(r.paid)}</td>
                   <td className={`num calc ${r.out > 0 ? 'overdue' : ''}`}>{inr(r.out)}</td>
                   </>)}
-                  <td><Pill s={projStatus(p.status)} /></td>
+                  <td>{cdfmt(p.creationDate || p.createdAt)}</td>
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <select value={projStatus(p.status)} onChange={(e) => onStatus(p, e.target.value)} style={{ fontWeight: 700, fontSize: 12, padding: '4px 10px', borderRadius: 20, border: '1px solid var(--line)', cursor: 'pointer', ...(STATUS_STYLE[projStatus(p.status)] || {}) }}>
+                      {PROJECT_STATUS.map((s) => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </td>
                   <td onClick={(e) => e.stopPropagation()}>
                     <button className="link" onClick={() => navigate(`/projects/${encodeURIComponent(p.id)}`)}>View</button>
                     <button className="link" onClick={() => open(p)} style={{ marginLeft: 10 }}>Edit</button>
@@ -280,6 +299,7 @@ export default function Projects() {
             <Field label="Project Name *" full><input value={d.name} onChange={(e) => set('name', e.target.value)} placeholder="Link key for purchase orders" /></Field>
             <Field label="Project Code"><input value={d.code} onChange={(e) => set('code', e.target.value)} placeholder="e.g. PRJ-SITE-01" /></Field>
             <Field label="Status"><select value={d.status} onChange={(e) => set('status', e.target.value)}>{PROJECT_STATUS.map((s) => <option key={s}>{s}</option>)}</select></Field>
+            <Field label="Project Creation Date"><input type="date" value={d.creationDate || ''} onChange={(e) => set('creationDate', e.target.value)} />{editing.isNew && <div className="hint" style={{ fontSize: 11, marginTop: 4 }}>Set automatically on save if left blank.</div>}</Field>
             <Field label="Lead ID / Reference"><input value={d.leadRef} onChange={(e) => set('leadRef', e.target.value)} placeholder="e.g. LD-0001" /></Field>
             <Field label="Client Name"><input value={d.client} onChange={(e) => set('client', e.target.value)} /></Field>
             <Field label="Project Location"><input value={d.projectLocation} onChange={(e) => set('projectLocation', e.target.value)} /></Field>

@@ -8,7 +8,7 @@ import { Pill, Drawer, Field, StateRow } from '../components/ui';
 import ComboBox from '../components/ComboBox';
 import FabricatorPO from '../components/FabricatorPO';
 import ProjectMultiSelect from '../components/ProjectMultiSelect';
-import { calcLine, computePoBreakdown, poCharges, amountInWords, groupPOs, poInProject, num, inr, qfmt, dfmt, today, vendorName, nextPo, UNITS, PAYMENT_METHODS, PO_STATUSES, MATERIALS } from '../utils/procurement';
+import { calcLine, computePoBreakdown, poCharges, amountInWords, groupPOs, poInProject, num, inr, qfmt, dfmt, cdfmt, cdkey, today, vendorName, nextPo, UNITS, PAYMENT_METHODS, PO_STATUSES, MATERIALS } from '../utils/procurement';
 import { uploadInvoice, openInvoice, downloadInvoice } from '../utils/cloudinary';
 import { uploadPoFile, openPoFile, downloadPoFile, removePoFile, validatePoFile } from '../utils/poFiles';
 
@@ -59,6 +59,7 @@ export default function PurchaseOrders() {
   const q = searchParams.get('q') || '';
   const setQ = (v) => { const sp = new URLSearchParams(searchParams); if (v) sp.set('q', v); else sp.delete('q'); setSearchParams(sp, { replace: true }); };
 
+  const [sortBy, setSortBy] = useState('po');
   const filter = searchParams.get('filter') || 'all';
   const setFilter = (f) => { const n = new URLSearchParams(searchParams); if (f === 'all') n.delete('filter'); else n.set('filter', f); setSearchParams(n, { replace: true }); };
 
@@ -84,9 +85,13 @@ export default function PurchaseOrders() {
     const codeFor = (name) => { const p = (projects || []).find(x => x.name === name); return p ? p.code : ''; };
     return groupPOs(lines)
       .map(g => ({ g, vn: vendorName(vendors, g.vid) }))
-      .filter(({ g, vn }) => statusOkG(g) && (!q2 ? true : projKey ? poInProject(g, projKey) : ([g.po, g.vid, g.vendorName || vn, g.project, codeFor(g.project), ...(Array.isArray(g.projects) ? g.projects : []), ...(Array.isArray(g.projects) ? g.projects.map(codeFor) : [])].filter(Boolean).join(' ').toLowerCase().includes(q2) || matchLine(g.po))))
-      .sort((a, b) => String(a.g.po).localeCompare(String(b.g.po), undefined, { numeric: true }));
-  }, [lines, vendors, q, filter, projects]);
+      .filter(({ g, vn }) => statusOkG(g) && (!q2 ? true : projKey ? poInProject(g, projKey) : ([g.po, g.vid, g.vendorName || vn, g.project, codeFor(g.project), ...(Array.isArray(g.projects) ? g.projects : []), ...(Array.isArray(g.projects) ? g.projects.map(codeFor) : []), cdfmt(g.createdAt)].filter(Boolean).join(' ').toLowerCase().includes(q2) || matchLine(g.po))))
+      .sort((a, b) => {
+        if (sortBy === 'newest') return cdkey(b.g.createdAt) - cdkey(a.g.createdAt);
+        if (sortBy === 'oldest') return cdkey(a.g.createdAt) - cdkey(b.g.createdAt);
+        return String(a.g.po).localeCompare(String(b.g.po), undefined, { numeric: true });
+      });
+  }, [lines, vendors, q, filter, projects, sortBy]);
 
   const totals = rows.reduce((s, { g }) => ({ total: s.total + g.valueGst, paid: s.paid + g.paid, out: s.out + g.out }), { total: 0, paid: 0, out: 0 });
   const poNums = [...new Set(lines.map(l => l.po))];
@@ -349,7 +354,7 @@ export default function PurchaseOrders() {
   // whole list — the live totals then update instantly.
   const bodyRows = useMemo(() => {
     if (loading || error || rows.length === 0) {
-      return (<StateRow cols={11} loading={loading} error={error}
+      return (<StateRow cols={12} loading={loading} error={error}
         empty={lines.length ? 'No purchase orders match your search.' : (vendors.length ? 'No purchase orders yet. Add a PO to start tracking.' : 'Add a vendor first, then raise purchase orders against them.')} />);
     }
     return rows.map(({ g, vn }) => {
@@ -357,7 +362,7 @@ export default function PurchaseOrders() {
       return (
         <tr key={g.po}>
           <td className="id"><Link className="po-link" to={`/purchase-orders/${encodeURIComponent(g.po)}`}>{g.po}</Link>{g.poType === 'fabricator' ? <span className="fab-tag">Fabricator</span> : null}</td>
-          <td>{dfmt(g.date)}</td><td>{g.vendorName || vn}</td><td>{(g.projects && g.projects.length ? g.projects.join(', ') : g.project) || '—'}</td>
+          <td>{dfmt(g.date)}</td><td>{cdfmt(g.createdAt)}</td><td>{g.vendorName || vn}</td><td>{(g.projects && g.projects.length ? g.projects.join(', ') : g.project) || '—'}</td>
           <td className="num">{g.count}</td>
           <td className="num">{qfmt(g.qty)}{u}</td>
           <td className="num calc">{inr(g.valueGst)}</td>
@@ -385,6 +390,11 @@ export default function PurchaseOrders() {
             <option value="completed">Completed</option>
             <option value="overdue">Overdue</option>
           </select>
+          <select className="po-filter" value={sortBy} onChange={e => setSortBy(e.target.value)} aria-label="Sort purchase orders">
+            <option value="po">Sort: PO No.</option>
+            <option value="newest">Created: Newest first</option>
+            <option value="oldest">Created: Oldest first</option>
+          </select>
           <input className="search" value={q} onChange={e => setQ(e.target.value)} placeholder="Search PO, vendor, project, material…" aria-label="Search purchase orders" />
           <div className="newpo-wrap" ref={newMenuRef}>
             <button className="btn primary" onClick={() => setNewMenu((o) => !o)} aria-haspopup="true" aria-expanded={newMenu}>+ New PO ▾</button>
@@ -408,7 +418,7 @@ export default function PurchaseOrders() {
       <div className="tbl" style={{ marginTop: 10 }}>
         <table>
           <thead><tr>
-            <th>PO Number</th><th>PO Date</th><th>Vendor</th><th>Project</th><th className="num">Items</th>
+            <th>PO Number</th><th>PO Date</th><th>Created</th><th>Vendor</th><th>Project</th><th className="num">Items</th>
             <th className="num">Ordered</th><th className="num">PO Value</th><th className="num">Received</th><th className="num">Pending</th>
             <th>Exp. Delivery</th><th></th>
           </tr></thead>
@@ -485,6 +495,7 @@ export default function PurchaseOrders() {
               <datalist id="po-list">{poNums.map(p => <option key={p} value={p} />)}</datalist>
             </Field>
             <Field label="PO Date *"><input type="date" value={editing.poDate} onChange={e => setHdr('poDate', e.target.value)} /></Field>
+            <Field label="PO Creation Date"><input value={(() => { const c = lines.filter(l => l.po === editing.po).map(l => l.createdAt).filter(Boolean).sort()[0]; return c ? cdfmt(c) : 'Set automatically on save'; })()} readOnly tabIndex={-1} className="ro" /></Field>
             <Field label="Vendor *" full>
               <select value={editing.vid} onChange={e => setHdr('vid', e.target.value)}>
                 {vendors.map(v => <option key={v.vid} value={v.vid}>{v.vid} · {v.name}{v.status !== 'Active' ? ` (${v.status})` : ''}</option>)}

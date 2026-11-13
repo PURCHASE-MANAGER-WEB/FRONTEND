@@ -139,6 +139,11 @@ export const projectsApi = {
   remove: (id) => api(`/projects/${encodeURIComponent(id)}`, { method: 'DELETE', auth: true }),
 };
 
+// Creation history (audit log) — purchase_creation_history collection.
+export const historyApi = {
+  list: (params) => { const qs = params ? ('?' + new URLSearchParams(params).toString()) : ''; return api(`/history${qs}`, { auth: true }); },
+};
+
 // Project payment schedules — purchase_project_payments collection.
 export const projectPaymentsApi = {
   list: () => api('/project-payments', { auth: true }),

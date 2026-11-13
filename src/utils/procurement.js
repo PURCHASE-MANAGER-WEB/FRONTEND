@@ -8,6 +8,12 @@ export const qfmt = (n) => num(n).toLocaleString('en-IN', { maximumFractionDigit
 
 const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 export const dfmt = (s) => { if (!s) return '—'; const [y,m,d] = String(s).split('-'); return `${d}-${MON[+m-1]}-${y}`; };
+// Creation date (DD-MMM-YYYY). Accepts a plain 'YYYY-MM-DD' or an ISO timestamp (createdAt).
+export const cdfmt = (ts) => { if (!ts) return '—'; const s = String(ts); if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return dfmt(s); const d = new Date(ts); if (isNaN(d)) return '—'; return `${String(d.getDate()).padStart(2,'0')}-${MON[d.getMonth()]}-${d.getFullYear()}`; };
+// Creation date + time (DD-MMM-YYYY, h:mm AM/PM) for the history log.
+export const cdtfmt = (ts) => { if (!ts) return '—'; const d = new Date(ts); if (isNaN(d)) return '—'; let h = d.getHours(); const m = String(d.getMinutes()).padStart(2,'0'); const ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return `${String(d.getDate()).padStart(2,'0')}-${MON[d.getMonth()]}-${d.getFullYear()}, ${h}:${m} ${ap}`; };
+// A sortable epoch for a createdAt/creationDate value (0 when missing).
+export const cdkey = (ts) => { if (!ts) return 0; const d = new Date(ts); return isNaN(d) ? 0 : d.getTime(); };
 export const today = () => { const t = new Date(); return new Date(t.getTime() - t.getTimezoneOffset()*60000).toISOString().slice(0,10); };
 
 export const UNITS = ['MT','Kg','Nos','Sq.ft','Sq.m','Rft','Mtr','Ltr','Bag','Set','Lot'];
@@ -132,7 +138,7 @@ export function groupPOs(lines) {
   const map = new Map();
   for (const l of lines) {
     const c = calcLine(l);
-    const g = map.get(l.po) || { po: l.po, vid: l.vid, vendorName: l.vendorName || '', project: l.project, projects: (Array.isArray(l.projects) && l.projects.length) ? l.projects : (l.project ? [l.project] : []), date: l.poDate, status: l.status, poType: l.poType || '', loading: num(l.loading), transport: num(l.transport), gstPct: (l.gstPct === '' || l.gstPct === null || l.gstPct === undefined) ? 0 : num(l.gstPct), chargesGstPct: (l.chargesGstPct !== undefined && l.chargesGstPct !== null && l.chargesGstPct !== '') ? num(l.chargesGstPct) : ((l.gstPct === '' || l.gstPct === null || l.gstPct === undefined) ? 0 : num(l.gstPct)), transportGst: l.transportGst !== false, itemGst: 0, value: 0, paid: 0, out: 0, qty: 0, rec: 0, pend: 0, units: new Set(), delOverdue: 0, payOverdue: 0, dueToday: false, payDueToday: false, count: 0, exps: [], dues: [] };
+    const g = map.get(l.po) || { po: l.po, createdAt: l.createdAt, vid: l.vid, vendorName: l.vendorName || '', project: l.project, projects: (Array.isArray(l.projects) && l.projects.length) ? l.projects : (l.project ? [l.project] : []), date: l.poDate, status: l.status, poType: l.poType || '', loading: num(l.loading), transport: num(l.transport), gstPct: (l.gstPct === '' || l.gstPct === null || l.gstPct === undefined) ? 0 : num(l.gstPct), chargesGstPct: (l.chargesGstPct !== undefined && l.chargesGstPct !== null && l.chargesGstPct !== '') ? num(l.chargesGstPct) : ((l.gstPct === '' || l.gstPct === null || l.gstPct === undefined) ? 0 : num(l.gstPct)), transportGst: l.transportGst !== false, itemGst: 0, value: 0, paid: 0, out: 0, qty: 0, rec: 0, pend: 0, units: new Set(), delOverdue: 0, payOverdue: 0, dueToday: false, payDueToday: false, count: 0, exps: [], dues: [] };
     g.value += c.total; g.paid += num(l.paid); g.out += c.out;
     g.itemGst += c.total * ((l.gstPct === '' || l.gstPct === null || l.gstPct === undefined) ? 0 : num(l.gstPct)) / 100;
     g.qty += num(l.qty); g.rec += Math.min(num(l.received), num(l.qty)); g.pend += c.pending; g.units.add(l.unit);
@@ -141,6 +147,7 @@ export function groupPOs(lines) {
     g.dueToday = g.dueToday || c.delDueToday;
     g.payDueToday = g.payDueToday || c.payDueToday;
     g.count += 1;
+    if (l.createdAt && (!g.createdAt || new Date(l.createdAt) < new Date(g.createdAt))) g.createdAt = l.createdAt;
     if (l.expDate) g.exps.push(l.expDate);
     if (l.dueDate) g.dues.push(l.dueDate);
     map.set(l.po, g);
