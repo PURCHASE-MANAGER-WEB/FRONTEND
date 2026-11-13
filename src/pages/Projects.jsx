@@ -4,10 +4,10 @@ import { FolderKanban, CheckCircle2, PiggyBank, IndianRupee, Wallet, Plus, X } f
 import { usePurchaseData } from '../context/PurchaseData';
 import { useToast } from '../components/Toast';
 import { Pill, Drawer, Field, StateRow } from '../components/ui';
-import { num, inr, groupPOs, poInProject, cpOrderValue } from '../utils/procurement';
+import { num, inr, groupPOs, poInProject, projStatus, isOngoing, cpOrderValue } from '../utils/procurement';
 import { isRestrictedPM, purchaseApi } from '../api/client';
 
-export const PROJECT_STATUS = ['Active', 'On Hold', 'Completed', 'Cancelled'];
+export const PROJECT_STATUS = ['Ongoing', 'On Hold', 'Completed', 'Cancelled'];
 export const PROJECT_TYPES = ['PU Sheet Roofing', 'PUF Panel Roofing', 'Metal Sheet Roofing', 'Tensile Structure', 'Polycarbonate Structure', 'Structural Steel Fabrication', 'Wall Panel Cladding', 'Skylight / Roof Light', 'Other'];
 const tid = () => Math.random().toString(36).slice(2, 9);
 const DEFAULT_TERMS = () => [
@@ -26,7 +26,7 @@ const dayDiff = (start, end) => {
 const msAmount = (quoted, pct) => { const p = parseFloat(pct); return Number.isNaN(p) ? 0 : Math.round(num(quoted) * p) / 100; };
 
 const blank = () => ({
-  name: '', code: '', status: 'Active', budget: '',
+  name: '', code: '', status: 'Ongoing', budget: '',
   leadRef: '', client: '', projectLocation: '', contactDetails: '', billingName: '', mobileNumber: '', altMobile: '',
   siteAddress: '', billingAddress: '', gstNumber: '', emailWhatsapp: '', salespersonName: '', dateOfOrder: '', proposalRefNo: '',
   typeOfProject: '', projectSize: '', sizeSections: [], design3D: false, design2D: false, transportationScope: 'Yes', scaffoldingScope: 'Yes',
@@ -61,17 +61,17 @@ export default function Projects() {
     for (const l of lines) { const pr = String(l.project || '').trim(); if (pr && !names.has(pr)) { const set = map.get(pr) || new Set(); set.add(l.po); map.set(pr, set); } }
     return [...map.entries()].map(([name, pos]) => ({ name, pos: [...pos].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true })) })).sort((a, b) => b.pos.length - a.pos.length);
   }, [lines, projects]);
-  const rollup = (name) => {
-    const g = groups.filter((x) => poInProject(x, name));
+  const rollup = (proj) => {
+    const g = groups.filter((x) => poInProject(x, proj));
     return { poCount: g.length, value: g.reduce((s, x) => s + x.value, 0), paid: g.reduce((s, x) => s + x.paid, 0), out: g.reduce((s, x) => s + x.out, 0) };
   };
 
   const totalBudget = useMemo(() => projects.reduce((s, p) => s + num(p.budget), 0), [projects]);
   const totalOrderValue = useMemo(() => (Array.isArray(projectPayments) ? projectPayments : []).reduce((a, r) => a + cpOrderValue(r), 0), [projectPayments]);
-  const activeCount = projects.filter((p) => String(p.status || 'Active') === 'Active').length;
+  const activeCount = projects.filter((p) => isOngoing(p.status)).length;
   const portfolio = useMemo(() => {
     let value = 0, out = 0;
-    for (const p of projects) { const r = rollup(p.name); value += r.value; out += r.out; }
+    for (const p of projects) { const r = rollup(p); value += r.value; out += r.out; }
     return { value, out };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projects, groups]);
@@ -88,11 +88,11 @@ export default function Projects() {
   // Card totals follow the projects currently listed (respects the search); cleared → all.
   const summary = useMemo(() => {
     const budget = rows.reduce((s2, p2) => s2 + num(p2.budget), 0);
-    const active = rows.filter((p2) => String(p2.status || 'Active') === 'Active').length;
+    const active = rows.filter((p2) => isOngoing(p2.status)).length;
     const pays = Array.isArray(projectPayments) ? projectPayments : [];
     const recFor = (name) => pays.find((r) => (r.project || r.customerName) === name) || null;
     const orderValue = rows.reduce((s2, p2) => { const r = recFor(p2.name); return s2 + (r ? cpOrderValue(r) : 0); }, 0);
-    const out = rows.reduce((s2, p2) => s2 + rollup(p2.name).out, 0);
+    const out = rows.reduce((s2, p2) => s2 + rollup(p2).out, 0);
     return { count: rows.length, active, budget, orderValue, out };
   }, [rows, projectPayments, groups]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -102,7 +102,7 @@ export default function Projects() {
       const pt = Array.isArray(p.paymentTerms) && p.paymentTerms.length
         ? p.paymentTerms.map((t) => ({ _id: tid(), term: t.term || '', percentage: t.percentage != null ? String(t.percentage) : '' }))
         : DEFAULT_TERMS();
-      setEditing({ isNew: false, data: { ...blank(), ...p, budget: p.budget ?? '', quotedPrice: p.quotedPrice != null ? String(p.quotedPrice) : '', paymentTerms: pt, sizeSections: Array.isArray(p.sizeSections) ? p.sizeSections.map((x) => ({ _id: tid(), name: x.name || '', length: x.length != null ? String(x.length) : '', width: x.width != null ? String(x.width) : '' })) : [] } });
+      setEditing({ isNew: false, data: { ...blank(), ...p, status: projStatus(p.status), budget: p.budget ?? '', quotedPrice: p.quotedPrice != null ? String(p.quotedPrice) : '', paymentTerms: pt, sizeSections: Array.isArray(p.sizeSections) ? p.sizeSections.map((x) => ({ _id: tid(), name: x.name || '', length: x.length != null ? String(x.length) : '', width: x.width != null ? String(x.width) : '' })) : [] } });
     } else {
       setEditing({ isNew: true, data: blank() });
     }
@@ -141,7 +141,7 @@ export default function Projects() {
       .filter((t) => String(t.term).trim() || String(t.percentage).trim())
       .map((t) => ({ term: String(t.term).trim(), percentage: num(t.percentage), value: msAmount(d.quotedPrice, t.percentage) }));
     const payload = {
-      name, code: String(d.code || '').trim(), status: d.status || 'Active', budget: num(d.budget),
+      name, code: String(d.code || '').trim(), status: projStatus(d.status), budget: num(d.budget),
       client: String(d.client || '').trim(), leadRef: String(d.leadRef || '').trim(),
       projectLocation: String(d.projectLocation || '').trim(), contactDetails: String(d.contactDetails || '').trim(),
       billingName: String(d.billingName || '').trim(), mobileNumber: String(d.mobileNumber || '').trim(), altMobile: String(d.altMobile || '').trim(),
@@ -189,7 +189,7 @@ export default function Projects() {
     <section>
       <section className="kpis" aria-label="Project summary" style={{ marginBottom: 16 }}>
         <div className="kpi"><span className="kpi-ic"><FolderKanban size={16} /></span><div className="l">Total Projects</div><div className="v">{summary.count}</div></div>
-        <div className="kpi"><span className="kpi-ic"><CheckCircle2 size={16} /></span><div className="l">Active Projects</div><div className="v">{summary.active}</div></div>
+        <div className="kpi"><span className="kpi-ic"><CheckCircle2 size={16} /></span><div className="l">Ongoing Projects</div><div className="v">{summary.active}</div></div>
         <div className="kpi"><span className="kpi-ic"><PiggyBank size={16} /></span><div className="l">Total Budget</div><div className="v">{inr(summary.budget)}</div></div>
         {!pm && <div className="kpi"><span className="kpi-ic"><IndianRupee size={16} /></span><div className="l">Total Order Value</div><div className="v">{inr(summary.orderValue)}</div></div>}
         {!pm && <div className="kpi"><span className="kpi-ic"><Wallet size={16} /></span><div className="l">Outstanding</div><div className="v">{inr(summary.out)}</div></div>}
@@ -239,7 +239,7 @@ export default function Projects() {
               <StateRow cols={pm ? 6 : 9} loading={loading} error={error}
                 empty={projects.length ? 'No projects match your search.' : 'No projects yet. Add your first project to start tracking budget, orders and payments.'} />
             ) : rows.map((p) => {
-              const r = rollup(p.name);
+              const r = rollup(p);
               return (
                 <tr key={p.id} className="row-click" onClick={() => navigate(`/projects/${encodeURIComponent(p.id)}`)}>
                   <td><b>{p.name}</b><div className="id" style={{ fontSize: 11 }}>{p.id}</div></td>
@@ -251,7 +251,7 @@ export default function Projects() {
                   <td className="num calc">{inr(r.paid)}</td>
                   <td className={`num calc ${r.out > 0 ? 'overdue' : ''}`}>{inr(r.out)}</td>
                   </>)}
-                  <td><Pill s={p.status || 'Active'} /></td>
+                  <td><Pill s={projStatus(p.status)} /></td>
                   <td onClick={(e) => e.stopPropagation()}>
                     <button className="link" onClick={() => navigate(`/projects/${encodeURIComponent(p.id)}`)}>View</button>
                     <button className="link" onClick={() => open(p)} style={{ marginLeft: 10 }}>Edit</button>

@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { usePurchaseData } from '../context/PurchaseData';
 import { useToast } from '../components/Toast';
 import { Pill, Drawer, Field } from '../components/ui';
-import { num, inr, dfmt, qfmt, groupPOs, vendorName, poInProject, PAYMENT_METHODS, cpReceipts, cpOrderValue, cpReceived } from '../utils/procurement';
+import { num, inr, dfmt, qfmt, groupPOs, vendorName, poInProject, projStatus, PAYMENT_METHODS, cpReceipts, cpOrderValue, cpReceived } from '../utils/procurement';
 import { openChallanDoc } from '../utils/challanDoc';
 import { openInvoice, downloadInvoice } from '../utils/cloudinary';
 import ProjectForms from '../components/ProjectForms';
@@ -38,7 +38,7 @@ export default function ProjectDetail() {
 
   const { projGroups, poSet } = useMemo(() => {
     const name = project?.name;
-    const g = name ? groupPOs(lines).filter((x) => poInProject(x, name)) : [];
+    const g = name ? groupPOs(lines).filter((x) => poInProject(x, project)) : [];
     return { projGroups: g, poSet: new Set(g.map((x) => x.po)) };
   }, [project, lines]);
 
@@ -197,7 +197,7 @@ export default function ProjectDetail() {
       <div className="toolbar">
         <div>
           <button className="link" onClick={() => navigate('/projects')}>← Projects</button>
-          <h2 style={{ margin: '4px 0 0' }}>{project.name} <Pill s={project.status || 'Active'} /></h2>
+          <h2 style={{ margin: '4px 0 0' }}>{project.name} <Pill s={projStatus(project.status)} /></h2>
           <div className="sub">{[project.code, project.client].filter(Boolean).join(' · ') || project.id}</div>
         </div>
       </div>
@@ -225,7 +225,7 @@ export default function ProjectDetail() {
                 <div><span className="ov-l">Client Name</span><span className="ov-v">{V(project.client)}</span></div>
                 <div><span className="ov-l">Project Location</span><span className="ov-v">{V(project.projectLocation)}</span></div>
                 <div><span className="ov-l">Project Code</span><span className="ov-v">{V(project.code)}</span></div>
-                <div><span className="ov-l">Status</span><span className="ov-v"><Pill s={project.status || 'Active'} /></span></div>
+                <div><span className="ov-l">Status</span><span className="ov-v"><Pill s={projStatus(project.status)} /></span></div>
                 <div><span className="ov-l">Contact Details</span><span className="ov-v">{V(project.contactDetails)}</span></div>
                 <div><span className="ov-l">Mobile Number</span><span className="ov-v">{V(project.mobileNumber)}</span></div>
                 <div><span className="ov-l">Alternate Mobile</span><span className="ov-v">{V(project.altMobile)}</span></div>

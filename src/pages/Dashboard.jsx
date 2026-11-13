@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ClipboardList, Clock, CheckCircle2, AlertTriangle, IndianRupee, Wallet, Coins, History, Store, FolderKanban, PiggyBank, Truck, Factory, ReceiptIndianRupee, HandCoins } from 'lucide-react';
 import { usePurchaseData } from '../context/PurchaseData';
-import { kpis, groupPOs, inr, num, cpOrderValue, cpReceived, cpOutstanding, poValueWithGst } from '../utils/procurement';
+import { kpis, groupPOs, inr, num, isOngoing, cpOrderValue, cpReceived, cpOutstanding, poValueWithGst } from '../utils/procurement';
 import { isRestrictedPM } from '../api/client';
 
 // Procurement dashboard — grouped sections of colored, clickable summary cards
@@ -27,7 +27,7 @@ export default function Dashboard() {
   const cOrder = ppList.reduce((a, r) => a + cpOrderValue(r), 0);
   const cRecv = ppList.reduce((a, r) => a + cpReceived(r), 0);
   const cOut = ppList.reduce((a, r) => a + cpOutstanding(r), 0);
-  const activeProjects = projects.filter((p) => String(p.status || 'Active') === 'Active').length;
+  const activeProjects = projects.filter((p) => isOngoing(p.status)).length;
   const totalBudget = projects.reduce((a, p) => a + num(p.budget), 0);
   const dcRecv = challans.filter((c) => (c.status || 'Received') === 'Received').length;
   const dcPend = challans.filter((c) => (c.status || 'Received') === 'Pending').length;
@@ -58,7 +58,7 @@ export default function Dashboard() {
     ] },
     { title: 'Projects', cards: [
       { l: 'Total Projects', v: projects.length, sub: 'All projects', icon: FolderKanban, c: 'accent', to: '/projects' },
-      { l: 'Active Projects', v: activeProjects, sub: 'In progress', icon: CheckCircle2, c: 'ok', to: '/projects' },
+      { l: 'Ongoing Projects', v: activeProjects, sub: 'In progress', icon: CheckCircle2, c: 'ok', to: '/projects' },
       { l: 'Total Budget', v: inr(totalBudget), sub: 'Allocated across projects', icon: PiggyBank, c: 'mute', to: '/projects' },
     ] },
   ];

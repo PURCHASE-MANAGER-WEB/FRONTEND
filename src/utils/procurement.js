@@ -109,15 +109,23 @@ export function calcLine(l) {
 
 export const vendorName = (vendors, vid) => (vendors.find(v => v.vid === vid) || {}).name || 'Unknown vendor';
 
-// A (grouped) PO belongs to a project if its primary `project` OR any of its
-// header-assigned `projects[]` matches the name (trim + case tolerant). POs are
-// assigned to a project via the PO header multi-select, so match that — not only
-// the per-line `project`, which can lag behind after a header change.
-export const poInProject = (g, name) => {
-  const eq = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
-  if (eq(g.project, name)) return true;
-  return Array.isArray(g.projects) && g.projects.some((p) => eq(p, name));
+// A (grouped) PO belongs to a project when any of its project references — the
+// primary `project` OR any entry in the header-assigned `projects[]` — matches the
+// project by NAME, CODE or ID (trim + case tolerant). Matching code/id as well as
+// name means a renamed project, or a PO saved with a code, still links correctly,
+// and a PO assigned to several projects shows under each of them.
+export const poInProject = (g, project) => {
+  if (!project) return false;
+  const eq = (a, b) => { const x = String(a || '').trim().toLowerCase(); const y = String(b || '').trim().toLowerCase(); return x !== '' && x === y; };
+  const keys = (typeof project === 'string') ? [project] : [project.name, project.code, project.id];
+  const refs = [g.project, ...(Array.isArray(g.projects) ? g.projects : [])];
+  return refs.some((r) => keys.some((k) => eq(r, k)));
 };
+
+// Project status: "Active" is the legacy label for what is now shown as "Ongoing".
+// Existing records keep "Active" in the DB but display and count as "Ongoing".
+export const projStatus = (s) => { const v = String(s || '').trim(); return (v === '' || v.toLowerCase() === 'active') ? 'Ongoing' : v; };
+export const isOngoing = (s) => projStatus(s) === 'Ongoing';
 
 // Roll PO lines up into one row per PO number.
 export function groupPOs(lines) {
@@ -364,7 +372,7 @@ export const ppTermsCount = (terms) => String(terms || '').split(',').map((s) =>
 export const BUDGET_STATUS_CLS = { 'On Track': 'p-ok', 'Near Limit': 'p-warn', 'Over Budget': 'p-bad', 'No Budget': 'p-mute' };
 export function budgetFor(project, groups) {
   const allocated = num(project && project.budget);
-  const g = (groups || []).filter((x) => poInProject(x, project && project.name));
+  const g = (groups || []).filter((x) => poInProject(x, project));
   const utilized = g.reduce((s, x) => s + x.value, 0);   // committed PO value
   const paid = g.reduce((s, x) => s + x.paid, 0);
   const out = g.reduce((s, x) => s + x.out, 0);
