@@ -3,14 +3,14 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { usePurchaseData } from '../context/PurchaseData';
 import { useToast } from '../components/Toast';
 import { Pill, Drawer, Field } from '../components/ui';
-import { num, inr, dfmt, qfmt, groupPOs, vendorName, poInProject, projStatus, PAYMENT_METHODS, cpReceipts, cpOrderValue, cpReceived } from '../utils/procurement';
+import { num, inr, dfmt, qfmt, groupPOs, vendorName, poInProject, projStatus, cdtfmt, PAYMENT_METHODS, cpReceipts, cpOrderValue, cpReceived } from '../utils/procurement';
 import { openChallanDoc } from '../utils/challanDoc';
 import { openInvoice, downloadInvoice } from '../utils/cloudinary';
 import ProjectForms from '../components/ProjectForms';
 import ProjectDesign from '../components/ProjectDesign';
-import { isRestrictedPM } from '../api/client';
+import { isRestrictedPM, projectsApi } from '../api/client';
 
-const TABS = ['Overview', 'Purchase Orders', 'Payments', 'Budget', 'Delivery Challans', 'Proposal & Handover', 'Design'];
+const TABS = ['Overview', 'Purchase Orders', 'Payments', 'Budget', 'Delivery Challans', 'Proposal & Handover', 'Design', 'History'];
 const CONDITIONS = ['Payment Pending', 'Ongoing', 'Completed'];
 const PAY_SLOTS = [0, 1, 2, 3, 4]; // Payment 1..5
 
@@ -33,6 +33,9 @@ export default function ProjectDetail() {
     saveProjectPayment, deleteProjectPayment, saveProject } = usePurchaseData();
   const pm = isRestrictedPM();
   const [tab, setTab] = useState('Overview');
+  const [historyRows, setHistoryRows] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyErr, setHistoryErr] = useState('');
 
   const project = useMemo(() => projects.find((p) => p.id === id), [projects, id]);
 
@@ -83,6 +86,17 @@ export default function ProjectDetail() {
     const seed = existing.length ? existing : DEFAULT_HEADS.map((h) => ({ head: h }));
     setHeads(seed.map((h) => ({ _id: bhId(), head: h.head || '', performa: h.performa ?? '', approved: h.approved ?? '', poValue: h.poValue ?? '', actual: h.actual ?? '', remarks: h.remarks || '' })));
   }, [project && project.id]);
+
+  useEffect(() => {
+    if (tab !== 'History' || !project) return;
+    let on = true; setHistoryLoading(true); setHistoryErr('');
+    projectsApi.history(project.id)
+      .then((r) => { if (on) setHistoryRows(Array.isArray(r) ? r : []); })
+      .catch((e) => { if (on) setHistoryErr((e && e.message) || 'Could not load history.'); })
+      .finally(() => { if (on) setHistoryLoading(false); });
+    return () => { on = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, project && project.id]);
 
   if (!project) {
     return (
@@ -465,6 +479,30 @@ export default function ProjectDetail() {
 
       {tab === 'Proposal & Handover' && <ProjectForms project={project} section="forms" />}
       {tab === 'Design' && <ProjectDesign project={project} />}
+      {tab === 'History' && (
+        <div className="card pd-card">
+          <h3>Change History</h3>
+          <p className="hint" style={{ marginTop: 0 }}>Every change to this project, with who made it and when.</p>
+          {historyLoading ? <p className="hint" style={{ margin: 0 }}>Loading…</p>
+            : historyErr ? <p className="hint" style={{ margin: 0, color: 'var(--bad)' }}>{historyErr}</p>
+            : historyRows.length === 0 ? <p className="hint" style={{ margin: 0 }}>No history recorded yet for this project.</p>
+            : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {historyRows.map((h, i) => (
+                  <div key={i} style={{ borderLeft: '3px solid var(--accent)', paddingLeft: 12 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13.5 }}>{h.action === 'created' ? 'Project created' : 'Project updated'}<span className="sub" style={{ fontWeight: 400, marginLeft: 8 }}>{cdtfmt(h.at)}</span></div>
+                    <div className="sub" style={{ fontSize: 12 }}>by {h.byName || '—'}{h.byRole ? ` \u00b7 ${h.byRole}` : ''}</div>
+                    {Array.isArray(h.changes) && h.changes.length > 0 && (
+                      <ul style={{ margin: '6px 0 0', paddingLeft: 18, fontSize: 13 }}>
+                        {h.changes.map((c, j) => (<li key={j}><b>{c.field}:</b> {c.from ? <span style={{ color: 'var(--muted)', textDecoration: 'line-through' }}>{c.from}</span> : <span className="sub">(empty)</span>} → {c.to ? c.to : <span className="sub">(empty)</span>}</li>))}
+                      </ul>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+        </div>
+      )}
 
       {sched && (
         <Drawer onClose={closeSched}>

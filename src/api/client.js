@@ -137,11 +137,7 @@ export const projectsApi = {
   create: (p) => api('/projects', { method: 'POST', body: p, auth: true }),
   update: (id, p) => api(`/projects/${encodeURIComponent(id)}`, { method: 'PUT', body: p, auth: true }),
   remove: (id) => api(`/projects/${encodeURIComponent(id)}`, { method: 'DELETE', auth: true }),
-};
-
-// Creation history (audit log) — purchase_creation_history collection.
-export const historyApi = {
-  list: (params) => { const qs = params ? ('?' + new URLSearchParams(params).toString()) : ''; return api(`/history${qs}`, { auth: true }); },
+  history: (id) => api(`/projects/${encodeURIComponent(id)}/history`, { auth: true }),
 };
 
 // Project payment schedules — purchase_project_payments collection.

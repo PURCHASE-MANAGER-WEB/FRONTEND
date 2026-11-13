@@ -11,7 +11,6 @@ const NAV = [
   { to: '/purchase-orders', label: 'Purchase Orders', icon: ClipboardList },
   { to: '/delivery-challan', label: 'Delivery Challan', icon: Truck },
   { to: '/payment-progress', label: 'Payment Progress', icon: Wallet, pmHidden: true },
-  { to: '/creation-history', label: 'Creation History', icon: History },
 ];
 
 export default function Sidebar({ open, onNavigate }) {
