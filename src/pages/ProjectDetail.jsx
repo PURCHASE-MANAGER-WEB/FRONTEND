@@ -11,6 +11,8 @@ import ProjectDesign from '../components/ProjectDesign';
 import { isRestrictedPM, projectsApi } from '../api/client';
 
 const TABS = ['Overview', 'Purchase Orders', 'Payments', 'Budget', 'Delivery Challans', 'Proposal & Handover', 'Design', 'History'];
+const PROJECT_STATUSES = ['Ongoing', 'On Hold', 'Completed', 'Cancelled'];
+const STATUS_STYLE = { 'Ongoing': { color: '#92400e', background: '#fef3c7' }, 'On Hold': { color: '#334155', background: '#e2e8f0' }, 'Completed': { color: '#166534', background: '#dcfce7' }, 'Cancelled': { color: '#991b1b', background: '#fee2e2' } };
 const CONDITIONS = ['Payment Pending', 'Ongoing', 'Completed'];
 const PAY_SLOTS = [0, 1, 2, 3, 4]; // Payment 1..5
 
@@ -111,6 +113,15 @@ export default function ProjectDetail() {
   const paid = projGroups.reduce((s, g) => s + g.paid, 0);
   const out = projGroups.reduce((s, g) => s + g.out, 0);
   const budget = num(project.budget);
+  const onStatus = async (status) => {
+    try { await saveProject(false, project.id, { status }); toast('Status updated'); }
+    catch (e) { toast((e && e.message) || 'Could not update status'); }
+  };
+  const StatusSelect = () => (
+    <select value={projStatus(project.status)} onChange={(e) => onStatus(e.target.value)} style={{ fontWeight: 700, fontSize: 12, padding: '4px 10px', borderRadius: 20, border: '1px solid var(--line)', cursor: 'pointer', verticalAlign: 'middle', ...(STATUS_STYLE[projStatus(project.status)] || {}) }}>
+      {PROJECT_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+    </select>
+  );
   const util = budget > 0 ? Math.round((value / budget) * 100) : 0;
   const remaining = budget - value;
 
@@ -211,7 +222,7 @@ export default function ProjectDetail() {
       <div className="toolbar">
         <div>
           <button className="link" onClick={() => navigate('/projects')}>← Projects</button>
-          <h2 style={{ margin: '4px 0 0' }}>{project.name} <Pill s={projStatus(project.status)} /></h2>
+          <h2 style={{ margin: '4px 0 0' }}>{project.name} <StatusSelect /></h2>
           <div className="sub">{[project.code, project.client].filter(Boolean).join(' · ') || project.id}</div>
         </div>
       </div>
@@ -239,7 +250,7 @@ export default function ProjectDetail() {
                 <div><span className="ov-l">Client Name</span><span className="ov-v">{V(project.client)}</span></div>
                 <div><span className="ov-l">Project Location</span><span className="ov-v">{V(project.projectLocation)}</span></div>
                 <div><span className="ov-l">Project Code</span><span className="ov-v">{V(project.code)}</span></div>
-                <div><span className="ov-l">Status</span><span className="ov-v"><Pill s={projStatus(project.status)} /></span></div>
+                <div><span className="ov-l">Status</span><span className="ov-v"><StatusSelect /></span></div>
                 <div><span className="ov-l">Contact Details</span><span className="ov-v">{V(project.contactDetails)}</span></div>
                 <div><span className="ov-l">Mobile Number</span><span className="ov-v">{V(project.mobileNumber)}</span></div>
                 <div><span className="ov-l">Alternate Mobile</span><span className="ov-v">{V(project.altMobile)}</span></div>
