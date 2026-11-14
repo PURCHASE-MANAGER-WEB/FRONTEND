@@ -7,6 +7,8 @@ import { isRestrictedPM } from '../api/client';
 import { Pill, Drawer, Field, StateRow } from '../components/ui';
 import { calcLine, num, inr, TERMS, VENDOR_STATUS, kpis, groupPOs, MATERIALS, FAB_SERVICES } from '../utils/procurement';
 
+const VENDOR_STATUS_STYLE = { 'Active': { color: '#166534', background: '#dcfce7' }, 'Inactive': { color: '#334155', background: '#e2e8f0' }, 'Blocked': { color: '#991b1b', background: '#fee2e2' } };
+
 // Shared master for purchase partners. kind = 'Supplier' (Vendors) or 'Fabricator'
 // (Fabricators). Both live in the same purchase_suppliers collection, distinguished
 // by `type`. The restricted Purchase Manager designation never sees accounts/outstanding.
@@ -56,6 +58,11 @@ export default function VendorManager({ kind = 'Supplier' }) {
   const open = (v) => { setFormErr(''); setConfirmDel(false); setEditing(v ? { isNew: false, data: { ...v, creditLimit: v.creditLimit ?? '' } } : { isNew: true, data: blank() }); };
   const close = () => { setEditing(null); setConfirmDel(false); };
   const set = (kk, val) => setEditing(e => ({ ...e, data: { ...e.data, [kk]: val } }));
+
+  const onStatus = async (v, status) => {
+    try { await saveVendor(false, v.vid, { status }); toast(`${Label} status updated`); }
+    catch (e) { toast((e && e.message) || 'Could not update status'); }
+  };
 
   const submit = async () => {
     const d = editing.data;
@@ -131,7 +138,11 @@ export default function VendorManager({ kind = 'Supplier' }) {
                   <td>{v.material || '—'}</td>
                   {!isFab && <td className="num">{inr(v.creditLimit)}</td>}
                   {!isFab && <td>{v.terms || '—'}</td>}
-                  <td><Pill s={v.status || 'Active'} /></td>
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <select value={v.status || 'Active'} onChange={(e) => onStatus(v, e.target.value)} style={{ fontWeight: 700, fontSize: 12, padding: '4px 10px', borderRadius: 20, border: '1px solid var(--line)', cursor: 'pointer', ...(VENDOR_STATUS_STYLE[v.status || 'Active'] || {}) }}>
+                      {VENDOR_STATUS.map((st) => <option key={st} value={st}>{st}</option>)}
+                    </select>
+                  </td>
                   {!pm && <td className="num calc">{inr(out)}</td>}
                   {!pm && !isFab && <td className={`num calc ${avail < 0 ? 'overdue' : ''}`}>{inr(avail)}{avail < 0 ? ' ⚠' : ''}</td>}
                   <td><button className="link" onClick={() => open(v)}>Edit</button></td>
