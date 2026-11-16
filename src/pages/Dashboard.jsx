@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ClipboardList, Clock, CheckCircle2, AlertTriangle, IndianRupee, Wallet, Coins, History, Store, FolderKanban, PiggyBank, Truck, Factory, ReceiptIndianRupee, HandCoins } from 'lucide-react';
 import { usePurchaseData } from '../context/PurchaseData';
-import { kpis, groupPOs, inr, num, isOngoing, cpOrderValue, cpReceived, cpOutstanding, poValueWithGst } from '../utils/procurement';
+import { kpis, groupPOs, inr, num, isOngoing, venStatus, cpOrderValue, cpReceived, cpOutstanding, poValueWithGst } from '../utils/procurement';
 import { isRestrictedPM } from '../api/client';
 
 // Procurement dashboard — grouped sections of colored, clickable summary cards
@@ -21,8 +21,8 @@ export default function Dashboard() {
   const pendingValue = g.filter((x) => x.status !== 'Cancelled').reduce((a, x) => a + x.out, 0);
   const suppliers = vendors.filter((v) => (v.type || 'Supplier') === 'Supplier');
   const fabricators = vendors.filter((v) => (v.type || 'Supplier') === 'Fabricator');
-  const activeVendors = suppliers.filter((v) => String(v.status || 'Active') === 'Active').length;
-  const activeFabricators = fabricators.filter((v) => String(v.status || 'Active') === 'Active').length;
+  const activeVendors = suppliers.filter((v) => venStatus(v.status) === 'Ongoing').length;
+  const activeFabricators = fabricators.filter((v) => venStatus(v.status) === 'Ongoing').length;
   const ppList = Array.isArray(projectPayments) ? projectPayments : [];
   const cOrder = ppList.reduce((a, r) => a + cpOrderValue(r), 0);
   const cRecv = ppList.reduce((a, r) => a + cpReceived(r), 0);

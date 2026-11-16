@@ -18,7 +18,8 @@ export const today = () => { const t = new Date(); return new Date(t.getTime() -
 
 export const UNITS = ['MT','Kg','Nos','Sq.ft','Sq.m','Rft','Mtr','Ltr','Bag','Set','Lot'];
 export const TERMS = ['Advance','7 Days','15 Days','30 Days','45 Days','60 Days'];
-export const VENDOR_STATUS = ['Active','Inactive','Blocked'];
+export const VENDOR_STATUS = ['Ongoing','Inactive','Blocked'];
+export const venStatus = (s) => { const v = String(s || '').trim(); return (v === '' || v.toLowerCase() === 'active') ? 'Ongoing' : v; };
 export const PAYMENT_METHODS = ['UPI','Cash','Cheque','Bank Transfer','Card','Other'];
 
 // ── Fabricator (labour) work order ──────────────────────────────────

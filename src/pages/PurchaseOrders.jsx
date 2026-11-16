@@ -8,7 +8,7 @@ import { Pill, Drawer, Field, StateRow } from '../components/ui';
 import ComboBox from '../components/ComboBox';
 import FabricatorPO from '../components/FabricatorPO';
 import ProjectMultiSelect from '../components/ProjectMultiSelect';
-import { calcLine, computePoBreakdown, poCharges, amountInWords, groupPOs, poInProject, num, inr, qfmt, dfmt, cdfmt, cdkey, today, vendorName, nextPo, UNITS, PAYMENT_METHODS, PO_STATUSES, MATERIALS } from '../utils/procurement';
+import { calcLine, computePoBreakdown, poCharges, amountInWords, groupPOs, poInProject, venStatus, num, inr, qfmt, dfmt, cdfmt, cdkey, today, vendorName, nextPo, UNITS, PAYMENT_METHODS, PO_STATUSES, MATERIALS } from '../utils/procurement';
 import { uploadInvoice, openInvoice, downloadInvoice } from '../utils/cloudinary';
 import { uploadPoFile, openPoFile, downloadPoFile, removePoFile, validatePoFile } from '../utils/poFiles';
 
@@ -79,13 +79,18 @@ export default function PurchaseOrders() {
     // project (by name/code/id; multi-project POs included). Stops a project search
     // from leaking POs that merely mention the name in a material/description.
     const masterProj = q2 ? (projects || []).find((p) => eqs(p.name) || eqs(p.code)) : null;
-    const isKnownProject = !!masterProj || (!!q2 && lines.some((l) => eqs(l.project) || (Array.isArray(l.projects) && l.projects.some(eqs))));
+    // The project(s) a line/PO is actually shown under: its header projects[] when set,
+    // otherwise the legacy single `project`. All search matching uses THIS (never the
+    // stale per-line value when a header exists), so results match the Project column
+    // and are identical on every device regardless of what has finished loading.
+    const dispRefs = (x) => (Array.isArray(x.projects) && x.projects.length ? x.projects : [x.project]).filter(Boolean);
+    const isKnownProject = !!masterProj || (!!q2 && lines.some((l) => dispRefs(l).some(eqs)));
     const projKey = masterProj || (isKnownProject ? q2 : null);
     const matchLine = (po) => lines.some(l => l.po === po && [l.material, l.spec, l.description].filter(Boolean).join(' ').toLowerCase().includes(q2));
     const codeFor = (name) => { const p = (projects || []).find(x => x.name === name); return p ? p.code : ''; };
     return groupPOs(lines)
       .map(g => ({ g, vn: vendorName(vendors, g.vid) }))
-      .filter(({ g, vn }) => statusOkG(g) && (!q2 ? true : projKey ? poInProject(g, projKey) : ([g.po, g.vid, g.vendorName || vn, g.project, codeFor(g.project), ...(Array.isArray(g.projects) ? g.projects : []), ...(Array.isArray(g.projects) ? g.projects.map(codeFor) : []), cdfmt(g.createdAt)].filter(Boolean).join(' ').toLowerCase().includes(q2) || matchLine(g.po))))
+      .filter(({ g, vn }) => statusOkG(g) && (!q2 ? true : projKey ? poInProject(g, projKey) : ([g.po, g.vid, g.vendorName || vn, ...dispRefs(g), ...dispRefs(g).map(codeFor), cdfmt(g.createdAt)].filter(Boolean).join(' ').toLowerCase().includes(q2) || matchLine(g.po))))
       .sort((a, b) => {
         if (sortBy === 'newest') return cdkey(b.g.createdAt) - cdkey(a.g.createdAt);
         if (sortBy === 'oldest') return cdkey(a.g.createdAt) - cdkey(b.g.createdAt);
@@ -498,7 +503,7 @@ export default function PurchaseOrders() {
             <Field label="PO Creation Date"><input value={(() => { const c = lines.filter(l => l.po === editing.po).map(l => l.createdAt).filter(Boolean).sort()[0]; return c ? cdfmt(c) : 'Set automatically on save'; })()} readOnly tabIndex={-1} className="ro" /></Field>
             <Field label="Vendor *" full>
               <select value={editing.vid} onChange={e => setHdr('vid', e.target.value)}>
-                {vendors.map(v => <option key={v.vid} value={v.vid}>{v.vid} · {v.name}{v.status !== 'Active' ? ` (${v.status})` : ''}</option>)}
+                {vendors.map(v => <option key={v.vid} value={v.vid}>{v.vid} · {v.name}{venStatus(v.status) !== 'Ongoing' ? ` (${venStatus(v.status)})` : ''}</option>)}
               </select>
             </Field>
             <Field label="Project Name(s) *" full><ProjectMultiSelect value={editing.projects} onChange={(v) => setHdr('projects', v)} options={projects} placeholder="Add a project…" /></Field>

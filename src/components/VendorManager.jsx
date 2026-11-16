@@ -5,9 +5,9 @@ import { usePurchaseData } from '../context/PurchaseData';
 import { useToast } from '../components/Toast';
 import { isRestrictedPM } from '../api/client';
 import { Pill, Drawer, Field, StateRow } from '../components/ui';
-import { calcLine, num, inr, TERMS, VENDOR_STATUS, kpis, groupPOs, MATERIALS, FAB_SERVICES } from '../utils/procurement';
+import { calcLine, num, inr, TERMS, VENDOR_STATUS, venStatus, kpis, groupPOs, MATERIALS, FAB_SERVICES } from '../utils/procurement';
 
-const VENDOR_STATUS_STYLE = { 'Active': { color: '#166534', background: '#dcfce7' }, 'Inactive': { color: '#334155', background: '#e2e8f0' }, 'Blocked': { color: '#991b1b', background: '#fee2e2' } };
+const VENDOR_STATUS_STYLE = { 'Ongoing': { color: '#166534', background: '#dcfce7' }, 'Inactive': { color: '#334155', background: '#e2e8f0' }, 'Blocked': { color: '#991b1b', background: '#fee2e2' } };
 
 // Shared master for purchase partners. kind = 'Supplier' (Vendors) or 'Fabricator'
 // (Fabricators). Both live in the same purchase_suppliers collection, distinguished
@@ -35,7 +35,7 @@ export default function VendorManager({ kind = 'Supplier' }) {
     const n = vendors.filter(v => String(v.vid || '').startsWith(pfx)).map(v => parseInt(String(v.vid).replace(/\D/g, ''), 10) || 0);
     return pfx + String((n.length ? Math.max(...n) : 0) + 1).padStart(3, '0');
   };
-  const blank = () => ({ vid: nextId(), name: '', contact: '', mobile: '', email: '', address: '', gst: '', material: '', creditLimit: '', terms: '30 Days', status: 'Active', type: kind });
+  const blank = () => ({ vid: nextId(), name: '', contact: '', mobile: '', email: '', address: '', gst: '', material: '', creditLimit: '', terms: '30 Days', status: 'Ongoing', type: kind });
 
   const outstandingFor = (vid) => lines.filter(l => l.vid === vid).reduce((s, l) => s + calcLine(l).out, 0);
 
@@ -51,7 +51,7 @@ export default function VendorManager({ kind = 'Supplier' }) {
     const paid = grps.reduce((a, g) => a + g.paid, 0);
     const pending = grps.filter((g) => g.payment !== 'Paid').length;
     const out = rows.reduce((a, v) => a + outstandingFor(v.vid), 0);
-    const active = rows.filter((v) => String(v.status || 'Active') === 'Active').length;
+    const active = rows.filter((v) => venStatus(v.status) === 'Ongoing').length;
     return { count: rows.length, active, value, paid, out, pending };
   }, [rows, lines]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -139,7 +139,7 @@ export default function VendorManager({ kind = 'Supplier' }) {
                   {!isFab && <td className="num">{inr(v.creditLimit)}</td>}
                   {!isFab && <td>{v.terms || '—'}</td>}
                   <td onClick={(e) => e.stopPropagation()}>
-                    <select value={v.status || 'Active'} onChange={(e) => onStatus(v, e.target.value)} style={{ fontWeight: 700, fontSize: 12, padding: '4px 10px', borderRadius: 20, border: '1px solid var(--line)', cursor: 'pointer', ...(VENDOR_STATUS_STYLE[v.status || 'Active'] || {}) }}>
+                    <select value={venStatus(v.status)} onChange={(e) => onStatus(v, e.target.value)} style={{ fontWeight: 700, fontSize: 12, padding: '4px 10px', borderRadius: 20, border: '1px solid var(--line)', cursor: 'pointer', ...(VENDOR_STATUS_STYLE[venStatus(v.status)] || {}) }}>
                       {VENDOR_STATUS.map((st) => <option key={st} value={st}>{st}</option>)}
                     </select>
                   </td>
@@ -159,7 +159,7 @@ export default function VendorManager({ kind = 'Supplier' }) {
           <p className="hint">Fields marked * are required.{pm ? '' : ' Outstanding and available credit are calculated from purchase orders.'}</p>
           <div className="grid">
             <Field label={`${Label} ID *`}><input value={editing.data.vid} readOnly={!editing.isNew} onChange={e => set('vid', e.target.value)} /></Field>
-            <Field label="Status"><select value={editing.data.status} onChange={e => set('status', e.target.value)}>{VENDOR_STATUS.map(s => <option key={s}>{s}</option>)}</select></Field>
+            <Field label="Status"><select value={venStatus(editing.data.status)} onChange={e => set('status', e.target.value)}>{VENDOR_STATUS.map(s => <option key={s}>{s}</option>)}</select></Field>
             <Field label={`${Label} Name *`} full><input value={editing.data.name} onChange={e => set('name', e.target.value)} /></Field>
             <Field label="Contact Person"><input value={editing.data.contact} onChange={e => set('contact', e.target.value)} /></Field>
             <Field label="Mobile Number"><input inputMode="tel" value={editing.data.mobile} onChange={e => set('mobile', e.target.value)} placeholder="10-digit mobile" /></Field>
