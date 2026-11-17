@@ -141,9 +141,15 @@ export const isOngoing = (s) => projStatus(s) === 'Ongoing';
 // Roll PO lines up into one row per PO number.
 export function groupPOs(lines) {
   const map = new Map();
+  // Group strictly by the PO number, normalized (trimmed + upper-cased), so lines that
+  // carry a stray-whitespace or different-case variant of the same PO number still roll
+  // up into ONE purchase order — a PO can never appear twice or vanish because of that.
+  const poKey = (v) => String(v || '').trim().toUpperCase();
   for (const l of lines) {
+    const key = poKey(l.po);
+    if (!key) continue; // ignore stray lines with no PO number
     const c = calcLine(l);
-    const g = map.get(l.po) || { po: l.po, createdAt: l.createdAt, vid: l.vid, vendorName: l.vendorName || '', project: l.project, projects: (Array.isArray(l.projects) && l.projects.length) ? l.projects : (l.project ? [l.project] : []), date: l.poDate, status: l.status, poType: l.poType || '', loading: num(l.loading), transport: num(l.transport), gstPct: (l.gstPct === '' || l.gstPct === null || l.gstPct === undefined) ? 0 : num(l.gstPct), chargesGstPct: (l.chargesGstPct !== undefined && l.chargesGstPct !== null && l.chargesGstPct !== '') ? num(l.chargesGstPct) : ((l.gstPct === '' || l.gstPct === null || l.gstPct === undefined) ? 0 : num(l.gstPct)), transportGst: l.transportGst !== false, itemGst: 0, value: 0, paid: 0, out: 0, qty: 0, rec: 0, pend: 0, units: new Set(), delOverdue: 0, payOverdue: 0, dueToday: false, payDueToday: false, count: 0, exps: [], dues: [] };
+    const g = map.get(key) || { po: key, createdAt: l.createdAt, vid: l.vid, vendorName: l.vendorName || '', project: l.project, projects: (Array.isArray(l.projects) && l.projects.length) ? l.projects : (l.project ? [l.project] : []), date: l.poDate, status: l.status, poType: l.poType || '', loading: num(l.loading), transport: num(l.transport), gstPct: (l.gstPct === '' || l.gstPct === null || l.gstPct === undefined) ? 0 : num(l.gstPct), chargesGstPct: (l.chargesGstPct !== undefined && l.chargesGstPct !== null && l.chargesGstPct !== '') ? num(l.chargesGstPct) : ((l.gstPct === '' || l.gstPct === null || l.gstPct === undefined) ? 0 : num(l.gstPct)), transportGst: l.transportGst !== false, itemGst: 0, value: 0, paid: 0, out: 0, qty: 0, rec: 0, pend: 0, units: new Set(), delOverdue: 0, payOverdue: 0, dueToday: false, payDueToday: false, count: 0, exps: [], dues: [] };
     g.value += c.total; g.paid += num(l.paid); g.out += c.out;
     g.itemGst += c.total * ((l.gstPct === '' || l.gstPct === null || l.gstPct === undefined) ? 0 : num(l.gstPct)) / 100;
     g.qty += num(l.qty); g.rec += Math.min(num(l.received), num(l.qty)); g.pend += c.pending; g.units.add(l.unit);
@@ -155,7 +161,7 @@ export function groupPOs(lines) {
     if (l.createdAt && (!g.createdAt || new Date(l.createdAt) < new Date(g.createdAt))) g.createdAt = l.createdAt;
     if (l.expDate) g.exps.push(l.expDate);
     if (l.dueDate) g.dues.push(l.dueDate);
-    map.set(l.po, g);
+    map.set(key, g);
   }
   return [...map.values()].map(g => {
     g.unit = g.units.size === 1 ? [...g.units][0] : 'mixed units';
