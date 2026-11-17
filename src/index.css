@@ -51,7 +51,7 @@ body{
 
 /* ───────── app shell ───────── */
 .app{display:flex;min-height:100vh}
-.sidebar{width:252px;flex-shrink:0;background:linear-gradient(185deg,var(--brand) 0%,var(--brand-2) 100%);color:var(--brand-fg);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;border-right:1px solid rgba(255,255,255,.06)}
+.sidebar{width:252px;flex-shrink:0;background:var(--brand);color:var(--brand-fg);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;border-right:1px solid rgba(255,255,255,.06)}
 .sidebar .logo{padding:24px 22px 18px;border-bottom:1px solid rgba(255,255,255,.07)}
 .sidebar .logo .mark{display:flex;align-items:center;gap:12px}
 .sidebar .logo .tile{width:40px;height:40px;flex-shrink:0;border-radius:11px;background:#fff;padding:7px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px -8px rgba(0,0,0,.5),0 0 0 1px rgba(59,130,246,.45) inset}
