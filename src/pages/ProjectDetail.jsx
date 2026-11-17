@@ -587,7 +587,7 @@ export default function ProjectDetail() {
         .bh-in:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
         .bh-num{text-align:right;font-variant-numeric:tabular-nums}
         .bh-head{font-weight:600}
-        .bh-blue{color:#1d4ed8}
+        .bh-blue{color:#4338ca}
         tr.bh-total td{background:var(--accent-soft);font-weight:800;color:var(--fg);border-top:2px solid var(--accent)}
         .pp-sched{margin-top:14px;border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--surface)}
         .pp-head,.pp-row{display:grid;grid-template-columns:110px 1fr 160px 30px;gap:8px;align-items:center}
