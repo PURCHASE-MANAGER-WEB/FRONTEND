@@ -183,6 +183,20 @@ export const formsApi = {
 };
 
 
+// Material requests bridge — requirements raised by the Execution Portal, read here and
+// driven through Requested → Ordered → Delivered / Rejected, or converted into a PO.
+// (Shared `material_requests` collection in the same MongoDB.)
+export const materialRequestsApi = {
+  list: (params) => { const qs = params ? ('?' + new URLSearchParams(params).toString()) : ''; return api(`/material-requests${qs}`, { auth: true }); },
+  get: (id) => api(`/material-requests/${encodeURIComponent(id)}`, { auth: true }),
+  newCount: () => api('/material-requests/new-count', { auth: true }),
+  notifications: () => api('/material-requests/notifications', { auth: true }),
+  markSeen: () => api('/material-requests/seen', { method: 'POST', auth: true }),
+  approve: (id) => api(`/material-requests/${encodeURIComponent(id)}/approve`, { method: 'PATCH', auth: true }),
+  reject: (id, rejectReason) => api(`/material-requests/${encodeURIComponent(id)}/reject`, { method: 'PATCH', body: { rejectReason }, auth: true }),
+  convert: (id, body) => api(`/material-requests/${encodeURIComponent(id)}/convert`, { method: 'POST', body, auth: true }),
+};
+
 // Design requests bridge — raises requests into the shared Design CRM database and
 // reads status + approved files back. (Stored in design_requests / design_files.)
 export const designRequestsApi = {

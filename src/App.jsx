@@ -13,6 +13,7 @@ import PaymentProgress from './pages/PaymentProgress';
 import Projects from './pages/Projects';
 import ProjectDetail from './pages/ProjectDetail';
 import DeliveryChallan from './pages/DeliveryChallan';
+import MaterialRequests from './pages/MaterialRequests';
 
 import AccountsDashboard from './pages/accounts/AccountsDashboard';
 import AccountsInvoices from './pages/accounts/AccountsInvoices';
@@ -73,6 +74,7 @@ export default function App() {
           <Route path="/projects" element={<Projects />} />
           <Route path="/projects/:id" element={<ProjectDetail />} />
           <Route path="/delivery-challan" element={<DeliveryChallan />} />
+          <Route path="/material-requests" element={<MaterialRequests />} />
           
           {/* Accounts Module */}
           <Route path="/accounts/dashboard" element={<AccountsDashboard />} />

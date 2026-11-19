@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Store, ClipboardList, Wallet, LogOut, FileText, CheckSquare, Users, FolderKanban, ReceiptIndianRupee, PiggyBank, Truck, History, Factory } from 'lucide-react';
-import { getUser, clearSession, authApi, isRestrictedPM } from '../api/client';
+import React, { useState, useEffect } from 'react';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { LayoutDashboard, Store, ClipboardList, Wallet, LogOut, FileText, CheckSquare, Users, FolderKanban, ReceiptIndianRupee, PiggyBank, Truck, History, Factory, PackageSearch } from 'lucide-react';
+import { getUser, clearSession, authApi, isRestrictedPM, materialRequestsApi } from '../api/client';
 
 const NAV = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -9,6 +9,7 @@ const NAV = [
   { to: '/fabricators', label: 'Fabricators', icon: Factory },
   { to: '/projects', label: 'Projects', icon: FolderKanban },
   { to: '/purchase-orders', label: 'Purchase Orders', icon: ClipboardList },
+  { to: '/material-requests', label: 'Material Requests', icon: PackageSearch, badgeKey: 'materials' },
   { to: '/delivery-challan', label: 'Delivery Challan', icon: Truck },
   { to: '/payment-progress', label: 'Payment Progress', icon: Wallet, pmHidden: true },
 ];
@@ -19,6 +20,16 @@ export default function Sidebar({ open, onNavigate }) {
   const isAccounts = user.role === 'accounts_manager';
   const initials = (user.name || (isAccounts ? 'AM' : 'PM')).split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
   const [ask, setAsk] = useState(false);
+  const loc = useLocation();
+
+  // Live count of new material requirements from Execution (refreshes on navigation).
+  const [matCount, setMatCount] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    materialRequestsApi.newCount().then((d) => { if (alive) setMatCount(d.count || 0); }).catch(() => {});
+    return () => { alive = false; };
+  }, [loc.pathname]);
+  const badges = { materials: matCount };
 
   const doLogout = async () => {
     await authApi.logout();
@@ -52,6 +63,9 @@ export default function Sidebar({ open, onNavigate }) {
           ) : (
             <NavLink key={item.to} to={item.to} onClick={onNavigate} className={({ isActive }) => isActive ? 'active' : ''}>
               <item.icon size={18} /> {item.label}
+              {item.badgeKey && badges[item.badgeKey] > 0 && (
+                <span className="pill p-warn" style={{ marginLeft: 'auto', fontSize: 11, padding: '1px 7px' }}>{badges[item.badgeKey]}</span>
+              )}
             </NavLink>
           ))}
           <button className="link" onClick={() => setAsk(true)} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '11px 13px', color: 'var(--brand-fg)', opacity: .72, fontWeight: 500, fontSize: '14.5px', marginTop: 'auto' }}>

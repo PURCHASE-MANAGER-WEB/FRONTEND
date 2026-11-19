@@ -5,7 +5,7 @@ import Sidebar from '../components/Sidebar';
 import { ToastProvider } from '../components/Toast';
 import { usePurchaseData } from '../context/PurchaseData';
 import { overdueStats, inr } from '../utils/procurement';
-import { isRestrictedPM } from '../api/client';
+import { isRestrictedPM, materialRequestsApi } from '../api/client';
 
 const TITLES = {
   '/dashboard': ['Procurement Dashboard', 'Vendors, purchase orders and delivery & payment progress'],
@@ -37,6 +37,17 @@ export default function AppLayout() {
 
   const od = useMemo(() => overdueStats(lines || []), [lines]);
   const pm = isRestrictedPM();
+
+  // Live material-request notifications (raised by the Execution Head), polled.
+  const [mreq, setMreq] = useState({ items: [], unread: 0 });
+  useEffect(() => {
+    let alive = true;
+    const pull = () => materialRequestsApi.notifications().then((d) => { if (alive) setMreq({ items: d.items || [], unread: d.unread || 0 }); }).catch(() => {});
+    pull();
+    const t = setInterval(pull, 15000);
+    return () => { alive = false; clearInterval(t); };
+  }, []);
+  const bellCount = od.count + mreq.unread;
 
   const [title, subtitle] = loc.pathname.startsWith('/purchase-orders/')
     ? ['Purchase Order Details', 'Full details, PDF and print for this purchase order']
@@ -96,9 +107,9 @@ export default function AppLayout() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
               {/* ── Notification bell (hidden for restricted Purchase Manager) ── */}
               {!pm && <div className="bell-wrap" ref={bellRef}>
-                <button className="bell-btn" aria-label={`${od.count} overdue purchase orders`} onClick={() => setBellOpen(o => !o)}>
+                <button className="bell-btn" aria-label={`${bellCount} notifications`} onClick={() => setBellOpen(o => !o)}>
                   <Bell size={19} />
-                  {od.count > 0 && <span className="bell-badge">{od.count > 99 ? '99+' : od.count}</span>}
+                  {bellCount > 0 && <span className="bell-badge">{bellCount > 99 ? '99+' : bellCount}</span>}
                 </button>
                 {bellOpen && (
                   <div className="bell-pop" role="dialog" aria-label="Notifications">
@@ -106,8 +117,22 @@ export default function AppLayout() {
                       <span>Notifications</span>
                       {od.count > 0 && <span className="bell-amt">{inr(od.amount)} overdue</span>}
                     </div>
+                    {mreq.items.length > 0 && (
+                      <div className="bell-list" style={{ borderBottom: '1px solid var(--line)' }}>
+                        {mreq.items.slice(0, 6).map((n) => (
+                          <button className={`bell-row${n.unread ? ' mr-unread' : ''}`} key={n.id} onClick={() => { setBellOpen(false); navigate('/material-requests'); }} style={{ display: 'block' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                              <span className="bell-po" style={{ fontSize: 12.5 }}>{n.title}</span>
+                              {n.unread && <span className="bell-days" style={{ color: 'var(--bad)' }}>new</span>}
+                            </div>
+                            <div className="bell-days">{n.message}</div>
+                          </button>
+                        ))}
+                        <button className="bell-all" onClick={() => { setBellOpen(false); navigate('/material-requests'); }}>Open Material Requests →</button>
+                      </div>
+                    )}
                     {od.count === 0 ? (
-                      <div className="bell-empty">You're all caught up — no overdue purchase orders.</div>
+                      mreq.items.length === 0 && <div className="bell-empty">You're all caught up — no overdue purchase orders.</div>
                     ) : (
                       <>
                         <button className="bell-row bell-summary" onClick={goOverdue}>
