@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Plus, Trash2, FileText, Upload, ClipboardList, Clock, CheckCircle2, IndianRupee, Wallet } from 'lucide-react';
 import { usePurchaseData } from '../context/PurchaseData';
-import { purchaseApi, filesApi, invoicesApi } from '../api/client';
+import { purchaseApi, filesApi, invoicesApi, materialRequestsApi } from '../api/client';
 import { useToast } from '../components/Toast';
 import { Pill, Drawer, Field, StateRow } from '../components/ui';
 import ComboBox from '../components/ComboBox';
@@ -54,6 +54,7 @@ export default function PurchaseOrders() {
   const [simpleErr, setSimpleErr] = useState('');
   const [simpleBusy, setSimpleBusy] = useState(false);
   const [simpleInvKind, setSimpleInvKind] = useState('pdf');
+  const mrLinkRef = useRef(null); // id of a material request this New PO is being created for (link on save)
   const [fab, setFab] = useState(null); // { poKey } for the fabricator work-order form
   const [searchParams, setSearchParams] = useSearchParams();
   const q = searchParams.get('q') || '';
@@ -188,10 +189,11 @@ export default function PurchaseOrders() {
   };
 
   // ── Simple (quick) PO: project + vendor + material + optional invoice ──
-  const openSimple = () => {
+  const openSimple = (prefill) => {
     setSimpleErr('');
-    setSimple({ projects: [], vid: '', vendorOther: '', material: '', value: '', file: null });
+    setSimple({ projects: (prefill && prefill.projects) || [], vid: '', vendorOther: '', material: (prefill && prefill.material) || '', value: '', file: null });
   };
+  const cancelSimple = () => { setSimple(null); mrLinkRef.current = null; };
   const onSimpleFile = (file) => {
     setSimpleErr('');
     if (!file) { setSimple((s) => ({ ...s, file: null })); return; }
@@ -217,6 +219,11 @@ export default function PurchaseOrders() {
       if (d.file) { try { await uploadInvoice(d.file, po); } catch { invMsg = ' (invoice upload failed \u2014 add it later)'; } }
       await reload();
       setSimple(null);
+      // If this PO was started from a Material Request, link it back (→ PO Created).
+      if (mrLinkRef.current) {
+        const mrId = mrLinkRef.current; mrLinkRef.current = null;
+        try { await materialRequestsApi.linkPo(mrId, po); invMsg += ' · linked to the material request'; } catch { invMsg += ' (could not auto-link the material request)'; }
+      }
       toast(`Purchase order ${po} created${invMsg}`);
     } catch (e) { setSimpleErr(e.message || 'Could not create the purchase order.'); }
     finally { setSimpleBusy(false); }
@@ -321,6 +328,23 @@ export default function PurchaseOrders() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, vendors, lines]);
+
+  // Deep link from a Material Request's "Create PO": /purchase-orders?mr=<id> opens the New PO
+  // builder prefilled with the material; on save the PO is linked back to that request.
+  useEffect(() => {
+    const mr = searchParams.get('mr');
+    if (mr && !simple && vendors.length) {
+      let data = null;
+      try { data = JSON.parse(sessionStorage.getItem('mr_new_po') || 'null'); } catch { /* ignore */ }
+      if (data && data.mrId === mr) {
+        mrLinkRef.current = mr;
+        openSimple({ projects: data.projectName ? [data.projectName] : [], material: data.materialDesc || '' });
+        try { sessionStorage.removeItem('mr_new_po'); } catch { /* ignore */ }
+      }
+      const next = new URLSearchParams(searchParams); next.delete('mr'); setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, vendors]);
 
   // Close the New-PO menu on an outside click.
   useEffect(() => {
@@ -440,7 +464,7 @@ export default function PurchaseOrders() {
       </div>
 
       {simple && (
-        <Drawer onClose={() => setSimple(null)}>
+        <Drawer onClose={cancelSimple}>
           <h3>New purchase order — Simple</h3>
           <p className="hint">A quick PO with just the essentials. Quantities, rates, tax and terms can be added later via the detailed Edit.</p>
           <div className="grid">
@@ -479,7 +503,7 @@ export default function PurchaseOrders() {
           <div className="actions">
             <div />
             <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn" onClick={() => setSimple(null)}>Cancel</button>
+              <button className="btn" onClick={cancelSimple}>Cancel</button>
               <button className="btn primary" onClick={submitSimple} disabled={simpleBusy}>{simpleBusy ? 'Creating\u2026' : 'Save PO'}</button>
             </div>
           </div>

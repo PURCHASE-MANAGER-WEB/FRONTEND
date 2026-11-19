@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PackageSearch, FilePlus2, CheckCircle2, XCircle, History } from 'lucide-react';
 import { materialRequestsApi } from '../api/client';
 import { Pill, Field, Drawer, StateRow } from '../components/ui';
@@ -8,11 +9,11 @@ const fmtDT = (d) => (d ? new Date(d).toLocaleString('en-IN', { day: '2-digit', 
 const STATUS_FILTERS = ['all', 'Pending Approval', 'Approved', 'PO Created', 'Rejected'];
 
 export default function MaterialRequests() {
+  const nav = useNavigate();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('all');
-  const [convert, setConvert] = useState(null);
   const [reject, setReject] = useState(null);
   const [history, setHistory] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -41,9 +42,12 @@ export default function MaterialRequests() {
     if (!reject.reason || !reject.reason.trim()) { setError('Enter a reason to reject'); return; }
     run(() => materialRequestsApi.reject(reject._id, reject.reason.trim()), 'Requirement rejected').then(() => setReject(null));
   };
-  const doConvert = () => {
-    if (!convert.po || !convert.po.trim()) { setError('Enter the PO number'); return; }
-    run(() => materialRequestsApi.convert(convert._id, { po: convert.po.trim(), poDate: convert.poDate || '', rate: Number(convert.rate) || 0 }), 'Purchase order created').then(() => setConvert(null));
+  // Create PO → redirect to the Purchase Orders section's New PO builder, prefilled with this
+  // requirement. On save there, the PO is linked back to this request (→ PO Created).
+  const createPO = (m) => {
+    const desc = `${m.material}${m.spec ? ` (${m.spec})` : ''} — Qty ${m.qty || ''} ${m.unit || ''}`.trim();
+    try { sessionStorage.setItem('mr_new_po', JSON.stringify({ mrId: m._id, projectName: m.projectName || '', materialDesc: desc })); } catch { /* ignore */ }
+    nav(`/purchase-orders?mr=${encodeURIComponent(m._id)}`);
   };
 
   const shown = filter === 'all' ? rows : rows.filter((r) => r.status === filter);
@@ -93,7 +97,7 @@ export default function MaterialRequests() {
                       <button className="btn danger" disabled={busy} onClick={() => setReject({ _id: m._id, material: m.material, reason: '' })}><XCircle size={14} /> Reject</button>
                     </>}
                     {m.status === 'Approved' && <>
-                      <button className="btn primary" disabled={busy} onClick={() => setConvert({ _id: m._id, material: m.material, po: '', poDate: new Date().toISOString().slice(0, 10), rate: '' })}><FilePlus2 size={14} /> Create PO</button>
+                      <button className="btn primary" disabled={busy} onClick={() => createPO(m)}><FilePlus2 size={14} /> Create PO</button>
                       <button className="btn danger" disabled={busy} onClick={() => setReject({ _id: m._id, material: m.material, reason: '' })}><XCircle size={14} /> Reject</button>
                     </>}
                     {(m.statusLog || []).length > 0 && <button className="btn" onClick={() => setHistory(m)} title="History"><History size={14} /></button>}
@@ -104,22 +108,6 @@ export default function MaterialRequests() {
           </tbody>
         </table>
       </div>
-
-      {convert && (
-        <Drawer onClose={() => setConvert(null)}>
-          <h3>Create Purchase Order</h3>
-          <p className="hint">Creates a PO line for <strong>{convert.material}</strong> (material, qty and unit carried over) and marks the request <b>PO Created</b>.</p>
-          <div className="grid">
-            <Field label="PO Number *" full><input value={convert.po} onChange={(e) => setConvert((s) => ({ ...s, po: e.target.value }))} placeholder="e.g. PO-042" autoFocus /></Field>
-            <Field label="PO Date" full><input type="date" value={convert.poDate} onChange={(e) => setConvert((s) => ({ ...s, poDate: e.target.value }))} /></Field>
-            <Field label="Rate (₹, optional)" full><input type="number" min="0" step="any" value={convert.rate} onChange={(e) => setConvert((s) => ({ ...s, rate: e.target.value }))} placeholder="Per-unit rate" /></Field>
-          </div>
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
-            <button type="button" className="btn" onClick={() => setConvert(null)}>Cancel</button>
-            <button type="button" className="btn primary" disabled={busy} onClick={doConvert}>Create PO</button>
-          </div>
-        </Drawer>
-      )}
 
       {reject && (
         <Drawer onClose={() => setReject(null)}>
