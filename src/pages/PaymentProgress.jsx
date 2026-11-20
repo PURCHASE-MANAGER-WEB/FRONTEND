@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Plus, FileDown, Trash2, HandCoins, Wallet, ReceiptIndianRupee } from 'lucide-react';
+import { Plus, FileDown, Trash2, HandCoins, Wallet } from 'lucide-react';
 import { usePurchaseData } from '../context/PurchaseData';
 import { getUser } from '../api/client';
 import { useToast } from '../components/Toast';
@@ -14,7 +13,7 @@ import { downloadPaymentSlip } from '../utils/paymentSlip';
 
 const TABS = ['Client Payment', 'Vendor Payment'];
 const blankPay = () => ({ amount: '', date: today(), method: '', refNo: '', remarks: '', dueDate: '' });
-const blankOrder = () => ({ project: '', clientName: '', totalOrderValue: '', paymentTerms: '', method: '', dueDate: '', notes: '' });
+const blankOrder = () => ({ project: '', clientName: '', totalOrderValue: '', paymentTerms: '', dueDate: '', notes: '' });
 
 // Payment Progress — two completely separate ledgers:
 //   • Client Payment  : money RECEIVED from clients, per project order (purchase_project_payments)
@@ -27,9 +26,7 @@ export default function PaymentProgress() {
   } = usePurchaseData();
   const toast = useToast();
   const [tab, setTab] = useState('Client Payment');
-  const [searchParams, setSearchParams] = useSearchParams();
-  const q = searchParams.get('q') || '';
-  const setQ = (v) => { const sp = new URLSearchParams(searchParams); if (v) sp.set('q', v); else sp.delete('q'); setSearchParams(sp, { replace: true }); };
+  const [q, setQ] = useState('');
 
   // ───────────────────────── VENDOR PAYMENT ─────────────────────────
   const [manage, setManage] = useState(null);   // PO group being managed
@@ -43,24 +40,22 @@ export default function PaymentProgress() {
 
   const vRows = useMemo(() => {
     const q2 = q.trim().toLowerCase();
-    const codeFor = (name) => { const p = (projects || []).find(x => x.name === name); return p ? p.code : ''; };
     return groups
       .map(g => ({ g, vn: g.vendorName || vendorName(vendors, g.vid) }))
-      .filter(({ g, vn }) => !q2 || [g.po, g.vid, vn, g.project, codeFor(g.project), ...(Array.isArray(g.projects) ? g.projects : []), ...(Array.isArray(g.projects) ? g.projects.map(codeFor) : []), g.value, g.paid, g.out].filter(Boolean).join(' ').toLowerCase().includes(q2))
+      .filter(({ g, vn }) => !q2 || [g.po, g.vid, vn, g.project].filter(Boolean).join(' ').toLowerCase().includes(q2))
       .sort((a, b) => String(a.g.po).localeCompare(String(b.g.po), undefined, { numeric: true }));
-  }, [groups, vendors, q, projects]);
+  }, [groups, vendors, q]);
 
   const vCards = useMemo(() => {
-    const gs = vRows.map((row) => row.g);       // only the rows currently shown (respects the search)
-    const totalValue = gs.reduce((a, g) => a + g.value, 0);
-    const totalPaid = gs.reduce((a, g) => a + g.paid, 0);
-    const outstanding = gs.reduce((a, g) => a + g.out, 0);
-    const fully = gs.filter(g => g.payment === 'Paid').length;
-    const partial = gs.filter(g => g.payment === 'Partial').length;
-    const unpaid = gs.filter(g => g.payment === 'Unpaid').length;
-    const overdue = gs.filter(g => g.payOverdueDays > 0).length;
+    const totalValue = groups.reduce((a, g) => a + g.value, 0);
+    const totalPaid = groups.reduce((a, g) => a + g.paid, 0);
+    const outstanding = groups.reduce((a, g) => a + g.out, 0);
+    const fully = groups.filter(g => g.payment === 'Paid').length;
+    const partial = groups.filter(g => g.payment === 'Partial').length;
+    const unpaid = groups.filter(g => g.payment === 'Unpaid').length;
+    const overdue = groups.filter(g => g.payOverdueDays > 0).length;
     return { totalValue, totalPaid, outstanding, fully, partial, unpaid, overdue };
-  }, [vRows]);
+  }, [groups]);
 
   const openManage = (g) => { setForm(blankPay()); setFormErr(''); setManage(g); };
   const close = () => { setManage(null); setFormErr(''); };
@@ -113,26 +108,14 @@ export default function PaymentProgress() {
 
   const cRows = useMemo(() => {
     const q2 = q.trim().toLowerCase();
-    const pays = Array.isArray(projectPayments) ? projectPayments : [];
-    const recFor = (name) => pays.find(r => (r.project || r.customerName) === name) || null;
-    const projNames = (projects || []).map(p => p.name);
-    // Every existing project shows here, with its client-payment record if one exists yet.
-    const projRows = (projects || []).map(p => { const r = recFor(p.name); return { key: 'p:' + p.name, projectName: p.name, r, proj: p, client: r ? clientOf(r) : (p.client || '—') }; });
-    // Plus any client-payment records not tied to a current project (manually-added orders).
-    const extraRows = pays.filter(r => !projNames.includes(r.project || r.customerName))
-      .map(r => ({ key: 'r:' + r.id, projectName: r.project || r.customerName || '—', r, proj: null, client: clientOf(r) }));
-    return [...projRows, ...extraRows]
-      .filter(({ projectName, client, r, proj }) => !q2 || [projectName, client, (proj && proj.code), r && r.paymentTerms, r && cpOrderValue(r), r && cpReceived(r)].filter(Boolean).join(' ').toLowerCase().includes(q2))
-      .sort((a, b) => {
-        const ca = String((a.proj && a.proj.code) || '').trim(), cb = String((b.proj && b.proj.code) || '').trim();
-        if (ca && cb) return ca.localeCompare(cb, undefined, { numeric: true }) || String(a.projectName).localeCompare(String(b.projectName));
-        if (ca) return -1; if (cb) return 1;
-        return String(a.projectName).localeCompare(String(b.projectName), undefined, { numeric: true });
-      });
+    return (Array.isArray(projectPayments) ? projectPayments : [])
+      .map(r => ({ r, client: clientOf(r) }))
+      .filter(({ r, client }) => !q2 || [r.project, r.customerName, client, r.paymentTerms].filter(Boolean).join(' ').toLowerCase().includes(q2))
+      .sort((a, b) => String(cpLastDate(b.r) || '').localeCompare(String(cpLastDate(a.r) || '')));
   }, [projectPayments, projects, q]);
 
   const cCards = useMemo(() => {
-    const list = cRows.map((row) => row.r).filter(Boolean);   // only the client orders currently shown
+    const list = Array.isArray(projectPayments) ? projectPayments : [];
     const orderValue = list.reduce((a, r) => a + cpOrderValue(r), 0);
     const received = list.reduce((a, r) => a + cpReceived(r), 0);
     const outstanding = list.reduce((a, r) => a + cpOutstanding(r), 0);
@@ -141,7 +124,7 @@ export default function PaymentProgress() {
     const unpaid = list.filter(r => cpStatus(r) === 'Unpaid').length;
     const overdue = list.filter(r => cpOverdueDays(r) > 0).length;
     return { orderValue, received, outstanding, fully, partial, unpaid, overdue };
-  }, [cRows]);
+  }, [projectPayments]);
 
   const cmg = cDrawer && !cDrawer.isNew ? ((projectPayments || []).find(r => r.id === cDrawer.id) || null) : null;
 
@@ -151,16 +134,9 @@ export default function PaymentProgress() {
     setCDetail({
       project: r.project || '', clientName: clientOf(r) === '—' ? '' : clientOf(r),
       totalOrderValue: r.totalOrderValue != null ? String(r.totalOrderValue) : '',
-      paymentTerms: r.paymentTerms || '', method: r.paymentMethod || '', dueDate: r.dueDate || '', notes: r.notes || '',
+      paymentTerms: r.paymentTerms || '', dueDate: r.dueDate || '', notes: r.notes || '',
     });
     setCDrawer({ isNew: false, id: r.id });
-  };
-  // A project with no client-payment record yet: open the drawer pre-filled so saving
-  // order details / a receipt creates its record.
-  const openClientForProject = (proj) => {
-    setCErr(''); setCConfirmDel(false); setCForm(blankPay());
-    setCDetail({ project: proj.name, clientName: proj.client || '', totalOrderValue: '', paymentTerms: '', method: '', dueDate: '', notes: '' });
-    setCDrawer({ isNew: true, id: null });
   };
   const closeClient = () => { setCDrawer(null); setCErr(''); setCConfirmDel(false); };
   const setCD = (k, v) => setCDetail(d => ({ ...d, [k]: v }));
@@ -183,7 +159,6 @@ export default function PaymentProgress() {
         clientName: String(d.clientName || '').trim(),
         totalOrderValue: num(d.totalOrderValue),
         paymentTerms: String(d.paymentTerms || '').trim(),
-        paymentMethod: d.method || '',
         dueDate: d.dueDate || '',
         notes: String(d.notes || '').trim(),
       };
@@ -259,7 +234,7 @@ export default function PaymentProgress() {
       <div className="ptabs">
         {TABS.map((t) => (
           <button key={t} className={`ptab ${tab === t ? 'active' : ''}`} onClick={() => { setTab(t); setQ(''); }}>
-            {t === 'Client Payment' ? <ReceiptIndianRupee size={15} /> : <Wallet size={15} />} {t}
+            {t === 'Client Payment' ? <HandCoins size={15} /> : <Wallet size={15} />} {t}
           </button>
         ))}
       </div>
@@ -285,44 +260,31 @@ export default function PaymentProgress() {
           <div className="tbl">
             <table>
               <thead><tr>
-                <th>Project</th><th>Code</th><th>Client</th><th className="num">Order Value</th><th>Payment Terms</th>
+                <th>Project</th><th>Client</th><th className="num">Order Value</th><th>Payment Terms</th>
                 <th className="num">Received</th><th>Last Payment</th><th className="num">Outstanding</th><th>Status</th><th className="num">Receipts</th><th></th>
               </tr></thead>
               <tbody>
                 {loading || error || cRows.length === 0 ? (
-                  <StateRow cols={11} loading={loading} error={error}
-                    empty={((projects || []).length || (projectPayments || []).length) ? 'No projects or client orders match your search.' : 'No projects yet. Add a project, or click "New client order" to start tracking a client payment.'} />
-                ) : cRows.map(({ key, projectName, r, proj, client }) => {
-                  const od = r ? cpOverdueDays(r) : 0;
-                  const manageRow = () => (r ? openClientManage(r) : openClientForProject(proj));
+                  <StateRow cols={10} loading={loading} error={error}
+                    empty={(projectPayments || []).length ? 'No client orders match your search.' : 'No client orders yet. Click "New client order" to start tracking a client payment.'} />
+                ) : cRows.map(({ r, client }) => {
+                  const od = cpOverdueDays(r);
                   return (
-                    <tr key={key} className="row-click" onClick={manageRow}>
-                      <td>{projectName || '—'}</td>
-                      <td>{(proj && proj.code) || '—'}</td>
+                    <tr key={r.id} className="row-click" onClick={() => openClientManage(r)}>
+                      <td>{r.project || '—'}</td>
                       <td><b>{client}</b></td>
-                      <td className="num">{r ? inr(cpOrderValue(r)) : '—'}</td>
-                      <td>{(r && r.paymentTerms) || '—'}</td>
-                      <td className="num calc">{r ? inr(cpReceived(r)) : '—'}</td>
-                      <td className={od > 0 ? 'overdue' : ''}>{r && cpLastDate(r) ? dfmt(cpLastDate(r)) : '—'}{od > 0 ? ` · ${od}d overdue` : ''}</td>
-                      <td className={`num calc ${r && cpOutstanding(r) > 0 ? 'overdue' : ''}`}>{r ? inr(cpOutstanding(r)) : '—'}</td>
-                      <td className="calc">{r ? <Pill s={cpStatus(r)} /> : <Pill s="No order" />}</td>
-                      <td className="num">{r ? cpReceipts(r).length : 0}</td>
-                      <td onClick={(e) => e.stopPropagation()}><button className="link" onClick={manageRow}>{r ? 'View / Manage' : 'Add payment'}</button></td>
+                      <td className="num">{inr(cpOrderValue(r))}</td>
+                      <td>{r.paymentTerms || '—'}</td>
+                      <td className="num calc">{inr(cpReceived(r))}</td>
+                      <td className={od > 0 ? 'overdue' : ''}>{cpLastDate(r) ? dfmt(cpLastDate(r)) : '—'}{od > 0 ? ` · ${od}d overdue` : ''}</td>
+                      <td className={`num calc ${cpOutstanding(r) > 0 ? 'overdue' : ''}`}>{inr(cpOutstanding(r))}</td>
+                      <td className="calc"><Pill s={cpStatus(r)} /></td>
+                      <td className="num">{cpReceipts(r).length}</td>
+                      <td onClick={(e) => e.stopPropagation()}><button className="link" onClick={() => openClientManage(r)}>View / Manage</button></td>
                     </tr>
                   );
                 })}
               </tbody>
-              {cRows.length > 0 && (
-                <tfoot><tr>
-                  <td colSpan={3}>Total ({cRows.filter((x) => x.r).length} order{cRows.filter((x) => x.r).length > 1 ? 's' : ''})</td>
-                  <td className="num">{inr(cCards.orderValue)}</td>
-                  <td></td>
-                  <td className="num">{inr(cCards.received)}</td>
-                  <td></td>
-                  <td className="num">{inr(cCards.outstanding)}</td>
-                  <td colSpan={3}></td>
-                </tr></tfoot>
-              )}
             </table>
           </div>
         </>
@@ -347,7 +309,7 @@ export default function PaymentProgress() {
             <table>
               <thead><tr>
                 <th>PO Number</th><th>Vendor</th><th>Project</th><th className="num">PO Value</th>
-                <th className="num">Paid</th><th className="num">Outstanding</th><th>Due Date</th><th>Status</th><th>Terms</th><th className="num">Payments</th><th></th>
+                <th className="num">Paid</th><th className="num">Outstanding</th><th>Due Date</th><th>Status</th><th>Method</th><th className="num">Payments</th><th></th>
               </tr></thead>
               <tbody>
                 {loading || error || vRows.length === 0 ? (
@@ -357,7 +319,7 @@ export default function PaymentProgress() {
                   <tr key={g.po} className="row-click" onClick={() => openManage(g)}>
                     <td className="id">{g.po}</td>
                     <td>{vn}</td>
-                    <td>{(g.projects && g.projects.length ? g.projects.join(', ') : g.project) || '—'}</td>
+                    <td>{g.project || '—'}</td>
                     <td className="num">{inr(g.value)}</td>
                     <td className="num">{inr(g.paid)}</td>
                     <td className="num calc">{inr(g.out)}</td>
@@ -369,15 +331,6 @@ export default function PaymentProgress() {
                   </tr>
                 ))}
               </tbody>
-              {vRows.length > 0 && (
-                <tfoot><tr>
-                  <td colSpan={3}>Total ({vRows.length} PO{vRows.length > 1 ? 's' : ''})</td>
-                  <td className="num">{inr(vCards.totalValue)}</td>
-                  <td className="num">{inr(vCards.totalPaid)}</td>
-                  <td className="num">{inr(vCards.outstanding)}</td>
-                  <td colSpan={5}></td>
-                </tr></tfoot>
-              )}
             </table>
           </div>
         </>
@@ -387,7 +340,7 @@ export default function PaymentProgress() {
       {mg && (
         <Drawer onClose={close}>
           <h3>Vendor Payments · {mg.po}</h3>
-          <p className="hint">{mg.vendorName || vendorName(vendors, mg.vid)} · {(mg.projects && mg.projects.length ? mg.projects.join(', ') : mg.project) || 'No project'}</p>
+          <p className="hint">{mg.vendorName || vendorName(vendors, mg.vid)} · {mg.project || 'No project'}</p>
 
           <div className="kpis" style={{ gridTemplateColumns: 'repeat(3,1fr)', margin: '4px 0 14px' }}>
             <div className="kpi"><div className="l">PO Value</div><div className="v">{inr(mg.value)}</div></div>
@@ -460,7 +413,6 @@ export default function PaymentProgress() {
             <Field label="Order Value (₹) *"><input type="number" min="0" step="any" value={cDetail.totalOrderValue} onChange={e => setCD('totalOrderValue', e.target.value)} /></Field>
             <Field label="Payment Terms"><input value={cDetail.paymentTerms} onChange={e => setCD('paymentTerms', e.target.value)} placeholder="e.g. 50% advance, balance on delivery" /></Field>
             <Field label="Payment Due Date"><input type="date" value={cDetail.dueDate} onChange={e => setCD('dueDate', e.target.value)} /></Field>
-            <Field label="Payment Method"><select value={cDetail.method} onChange={e => setCD('method', e.target.value)}><option value="">— Select —</option>{PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}</select></Field>
             <Field label="Notes"><input value={cDetail.notes} onChange={e => setCD('notes', e.target.value)} placeholder="Any note" /></Field>
           </div>
           {cErr && <div className="err">{cErr}</div>}
