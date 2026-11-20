@@ -22,7 +22,7 @@ const blankOrder = () => ({ project: '', clientName: '', totalOrderValue: '', pa
 export default function PaymentProgress() {
   const {
     vendors, lines, payments, projects, projectPayments, loading, error,
-    savePayment, deletePayment, saveProjectPayment, deleteProjectPayment,
+    savePayment, deletePayment, saveProjectPayment, deleteProjectPayment, saveLine,
   } = usePurchaseData();
   const toast = useToast();
   const [tab, setTab] = useState('Client Payment');
@@ -33,6 +33,8 @@ export default function PaymentProgress() {
   const [form, setForm] = useState(blankPay());
   const [formErr, setFormErr] = useState('');
   const [busy, setBusy] = useState(false);
+  const [paidEdit, setPaidEdit] = useState(false);   // editing the PO's stored paid amount
+  const [paidVal, setPaidVal] = useState('');
   const [editId, setEditId] = useState(null);   // id of the vendor payment being edited (null = adding new)
 
   const groups = useMemo(() => groupPOs(lines), [lines]);
@@ -58,8 +60,8 @@ export default function PaymentProgress() {
     return { totalValue, totalPaid, outstanding, fully, partial, unpaid, overdue };
   }, [groups]);
 
-  const openManage = (g) => { setForm(blankPay()); setFormErr(''); setEditId(null); setManage(g); };
-  const close = () => { setManage(null); setFormErr(''); setEditId(null); };
+  const openManage = (g) => { setForm(blankPay()); setFormErr(''); setEditId(null); setPaidEdit(false); setManage(g); };
+  const close = () => { setManage(null); setFormErr(''); setEditId(null); setPaidEdit(false); };
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   // Load an existing payment into the form to edit it (same form switches to "Save changes").
@@ -106,24 +108,25 @@ export default function PaymentProgress() {
     catch (e) { toast(e.message || 'Could not delete payment'); }
     finally { setBusy(false); }
   };
-  // Ledger total actually recorded for a PO, vs the paid amount stored on the PO itself.
-  const ledgerPaidOf = (po) => paysOf(po).reduce((s, p) => s + num(p.amount), 0);
-  const unreconciledOf = (g) => Math.round((num(g.paid) - ledgerPaidOf(g.po)) * 100) / 100;
-  // Bring a legacy paid amount (stored on the PO, with no payment entry) into the ledger as
-  // one record. syncPoPaid then recomputes the PO's paid from the ledger, so the total is
-  // unchanged — it just appears in history and becomes editable/deletable.
-  const reconcilePaid = async (g) => {
-    const amount = unreconciledOf(g);
-    if (amount <= 0) return;
+  // Some POs carry a paid amount stored directly on the PO (legacy / imported) with no entry
+  // in the payment ledger. For those, allow editing that paid figure directly. The amount is
+  // written onto the PO's first line and the rest zeroed — the same layout syncPoPaid uses.
+  const startPaidEdit = (g) => { setPaidVal(String(num(g.paid))); setPaidEdit(true); };
+  const cancelPaidEdit = () => { setPaidEdit(false); setPaidVal(''); };
+  const savePaidEdit = async (g) => {
+    const v = num(paidVal);
+    if (v < 0) { toast('Paid amount cannot be negative.'); return; }
+    const poLines = lines.filter(l => l.po === g.po).sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true }));
+    if (!poLines.length) { toast('No PO lines found to update.'); return; }
     setBusy(true);
     try {
-      await savePayment(true, null, {
-        po: g.po, vid: g.vid, amount,
-        date: today(), method: '', refNo: '',
-        remarks: 'Opening balance (reconciled from PO)', dueDate: '',
-      });
-      toast('Paid amount added to history');
-    } catch (e) { toast(e.message || 'Could not reconcile the paid amount.'); }
+      for (let i = 0; i < poLines.length; i++) {
+        const target = i === 0 ? v : 0;
+        if (num(poLines[i].paid) !== target) await saveLine(false, poLines[i].id, { paid: target });
+      }
+      toast('Paid amount updated');
+      setPaidEdit(false);
+    } catch (e) { toast(e.message || 'Could not update the paid amount.'); }
     finally { setBusy(false); }
   };
   const receipt = async (p, g) => {
@@ -406,15 +409,28 @@ export default function PaymentProgress() {
             <button className="btn primary" onClick={addPayment} disabled={busy}><Plus size={15} /> {busy ? 'Saving…' : editId ? 'Save changes' : 'Record payment'}</button>
           </div>
 
-          {unreconciledOf(mg) > 0 && (
+          {paysOf(mg.po).length === 0 && mg.paid > 0 && (
             <div className="reconcile-banner">
-              <div className="rb-text">
-                <b>{inr(unreconciledOf(mg))}</b> is marked paid on this PO but has no entry in the history below.
-                Add it as a payment record so it shows here and can be edited.
-              </div>
-              <button className="btn primary" onClick={() => reconcilePaid(mg)} disabled={busy}>
-                <Plus size={15} /> {busy ? 'Adding…' : 'Add to history'}
-              </button>
+              {!paidEdit ? (
+                <>
+                  <div className="rb-text">
+                    This PO has <b>{inr(mg.paid)}</b> recorded as paid directly on the order (no payment entry below). You can edit that amount here.
+                  </div>
+                  <button className="btn" onClick={() => startPaidEdit(mg)} disabled={busy}>
+                    <Pencil size={15} /> Edit paid amount
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="rb-edit">
+                    <Field label="Paid amount (₹)"><input type="number" min="0" step="any" value={paidVal} onChange={e => setPaidVal(e.target.value)} autoFocus /></Field>
+                  </div>
+                  <div className="rb-acts">
+                    <button className="btn" onClick={cancelPaidEdit} disabled={busy}>Cancel</button>
+                    <button className="btn primary" onClick={() => savePaidEdit(mg)} disabled={busy}>{busy ? 'Saving…' : 'Save'}</button>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -546,6 +562,8 @@ export default function PaymentProgress() {
         .ph-node.editing .ph-card{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
         .reconcile-banner{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:16px 0 4px;padding:12px 14px;border:1px solid var(--accent);background:var(--accent-soft);border-radius:12px}
         .reconcile-banner .rb-text{flex:1;min-width:220px;font-size:13px;color:var(--fg);line-height:1.5}
+        .reconcile-banner .rb-edit{flex:1;min-width:200px}
+        .reconcile-banner .rb-acts{display:flex;gap:10px}
         .reconcile-banner .btn{white-space:nowrap}
       `}</style>
     </section>
