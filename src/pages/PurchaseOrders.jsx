@@ -1,11 +1,12 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { Plus, Trash2, FileText, Upload, ClipboardList, Clock, CheckCircle2, IndianRupee, Wallet } from 'lucide-react';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { Plus, Trash2, FileText, Upload, ClipboardList, Clock, CheckCircle2, IndianRupee, Wallet, Truck } from 'lucide-react';
 import { usePurchaseData } from '../context/PurchaseData';
 import { purchaseApi, filesApi, invoicesApi, materialRequestsApi } from '../api/client';
 import { useToast } from '../components/Toast';
 import { Pill, Drawer, Field, StateRow } from '../components/ui';
 import ComboBox from '../components/ComboBox';
+import VendorSelect from '../components/VendorSelect';
 import FabricatorPO from '../components/FabricatorPO';
 import ProjectMultiSelect from '../components/ProjectMultiSelect';
 import { calcLine, computePoBreakdown, poCharges, amountInWords, groupPOs, poInProject, venStatus, num, inr, qfmt, dfmt, cdfmt, cdkey, today, vendorName, nextPo, UNITS, PAYMENT_METHODS, PO_STATUSES, MATERIALS } from '../utils/procurement';
@@ -35,6 +36,8 @@ const blankPO = (lines, vendors) => ({
 export default function PurchaseOrders() {
   const { vendors, lines, projects, payments, loading, error, reload, bulkSaveLines } = usePurchaseData();
   const toast = useToast();
+  const navigate = useNavigate();
+  const [dcPrompt, setDcPrompt] = useState(null);   // PO number to offer a Delivery Challan for after save
   const [editing, setEditing] = useState(null);
   const [formErr, setFormErr] = useState('');
   const [busy, setBusy] = useState(false);
@@ -311,6 +314,7 @@ export default function PurchaseOrders() {
       }
       close();
       toast(d.isNew ? 'Purchase order added' : 'Purchase order saved');
+      if (d.isNew) setDcPrompt(po);   // offer to create a linked Delivery Challan for the new PO
     } catch (e) {
       setFormErr(e.message || 'Could not save the purchase order.');
     } finally {
@@ -398,7 +402,7 @@ export default function PurchaseOrders() {
           <td className="num">{qfmt(g.rec)}{u}</td>
           <td className="num calc">{qfmt(g.pend)}{u}</td>
           <td className={g.overdueDays > 0 ? 'overdue' : ''}>{dfmt(g.expDate)}{g.overdueDays > 0 ? ` · ${g.overdueDays}d overdue` : (g.dueToday && g.delivery !== 'Completed' ? ' · due today' : '')}</td>
-          <td><button className="link" onClick={() => g.poType === 'fabricator' ? setFab({ poKey: g.po }) : open(g.po)}>Edit</button>{g.poType !== 'fabricator' ? <button className="link" onClick={() => copyPO(g.po)} style={{ marginLeft: 10 }}>Copy</button> : null}</td>
+          <td><button className="link" onClick={() => g.poType === 'fabricator' ? setFab({ poKey: g.po }) : open(g.po)}>Edit</button>{g.poType !== 'fabricator' ? <button className="link" onClick={() => copyPO(g.po)} style={{ marginLeft: 10 }}>Copy</button> : null}{g.poType !== 'fabricator' ? <button className="link" onClick={() => navigate(`/delivery-challan?dcFor=${encodeURIComponent(g.po)}`)} style={{ marginLeft: 10 }} title="Create a Delivery Challan from this PO">Create DC</button> : null}</td>
         </tr>
       );
     });
@@ -526,9 +530,7 @@ export default function PurchaseOrders() {
             <Field label="PO Date *"><input type="date" value={editing.poDate} onChange={e => setHdr('poDate', e.target.value)} /></Field>
             <Field label="PO Creation Date"><input value={(() => { const c = lines.filter(l => l.po === editing.po).map(l => l.createdAt).filter(Boolean).sort()[0]; return c ? cdfmt(c) : 'Set automatically on save'; })()} readOnly tabIndex={-1} className="ro" /></Field>
             <Field label="Vendor *" full>
-              <select value={editing.vid} onChange={e => setHdr('vid', e.target.value)}>
-                {vendors.map(v => <option key={v.vid} value={v.vid}>{v.vid} · {v.name}{venStatus(v.status) !== 'Ongoing' ? ` (${venStatus(v.status)})` : ''}</option>)}
-              </select>
+              <VendorSelect value={editing.vid} onChange={(vid) => setHdr('vid', vid)} vendors={vendors} />
             </Field>
             <Field label="Project Name(s) *" full><ProjectMultiSelect value={editing.projects} onChange={(v) => setHdr('projects', v)} options={projects} placeholder="Add a project…" /></Field>
             <Field label="Delivery Date"><input type="date" value={editing.deliveryDate || ''} onChange={e => setHdr('deliveryDate', e.target.value)} /></Field>
@@ -831,6 +833,20 @@ export default function PurchaseOrders() {
         .newpo-menu button span{font-size:11.5px;color:var(--muted)}
         @media (max-width:720px){.po-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.pf.wide{grid-column:1/-1}}
       `}</style>
+
+      {dcPrompt && (
+        <div className="modal-bg" style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }} onMouseDown={(e) => { if (e.target === e.currentTarget) setDcPrompt(null); }}>
+          <div role="dialog" aria-modal="true" style={{ background: 'var(--surface,#fff)', borderRadius: 14, padding: '24px 24px 20px', width: 'min(92vw, 420px)', boxShadow: '0 20px 50px rgba(0,0,0,.25)', textAlign: 'center' }}>
+            <div style={{ width: 46, height: 46, borderRadius: '50%', background: 'var(--accent-soft,#eef7e6)', color: 'var(--accent-ink,#2f6b12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}><Truck size={22} /></div>
+            <h3 style={{ margin: '0 0 6px' }}>Purchase order {dcPrompt} saved</h3>
+            <p style={{ margin: '0 0 18px', color: 'var(--muted)', fontSize: 14 }}>Create a Delivery Challan for this PO now? Its vendor, project and materials will be filled in automatically.</p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+              <button className="btn" onClick={() => setDcPrompt(null)}>Not now</button>
+              <button className="btn primary" onClick={() => { const p = dcPrompt; setDcPrompt(null); navigate(`/delivery-challan?dcFor=${encodeURIComponent(p)}`); }}><Truck size={15} /> Create Delivery Challan</button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

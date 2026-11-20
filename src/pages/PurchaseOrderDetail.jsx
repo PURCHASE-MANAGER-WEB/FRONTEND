@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Download, Printer, Pencil, FileText, Trash2 } from 'lucide-react';
+import { ArrowLeft, Download, Printer, Pencil, FileText, Trash2, Truck } from 'lucide-react';
 import { usePurchaseData } from '../context/PurchaseData';
 import { useToast } from '../components/Toast';
 import { Pill, StateRow } from '../components/ui';
@@ -155,6 +155,7 @@ export default function PurchaseOrderDetail() {
           {h.invoice && <button type="button" className="btn" onClick={() => openInvoice(h.invoice)}><FileText size={15} style={{ verticalAlign: '-2px' }} /> View Invoice</button>}
           {h.invoice && <button type="button" className="btn" onClick={() => downloadInvoice(h.invoice)}><Download size={15} style={{ verticalAlign: '-2px' }} /> Download Invoice</button>}
           <button className="btn" onClick={() => navigate(`/purchase-orders?edit=${encodeURIComponent(po)}`)}><Pencil size={15} style={{ verticalAlign: '-2px' }} /> Edit</button>
+          <button className="btn" onClick={() => navigate(`/delivery-challan?dcFor=${encodeURIComponent(po)}`)} title="Create a Delivery Challan from this PO"><Truck size={15} style={{ verticalAlign: '-2px' }} /> Create DC</button>
           <button className="btn" onClick={() => window.print()}><Printer size={15} style={{ verticalAlign: '-2px' }} /> Print</button>
           <button className="btn primary" onClick={onDownload} disabled={pdfBusy}><Download size={15} style={{ verticalAlign: '-2px' }} /> {pdfBusy ? 'Preparing…' : 'Download PDF'}</button>
           <button className="btn danger" onClick={() => { setDelErr(''); setConfirmDel(true); }}><Trash2 size={15} style={{ verticalAlign: '-2px' }} /> Delete</button>

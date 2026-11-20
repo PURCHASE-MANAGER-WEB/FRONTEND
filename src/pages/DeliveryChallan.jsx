@@ -1,10 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { usePurchaseData } from '../context/PurchaseData';
 import { useToast } from '../components/Toast';
 import { Truck, CheckCircle2, Clock, AlertTriangle, FileDown } from 'lucide-react';
 import { Drawer, Field, StateRow } from '../components/ui';
 import ComboBox from '../components/ComboBox';
+import VendorSelect from '../components/VendorSelect';
 import { num, inr, qfmt, dfmt, today, groupPOs, vendorName, MATERIALS, UNITS } from '../utils/procurement';
 import { readFileBase64, openChallanDoc, downloadChallanDoc, DOC_MAX_BYTES } from '../utils/challanDoc';
 import { downloadChallanPdf } from '../utils/challanPdf';
@@ -41,6 +42,24 @@ export default function DeliveryChallan() {
   const [busy, setBusy] = useState(false);
 
   const poList = useMemo(() => groupPOs(lines), [lines]);
+
+  // Deep link from a Purchase Order ("Create DC"): /delivery-challan?dcFor=PO-258 opens a NEW
+  // challan pre-filled from that PO — number, vendor, project, delivery address and materials.
+  // The DC links to the PO via its `po` field; multiple challans per PO are allowed.
+  useEffect(() => {
+    const dcFor = searchParams.get('dcFor');
+    if (!dcFor || editing || !lines.length) return;
+    const poLines = lines.filter((l) => String(l.po) === String(dcFor));
+    const g = poList.find((x) => x.po === dcFor);
+    const items = poLines.length
+      ? poLines.map((l) => ({ ...blankItem(), material: l.material || l.description || '', make: l.make || '', qty: l.qty != null && l.qty !== '' ? String(l.qty) : '', unit: l.unit || 'Nos', weight: l.weight != null && l.weight !== '' ? String(l.weight) : '' }))
+      : [blankItem()];
+    const addr = (poLines.find((l) => l.deliveryAddress) || {}).deliveryAddress || '';
+    setFormErr(''); setConfirmDel(false); setNewFile(null); setRemoveDoc(false);
+    setEditing({ isNew: true, data: { ...blank(), po: dcFor, vid: (g && g.vid) || (poLines[0] && poLines[0].vid) || '', project: (g && g.project) || (poLines[0] && poLines[0].project) || '', consigneeAddress: addr, items } });
+    const next = new URLSearchParams(searchParams); next.delete('dcFor'); setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, lines, poList]);
 
   const matText = (c) => {
     const its = Array.isArray(c.items) ? c.items.filter((x) => x.material) : [];
@@ -205,7 +224,7 @@ export default function DeliveryChallan() {
           <div className="grid">
             <Field label="DC Date *"><input type="date" value={editing.data.date} onChange={(e) => set('date', e.target.value)} /></Field>
             <Field label="Delivery Status"><select value={editing.data.status} onChange={(e) => set('status', e.target.value)}>{DC_STATUS.map((s) => <option key={s}>{s}</option>)}</select></Field>
-            <Field label="Vendor"><select value={editing.data.vid} onChange={(e) => set('vid', e.target.value)}><option value="">— Select vendor —</option>{vendors.map((v) => <option key={v.vid} value={v.vid}>{v.name}</option>)}</select></Field>
+            <Field label="Vendor"><VendorSelect value={editing.data.vid} onChange={(vid) => set('vid', vid)} vendors={vendors} allowClear placeholder="Search vendor…" /></Field>
             <Field label="Project">
               <ComboBox value={editing.data.project} onChange={(v) => set('project', v)} options={projects.map((p) => p.name)} placeholder="Type or pick a project" />
             </Field>
