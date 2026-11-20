@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, FileDown, Trash2, HandCoins, Wallet } from 'lucide-react';
+import { Plus, FileDown, Trash2, HandCoins, Wallet, Pencil } from 'lucide-react';
 import { usePurchaseData } from '../context/PurchaseData';
 import { getUser } from '../api/client';
 import { useToast } from '../components/Toast';
@@ -33,6 +33,7 @@ export default function PaymentProgress() {
   const [form, setForm] = useState(blankPay());
   const [formErr, setFormErr] = useState('');
   const [busy, setBusy] = useState(false);
+  const [editId, setEditId] = useState(null);   // id of the vendor payment being edited (null = adding new)
 
   const groups = useMemo(() => groupPOs(lines), [lines]);
   const paysOf = (po) => (Array.isArray(payments) ? payments : []).filter(p => p.po === po)
@@ -57,9 +58,24 @@ export default function PaymentProgress() {
     return { totalValue, totalPaid, outstanding, fully, partial, unpaid, overdue };
   }, [groups]);
 
-  const openManage = (g) => { setForm(blankPay()); setFormErr(''); setManage(g); };
-  const close = () => { setManage(null); setFormErr(''); };
+  const openManage = (g) => { setForm(blankPay()); setFormErr(''); setEditId(null); setManage(g); };
+  const close = () => { setManage(null); setFormErr(''); setEditId(null); };
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  // Load an existing payment into the form to edit it (same form switches to "Save changes").
+  const startEdit = (p) => {
+    setEditId(p.id);
+    setFormErr('');
+    setForm({
+      amount: p.amount != null ? String(p.amount) : '',
+      date: p.date || today(),
+      method: p.method || '',
+      refNo: p.refNo || '',
+      remarks: p.remarks || '',
+      dueDate: p.dueDate || '',
+    });
+  };
+  const cancelEdit = () => { setEditId(null); setForm(blankPay()); setFormErr(''); };
 
   const addPayment = async () => {
     const amount = num(form.amount);
@@ -67,19 +83,26 @@ export default function PaymentProgress() {
     if (!form.date) { setFormErr('Choose the payment date.'); return; }
     setBusy(true);
     try {
-      await savePayment(true, null, {
+      const body = {
         po: manage.po, vid: manage.vid, amount,
         date: form.date, method: form.method || '', refNo: String(form.refNo || '').trim(),
         remarks: String(form.remarks || '').trim(), dueDate: form.dueDate || '',
-      });
+      };
+      if (editId) {
+        await savePayment(false, editId, body);
+        toast('Payment updated');
+      } else {
+        await savePayment(true, null, body);
+        toast('Vendor payment recorded');
+      }
       setForm(blankPay());
-      toast('Vendor payment recorded');
-    } catch (e) { setFormErr(e.message || 'Could not record the payment.'); }
+      setEditId(null);
+    } catch (e) { setFormErr(e.message || (editId ? 'Could not update the payment.' : 'Could not record the payment.')); }
     finally { setBusy(false); }
   };
   const removePayment = async (id) => {
     setBusy(true);
-    try { await deletePayment(id); toast('Payment deleted'); }
+    try { await deletePayment(id); toast('Payment deleted'); if (editId === id) cancelEdit(); }
     catch (e) { toast(e.message || 'Could not delete payment'); }
     finally { setBusy(false); }
   };
@@ -348,7 +371,7 @@ export default function PaymentProgress() {
             <div className="kpi"><div className="l">Outstanding</div><div className="v">{inr(mg.out)}</div></div>
           </div>
 
-          <div className="po-items-head" style={{ marginBottom: 8 }}><span>Add a payment</span></div>
+          <div className="po-items-head" style={{ marginBottom: 8 }}><span>{editId ? `Edit payment · ${editId}` : 'Add a payment'}</span></div>
           <div className="grid">
             <Field label="Amount (₹) *"><input type="number" min="0" step="any" value={form.amount} onChange={e => set('amount', e.target.value)} /></Field>
             <Field label="Payment Date *"><input type="date" value={form.date} onChange={e => set('date', e.target.value)} /></Field>
@@ -359,8 +382,8 @@ export default function PaymentProgress() {
           </div>
           {formErr && <div className="err">{formErr}</div>}
           <div className="actions">
-            <div />
-            <button className="btn primary" onClick={addPayment} disabled={busy}><Plus size={15} /> {busy ? 'Saving…' : 'Record payment'}</button>
+            <div>{editId && <button className="btn" onClick={cancelEdit} disabled={busy}>Cancel edit</button>}</div>
+            <button className="btn primary" onClick={addPayment} disabled={busy}><Plus size={15} /> {busy ? 'Saving…' : editId ? 'Save changes' : 'Record payment'}</button>
           </div>
 
           <div className="po-items-head" style={{ margin: '16px 0 10px' }}><span>Payment History ({paysOf(mg.po).length})</span></div>
@@ -369,7 +392,7 @@ export default function PaymentProgress() {
           ) : (
             <div className="ph-tl">
               {paysOf(mg.po).map(p => (
-                <div className="ph-node" key={p.id}>
+                <div className={`ph-node ${editId === p.id ? 'editing' : ''}`} key={p.id}>
                   <div className="ph-dot"><FileDown size={12} /></div>
                   <div className="ph-card">
                     <div className="ph-date">{dfmt(p.date)}{p.method ? ` · ${p.method}` : ''}</div>
@@ -377,6 +400,7 @@ export default function PaymentProgress() {
                     {(p.refNo || p.remarks) && <div className="ph-rem">{[p.refNo && `Ref: ${p.refNo}`, p.remarks].filter(Boolean).join('  —  ')}</div>}
                     <div className="ph-acts">
                       <button className="link" onClick={() => receipt(p, mg)}><FileDown size={12} style={{ verticalAlign: '-2px' }} /> Receipt</button>
+                      <button className="link" onClick={() => startEdit(p)} title="Edit" disabled={busy}><Pencil size={12} style={{ verticalAlign: '-2px' }} /> Edit</button>
                       <button className="link" onClick={() => removePayment(p.id)} title="Delete" disabled={busy}><Trash2 size={12} style={{ verticalAlign: '-2px' }} /> Delete</button>
                     </div>
                   </div>
@@ -487,6 +511,7 @@ export default function PaymentProgress() {
         .ph-id{font:500 11px var(--f-mono);color:var(--muted);margin-left:6px}
         .ph-rem{font-size:12.5px;color:var(--muted);margin-top:4px;border-left:2px solid var(--line);padding-left:8px}
         .ph-acts{display:flex;gap:14px;margin-top:8px}
+        .ph-node.editing .ph-card{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
       `}</style>
     </section>
   );
