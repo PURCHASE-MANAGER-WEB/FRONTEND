@@ -106,6 +106,26 @@ export default function PaymentProgress() {
     catch (e) { toast(e.message || 'Could not delete payment'); }
     finally { setBusy(false); }
   };
+  // Ledger total actually recorded for a PO, vs the paid amount stored on the PO itself.
+  const ledgerPaidOf = (po) => paysOf(po).reduce((s, p) => s + num(p.amount), 0);
+  const unreconciledOf = (g) => Math.round((num(g.paid) - ledgerPaidOf(g.po)) * 100) / 100;
+  // Bring a legacy paid amount (stored on the PO, with no payment entry) into the ledger as
+  // one record. syncPoPaid then recomputes the PO's paid from the ledger, so the total is
+  // unchanged — it just appears in history and becomes editable/deletable.
+  const reconcilePaid = async (g) => {
+    const amount = unreconciledOf(g);
+    if (amount <= 0) return;
+    setBusy(true);
+    try {
+      await savePayment(true, null, {
+        po: g.po, vid: g.vid, amount,
+        date: today(), method: '', refNo: '',
+        remarks: 'Opening balance (reconciled from PO)', dueDate: '',
+      });
+      toast('Paid amount added to history');
+    } catch (e) { toast(e.message || 'Could not reconcile the paid amount.'); }
+    finally { setBusy(false); }
+  };
   const receipt = async (p, g) => {
     try {
       await downloadPaymentSlip({
@@ -386,6 +406,18 @@ export default function PaymentProgress() {
             <button className="btn primary" onClick={addPayment} disabled={busy}><Plus size={15} /> {busy ? 'Saving…' : editId ? 'Save changes' : 'Record payment'}</button>
           </div>
 
+          {unreconciledOf(mg) > 0 && (
+            <div className="reconcile-banner">
+              <div className="rb-text">
+                <b>{inr(unreconciledOf(mg))}</b> is marked paid on this PO but has no entry in the history below.
+                Add it as a payment record so it shows here and can be edited.
+              </div>
+              <button className="btn primary" onClick={() => reconcilePaid(mg)} disabled={busy}>
+                <Plus size={15} /> {busy ? 'Adding…' : 'Add to history'}
+              </button>
+            </div>
+          )}
+
           <div className="po-items-head" style={{ margin: '16px 0 10px' }}><span>Payment History ({paysOf(mg.po).length})</span></div>
           {paysOf(mg.po).length === 0 ? (
             <div className="state" style={{ padding: '24px 8px' }}>No payments recorded yet.</div>
@@ -512,6 +544,9 @@ export default function PaymentProgress() {
         .ph-rem{font-size:12.5px;color:var(--muted);margin-top:4px;border-left:2px solid var(--line);padding-left:8px}
         .ph-acts{display:flex;gap:14px;margin-top:8px}
         .ph-node.editing .ph-card{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+        .reconcile-banner{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:16px 0 4px;padding:12px 14px;border:1px solid var(--accent);background:var(--accent-soft);border-radius:12px}
+        .reconcile-banner .rb-text{flex:1;min-width:220px;font-size:13px;color:var(--fg);line-height:1.5}
+        .reconcile-banner .btn{white-space:nowrap}
       `}</style>
     </section>
   );
