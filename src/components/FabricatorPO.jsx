@@ -5,7 +5,11 @@ import { purchaseApi } from '../api/client';
 import { useToast } from '../components/Toast';
 import { Drawer, Field } from '../components/ui';
 import ComboBox from '../components/ComboBox';
+import VendorSelect from '../components/VendorSelect';
 import { num, inr, today, nextPo, UNITS, FAB_WORKS, FAB_TERMS } from '../utils/procurement';
+
+// Fabricator label — matches the previous dropdown text (shows status only when not Active).
+const fabLabel = (v) => `${v.vid} · ${v.name}${v.status && v.status !== 'Active' ? ` (${v.status})` : ''}`;
 
 const newId = () => 'L' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const defaultTermsText = () => FAB_TERMS.map((t, i) => `${i + 1}. ${t}`).join('\n');
@@ -153,10 +157,7 @@ export default function FabricatorPO({ poKey = null, onClose }) {
         <Field label="PO Number *"><input value={d.po} onChange={(e) => set('po', e.target.value)} /></Field>
         <Field label="PO Date *"><input type="date" value={d.poDate} onChange={(e) => set('poDate', e.target.value)} /></Field>
         <Field label="Fabricator *" full>
-          <select value={d.manual ? '__other__' : d.vid} onChange={(e) => onPickFab(e.target.value)}>
-            {fabricators.map((v) => <option key={v.vid} value={v.vid}>{v.vid} · {v.name}{v.status && v.status !== 'Active' ? ` (${v.status})` : ''}</option>)}
-            <option value="__other__">Other (type manually)</option>
-          </select>
+          <VendorSelect value={d.manual ? '__other__' : d.vid} onChange={onPickFab} vendors={fabricators} extraOptions={[{ value: '__other__', label: 'Other (type manually)' }]} labelFn={fabLabel} placeholder="Search fabricator by name or code…" />
         </Field>
         {d.manual && <Field label="Fabricator Name *" full><input value={d.fabName} onChange={(e) => set('fabName', e.target.value)} placeholder="Fabricator / subcontractor name" /></Field>}
         <Field label="Fabricator Mobile"><input inputMode="tel" value={d.fabMobile} onChange={(e) => set('fabMobile', e.target.value)} placeholder="Mobile number" /></Field>

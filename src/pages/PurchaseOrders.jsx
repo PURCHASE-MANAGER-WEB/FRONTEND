@@ -476,11 +476,7 @@ export default function PurchaseOrders() {
               <ProjectMultiSelect value={simple.projects} onChange={(v) => setSimple((s) => ({ ...s, projects: v }))} options={projects} placeholder="Add a project…" />
             </Field>
             <Field label="Vendor *" full>
-              <select value={simple.vid} onChange={(e) => setSimple((s) => ({ ...s, vid: e.target.value }))}>
-                <option value="">— Select vendor —</option>
-                {vendors.map((v) => <option key={v.vid} value={v.vid}>{v.vid} · {v.name}</option>)}
-                <option value="__other__">Other (type manually)</option>
-              </select>
+              <VendorSelect value={simple.vid} onChange={(vid) => setSimple((s) => ({ ...s, vid }))} vendors={vendors} extraOptions={[{ value: '__other__', label: 'Other (type manually)' }]} placeholder="Search vendor by name or code…" />
               {simple.vid === '__other__' && <input value={simple.vendorOther} onChange={(e) => setSimple((s) => ({ ...s, vendorOther: e.target.value }))} placeholder="Enter vendor name" style={{ marginTop: 6 }} />}
             </Field>
             <Field label="Material Description *" full><textarea rows={3} value={simple.material} onChange={(e) => setSimple((s) => ({ ...s, material: e.target.value }))} placeholder="What is being ordered" /></Field>

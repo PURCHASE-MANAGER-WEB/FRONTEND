@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Store, ClipboardList, Wallet, LogOut, FileText, CheckSquare, Users, FolderKanban, ReceiptIndianRupee, PiggyBank, Truck, History, Factory, PackageSearch } from 'lucide-react';
-import { getUser, clearSession, authApi, isRestrictedPM, materialRequestsApi } from '../api/client';
+import { LayoutDashboard, Store, ClipboardList, Wallet, LogOut, FileText, CheckSquare, Users, FolderKanban, ReceiptIndianRupee, PiggyBank, Truck, History, Factory, PackageSearch, FileStack } from 'lucide-react';
+import { getUser, clearSession, authApi, isRestrictedPM, materialRequestsApi, salesHandoversApi } from '../api/client';
 
 const NAV = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -10,6 +10,7 @@ const NAV = [
   { to: '/projects', label: 'Projects', icon: FolderKanban },
   { to: '/purchase-orders', label: 'Purchase Orders', icon: ClipboardList },
   { to: '/material-requests', label: 'Material Requests', icon: PackageSearch, badgeKey: 'materials' },
+  { to: '/sales-handovers', label: 'Sales Handovers', icon: FileStack, badgeKey: 'handovers' },
   { to: '/delivery-challan', label: 'Delivery Challan', icon: Truck },
   { to: '/payment-progress', label: 'Payment Progress', icon: Wallet, pmHidden: true },
 ];
@@ -22,14 +23,16 @@ export default function Sidebar({ open, onNavigate }) {
   const [ask, setAsk] = useState(false);
   const loc = useLocation();
 
-  // Live count of new material requirements from Execution (refreshes on navigation).
+  // Live counts of new items from other portals (refresh on navigation).
   const [matCount, setMatCount] = useState(0);
+  const [hoCount, setHoCount] = useState(0);
   useEffect(() => {
     let alive = true;
     materialRequestsApi.newCount().then((d) => { if (alive) setMatCount(d.count || 0); }).catch(() => {});
+    salesHandoversApi.newCount().then((d) => { if (alive) setHoCount(d.count || 0); }).catch(() => {});
     return () => { alive = false; };
   }, [loc.pathname]);
-  const badges = { materials: matCount };
+  const badges = { materials: matCount, handovers: hoCount };
 
   const doLogout = async () => {
     await authApi.logout();

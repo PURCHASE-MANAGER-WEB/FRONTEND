@@ -211,3 +211,18 @@ export const designRequestsApi = {
     return res.blob();
   },
 };
+
+// Sales Handovers bridge — READ-ONLY view of the shared `ho_handovers` records submitted by the
+// Sales Portal. Procurement reads full details, streams attachments and receives notifications.
+export const salesHandoversApi = {
+  list: (params) => { const qs = params ? ('?' + new URLSearchParams(params).toString()) : ''; return api(`/sales-handovers${qs}`, { auth: true }); },
+  get: (id) => api(`/sales-handovers/${encodeURIComponent(id)}`, { auth: true }),
+  notifications: () => api('/sales-handovers/notifications', { auth: true }),
+  newCount: () => api('/sales-handovers/new-count', { auth: true }),
+  markRead: () => api('/sales-handovers/notifications/read-all', { method: 'POST', auth: true }),
+  fileBlob: async (id, fileId, { download = false } = {}) => {
+    const res = await fetch(`${API_BASE}/sales-handovers/${encodeURIComponent(id)}/attachments/${encodeURIComponent(fileId)}${download ? '?download=1' : ''}`, { headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {} });
+    if (!res.ok) throw new Error('Could not load the document.');
+    return res.blob();
+  },
+};
