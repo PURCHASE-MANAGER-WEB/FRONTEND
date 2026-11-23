@@ -196,6 +196,12 @@ export const materialRequestsApi = {
   reject: (id, rejectReason) => api(`/material-requests/${encodeURIComponent(id)}/reject`, { method: 'PATCH', body: { rejectReason }, auth: true }),
   convert: (id, body) => api(`/material-requests/${encodeURIComponent(id)}/convert`, { method: 'POST', body, auth: true }),
   linkPo: (id, po) => api(`/material-requests/${encodeURIComponent(id)}/link-po`, { method: 'PATCH', body: { po }, auth: true }),
+  setDeliveryStage: (id, stage) => api(`/material-requests/${encodeURIComponent(id)}/delivery-stage`, { method: 'PATCH', body: { stage }, auth: true }),
+  boqBlob: async (id, fileId, { download = false } = {}) => {
+    const res = await fetch(`${API_BASE}/material-requests/${encodeURIComponent(id)}/boq/${encodeURIComponent(fileId)}${download ? '?download=1' : ''}`, { headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {} });
+    if (!res.ok) throw new Error('Could not load the BOQ document.');
+    return res.blob();
+  },
 };
 
 // Design requests bridge — raises requests into the shared Design CRM database and

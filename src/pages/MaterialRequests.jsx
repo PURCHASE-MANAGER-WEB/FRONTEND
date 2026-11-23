@@ -1,12 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PackageSearch, FilePlus2, CheckCircle2, XCircle, History } from 'lucide-react';
+import { PackageSearch, FilePlus2, CheckCircle2, XCircle, History, Eye, Download } from 'lucide-react';
 import { materialRequestsApi } from '../api/client';
 import { Pill, Field, Drawer, StateRow } from '../components/ui';
 
 const fmtDate = (d) => (d ? String(d).slice(0, 10).split('-').reverse().join('-') : '—');
 const fmtDT = (d) => (d ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '');
 const STATUS_FILTERS = ['all', 'Pending Approval', 'Approved', 'PO Created', 'Rejected'];
+const DELIVERY_STAGES = ['Ordered', 'Processing', 'Dispatched', 'In Transit', 'Reached Site'];
+const MR_PERCENT = { 'Pending Approval': 10, Approved: 30, 'PO Created': 40, Ordered: 50, Processing: 60, Dispatched: 70, 'In Transit': 80, 'Reached Site': 100, Rejected: 0 };
+const mrPct = (m) => (m.status === 'Rejected' ? 0 : (MR_PERCENT[m.deliveryStage] != null ? MR_PERCENT[m.deliveryStage] : (MR_PERCENT[m.status] || 0)));
 
 export default function MaterialRequests() {
   const nav = useNavigate();
@@ -38,6 +41,7 @@ export default function MaterialRequests() {
   const run = async (fn, okMsg) => { setBusy(true); setError(''); try { await fn(); if (okMsg) flash(okMsg); load(); } catch (e) { setError(e.message); } finally { setBusy(false); } };
 
   const approve = (m) => run(() => materialRequestsApi.approve(m._id), 'Request approved');
+  const setStage = (m, stage) => run(() => materialRequestsApi.setDeliveryStage(m._id, stage), `Marked ${stage}`);
   const doReject = () => {
     if (!reject.reason || !reject.reason.trim()) { setError('Enter a reason to reject'); return; }
     run(() => materialRequestsApi.reject(reject._id, reject.reason.trim()), 'Requirement rejected').then(() => setReject(null));
@@ -48,6 +52,14 @@ export default function MaterialRequests() {
     const desc = `${m.material}${m.spec ? ` (${m.spec})` : ''} — Qty ${m.qty || ''} ${m.unit || ''}`.trim();
     try { sessionStorage.setItem('mr_new_po', JSON.stringify({ mrId: m._id, projectName: m.projectName || '', materialDesc: desc })); } catch { /* ignore */ }
     nav(`/purchase-orders?mr=${encodeURIComponent(m._id)}`);
+  };
+
+  const openBoq = async (m, b, download) => {
+    try { const blob = await materialRequestsApi.boqBlob(m._id, b.fileId, { download }); const url = URL.createObjectURL(blob);
+      if (download) { const a = document.createElement('a'); a.href = url; a.download = b.filename || 'boq'; document.body.appendChild(a); a.click(); a.remove(); }
+      else window.open(url, '_blank', 'noopener');
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (e) { setError(e.message); }
   };
 
   const shown = filter === 'all' ? rows : rows.filter((r) => r.status === filter);
@@ -70,15 +82,16 @@ export default function MaterialRequests() {
       <div className="tbl" style={{ marginTop: 10 }}>
         <table>
           <thead><tr>
-            <th>Ref</th><th>Project</th><th>Material</th><th className="num">Qty</th><th>Needed by</th><th>Requested</th><th>Status</th><th>PO</th><th></th>
+            <th>Ref</th><th>Project</th><th>Category</th><th>Material</th><th className="num">Qty</th><th>BOQ</th><th>Needed by</th><th>Requested</th><th>Status</th><th>PO</th><th></th>
           </tr></thead>
           <tbody>
             {loading || error || shown.length === 0 ? (
-              <StateRow cols={9} loading={loading} error={error} empty="No material requests." />
+              <StateRow cols={11} loading={loading} error={error} empty="No material requests." />
             ) : shown.map((m) => (
               <tr key={m._id}>
                 <td className="mono">{m.ref || '—'}</td>
                 <td>{m.projectName || '—'}{m.handoverRef && <div className="sub">{m.handoverRef}</div>}</td>
+                <td>{m.category ? <span className="pill p-mute">{m.category}</span> : <span className="sub">—</span>}</td>
                 <td>
                   <strong>{m.material}</strong>
                   {m.spec && <div className="sub">{m.spec}</div>}
@@ -86,12 +99,18 @@ export default function MaterialRequests() {
                   {m.status === 'Rejected' && m.rejectReason && <div className="sub" style={{ color: 'var(--bad)' }}>Rejected: {m.rejectReason}</div>}
                 </td>
                 <td className="num">{m.qty || '—'} {m.unit}</td>
+                <td className="sub">{(m.boq || []).length ? (m.boq).map((b) => (
+                  <span key={b.fileId} style={{ display: 'inline-flex', gap: 4, marginRight: 8 }}>
+                    <button className="link" title={`View ${b.filename}`} onClick={() => openBoq(m, b, false)}><Eye size={13} style={{ verticalAlign: '-2px' }} /></button>
+                    <button className="link" title="Download" onClick={() => openBoq(m, b, true)}><Download size={13} style={{ verticalAlign: '-2px' }} /></button>
+                  </span>
+                )) : '—'}</td>
                 <td>{fmtDate(m.neededBy)}</td>
                 <td className="sub">{fmtDT(m.createdAt)}<div>{m.createdBy?.name || ''}</div></td>
-                <td><Pill s={m.status} /></td>
+                <td><Pill s={m.deliveryStage || m.status} /><div className="sub">{mrPct(m)}%</div></td>
                 <td>{m.poRef || '—'}</td>
                 <td>
-                  <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap', alignItems: 'center' }}>
                     {m.status === 'Pending Approval' && <>
                       <button className="btn" disabled={busy} onClick={() => approve(m)}><CheckCircle2 size={14} /> Approve</button>
                       <button className="btn danger" disabled={busy} onClick={() => setReject({ _id: m._id, material: m.material, reason: '' })}><XCircle size={14} /> Reject</button>
@@ -100,6 +119,12 @@ export default function MaterialRequests() {
                       <button className="btn primary" disabled={busy} onClick={() => createPO(m)}><FilePlus2 size={14} /> Create PO</button>
                       <button className="btn danger" disabled={busy} onClick={() => setReject({ _id: m._id, material: m.material, reason: '' })}><XCircle size={14} /> Reject</button>
                     </>}
+                    {m.status === 'PO Created' && (
+                      <select className="po-filter" disabled={busy} value={m.deliveryStage || ''} onChange={(e) => e.target.value && setStage(m, e.target.value)} title="Update delivery stage" aria-label="Delivery stage">
+                        <option value="">Update stage…</option>
+                        {DELIVERY_STAGES.map((s) => <option key={s} value={s}>{s} ({MR_PERCENT[s]}%)</option>)}
+                      </select>
+                    )}
                     {(m.statusLog || []).length > 0 && <button className="btn" onClick={() => setHistory(m)} title="History"><History size={14} /></button>}
                   </div>
                 </td>
