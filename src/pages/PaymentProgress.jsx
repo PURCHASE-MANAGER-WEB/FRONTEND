@@ -6,13 +6,14 @@ import { useToast } from '../components/Toast';
 import { Pill, Drawer, Field, StateRow } from '../components/ui';
 import ComboBox from '../components/ComboBox';
 import {
-  groupPOs, vendorName, inr, num, dfmt, today, PAYMENT_METHODS,
+  groupPOs, calcLine, vendorName, inr, num, dfmt, today, PAYMENT_METHODS,
   cpReceipts, cpOrderValue, cpReceived, cpOutstanding, cpStatus, cpOverdueDays, cpLastDate,
 } from '../utils/procurement';
 import { downloadPaymentSlip } from '../utils/paymentSlip';
 
 const TABS = ['Client Payment', 'Vendor Payment'];
-const blankPay = () => ({ amount: '', date: today(), method: '', refNo: '', remarks: '', dueDate: '' });
+const UNASSIGNED = '(Unassigned)';
+const blankPay = () => ({ amount: '', date: today(), method: '', refNo: '', remarks: '', dueDate: '', project: '' });
 const blankOrder = () => ({ project: '', clientName: '', totalOrderValue: '', paymentTerms: '', dueDate: '', notes: '' });
 
 // Payment Progress — two completely separate ledgers:
@@ -38,16 +39,78 @@ export default function PaymentProgress() {
   const [editId, setEditId] = useState(null);   // id of the vendor payment being edited (null = adding new)
 
   const groups = useMemo(() => groupPOs(lines), [lines]);
-  const paysOf = (po) => (Array.isArray(payments) ? payments : []).filter(p => p.po === po)
+  const poN = (v) => String(v || '').trim().toUpperCase();
+  const prN = (v) => String(v || '').trim();
+  const paysOf = (po) => (Array.isArray(payments) ? payments : []).filter(p => poN(p.po) === poN(po))
     .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+  // Payments for one PROJECT of a PO (ledger entries tagged with that project).
+  const paysOfProject = (po, project) => paysOf(po).filter(p => prN(p.project) === prN(project));
+
+  // Per-PO, per-project breakdown for the Vendor tab. A PO is split into one row per project
+  // ONLY when its lines carry more than one distinct project (e.g. PO-294 → Balakrishnan +
+  // Manikandan). Single-project POs are left exactly as before. The PO always stays ONE record
+  // and the dashboard/KPI totals remain PO-level, so the overall figures are unchanged.
+  const vBreak = useMemo(() => {
+    const m = new Map();
+    const allLines = Array.isArray(lines) ? lines : [];
+    for (const g of groups) {
+      const poLines = allLines.filter(l => poN(l.po) === g.po);
+      const order = [];
+      for (const l of poLines) { const p = prN(l.project); if (!order.includes(p)) order.push(p); }
+      const named = order.filter(Boolean);
+      if (named.length <= 1) { m.set(g.po, { multi: false }); continue; }
+      const pays = paysOf(g.po);
+      const ledgerTotal = pays.reduce((a, p) => a + num(p.amount), 0);
+      const exTotal = poLines.reduce((a, l) => a + calcLine(l).total, 0) || 1;
+      let alloc = 0;
+      const rows = named.map((proj, i) => {
+        const pl = poLines.filter(l => prN(l.project) === proj);
+        const ex = pl.reduce((a, l) => a + calcLine(l).total, 0);
+        // Allocate the GST-inclusive PO value across projects by each project's line subtotal;
+        // the last project absorbs any rounding remainder so the parts sum exactly to the PO value.
+        const value = (i === named.length - 1) ? Math.max(g.value - alloc, 0) : Math.round(g.value * ex / exTotal);
+        alloc += value;
+        const legacyPaid = pl.reduce((a, l) => a + num(l.paid), 0);
+        const ledgerPaid = pays.filter(p => prN(p.project) === proj).reduce((a, p) => a + num(p.amount), 0);
+        // Once this PO has ANY ledger payment, the ledger is the source of truth (matching how the
+        // rest of the system reconciles paid amounts); otherwise use the per-line legacy paid.
+        const paid = ledgerTotal > 0 ? ledgerPaid : legacyPaid;
+        const out = Math.max(value - paid, 0);
+        const status = (value > 0 && out <= 0.5) ? 'Paid' : paid > 0 ? 'Partial' : 'Unpaid';
+        return { project: proj, value, paid, out, status };
+      });
+      // Any ledger payment left without a project on a multi-project PO is surfaced as its own
+      // row so no money is ever hidden — it can be assigned to a project by editing it.
+      const unassignedPaid = ledgerTotal > 0 ? pays.filter(p => !prN(p.project)).reduce((a, p) => a + num(p.amount), 0) : 0;
+      m.set(g.po, { multi: true, rows, unassignedPaid, projects: named });
+    }
+    return m;
+  }, [groups, lines, payments]);
 
   const vRows = useMemo(() => {
     const q2 = q.trim().toLowerCase();
-    return groups
-      .map(g => ({ g, vn: g.vendorName || vendorName(vendors, g.vid) }))
-      .filter(({ g, vn }) => !q2 || [g.po, g.vid, vn, g.project].filter(Boolean).join(' ').toLowerCase().includes(q2))
-      .sort((a, b) => String(a.g.po).localeCompare(String(b.g.po), undefined, { numeric: true }));
-  }, [groups, vendors, q]);
+    const list = [];
+    for (const g of groups) {
+      const vn = g.vendorName || vendorName(vendors, g.vid);
+      const b = vBreak.get(g.po);
+      if (!b || !b.multi) {
+        const ps = paysOf(g.po);
+        list.push({ key: g.po, g, vn, project: g.project, value: g.value, paid: g.paid, out: g.out, status: g.payment, dueDate: g.dueDate, payOverdueDays: g.payOverdueDays, payCount: ps.length, method: ps.length ? (ps[0].method || '—') : '—', split: false });
+      } else {
+        for (const r of b.rows) {
+          const ps = paysOfProject(g.po, r.project);
+          list.push({ key: g.po + '::' + r.project, g, vn, project: r.project, value: r.value, paid: r.paid, out: r.out, status: r.status, dueDate: g.dueDate, payOverdueDays: r.out > 0 ? g.payOverdueDays : 0, payCount: ps.length, method: ps.length ? (ps[0].method || '—') : '—', split: true, proj: r.project });
+        }
+        if (b.unassignedPaid > 0) {
+          const ps = paysOf(g.po).filter(p => !prN(p.project));
+          list.push({ key: g.po + '::__un', g, vn, project: UNASSIGNED, value: 0, paid: b.unassignedPaid, out: 0, status: 'Paid', dueDate: '', payOverdueDays: 0, payCount: ps.length, method: ps.length ? (ps[0].method || '—') : '—', split: true, unassigned: true });
+        }
+      }
+    }
+    return list
+      .filter(r => !q2 || [r.g.po, r.g.vid, r.vn, r.project].filter(Boolean).join(' ').toLowerCase().includes(q2))
+      .sort((a, b) => String(a.g.po).localeCompare(String(b.g.po), undefined, { numeric: true }) || String(a.project || '').localeCompare(String(b.project || '')));
+  }, [groups, vBreak, vendors, payments, q]);
 
   const vCards = useMemo(() => {
     const totalValue = groups.reduce((a, g) => a + g.value, 0);
@@ -60,7 +123,12 @@ export default function PaymentProgress() {
     return { totalValue, totalPaid, outstanding, fully, partial, unpaid, overdue };
   }, [groups]);
 
-  const openManage = (g) => { setForm(blankPay()); setFormErr(''); setEditId(null); setPaidEdit(false); setManage(g); };
+  const openManage = (r) => {
+    const project = r.split && !r.unassigned ? r.project : null;
+    setForm({ ...blankPay(), project: project || '' });
+    setFormErr(''); setEditId(null); setPaidEdit(false);
+    setManage({ po: r.g.po, project, unassigned: !!r.unassigned });
+  };
   const close = () => { setManage(null); setFormErr(''); setEditId(null); setPaidEdit(false); };
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -75,18 +143,21 @@ export default function PaymentProgress() {
       refNo: p.refNo || '',
       remarks: p.remarks || '',
       dueDate: p.dueDate || '',
+      project: p.project || (mg && mg.split && !mg.unassigned ? mg.project : ''),
     });
   };
-  const cancelEdit = () => { setEditId(null); setForm(blankPay()); setFormErr(''); };
+  const cancelEdit = () => { setEditId(null); setForm({ ...blankPay(), project: mg && mg.split && !mg.unassigned ? mg.project : '' }); setFormErr(''); };
 
   const addPayment = async () => {
     const amount = num(form.amount);
     if (amount <= 0) { setFormErr('Enter a payment amount greater than 0.'); return; }
     if (!form.date) { setFormErr('Choose the payment date.'); return; }
+    if (mg.split && !String(form.project || '').trim()) { setFormErr('Choose which project this payment is for.'); return; }
     setBusy(true);
     try {
       const body = {
-        po: manage.po, vid: manage.vid, amount,
+        po: mg.po, vid: mg.g.vid, amount,
+        project: (mg.split && !mg.unassigned) ? String(form.project || mg.project || '').trim() : String(form.project || '').trim(),
         date: form.date, method: form.method || '', refNo: String(form.refNo || '').trim(),
         remarks: String(form.remarks || '').trim(), dueDate: form.dueDate || '',
       };
@@ -129,18 +200,39 @@ export default function PaymentProgress() {
     } catch (e) { toast(e.message || 'Could not update the paid amount.'); }
     finally { setBusy(false); }
   };
-  const receipt = async (p, g) => {
+  const receipt = async (p, m) => {
     try {
+      const projLabel = m.split && !m.unassigned ? ` · ${m.project}` : '';
       await downloadPaymentSlip({
-        id: p.id, po: g.po, vendorName: vendorName(vendors, g.vid),
+        id: p.id, po: m.po + projLabel, vendorName: m.vn || vendorName(vendors, m.g.vid),
         amount: num(p.amount), dateFmt: dfmt(p.date), method: p.method, refNo: p.refNo,
         dueFmt: p.dueDate ? dfmt(p.dueDate) : '—', remarks: p.remarks,
-        poAmount: g.value, paidToDate: g.paid, balance: g.out, status: g.payment,
+        poAmount: m.value, paidToDate: m.paid, balance: m.out, status: m.status,
         authorizedBy: (getUser() && getUser().name) || 'Tesco Structures',
       });
     } catch (e) { toast(e.message || 'Could not generate the receipt'); }
   };
-  const mg = manage ? (groups.find(g => g.po === manage.po) || manage) : null;
+  // The live PO/project being managed. For a split (multi-project) PO this exposes that ONE
+  // project's value / paid / outstanding and that project's payment history; for a single PO it
+  // is the whole PO exactly as before. Recomputed live so the drawer updates after each payment.
+  const mg = useMemo(() => {
+    if (!manage) return null;
+    const g = groups.find(x => x.po === manage.po);
+    if (!g) return null;
+    const vn = g.vendorName || vendorName(vendors, g.vid);
+    if (manage.project == null && !manage.unassigned) {
+      return { g, vn, po: g.po, project: g.project, value: g.value, paid: g.paid, out: g.out, status: g.payment, split: false, pays: paysOf(g.po), projects: [] };
+    }
+    const b = vBreak.get(g.po) || {};
+    const projects = b.projects || [];
+    if (manage.unassigned) {
+      const pays = paysOf(g.po).filter(p => !prN(p.project));
+      const paid = pays.reduce((a, p) => a + num(p.amount), 0);
+      return { g, vn, po: g.po, project: UNASSIGNED, value: 0, paid, out: 0, status: 'Paid', split: true, unassigned: true, pays, projects };
+    }
+    const row = (b.rows || []).find(r => r.project === manage.project) || { project: manage.project, value: 0, paid: 0, out: 0, status: 'Unpaid' };
+    return { g, vn, po: g.po, project: row.project, value: row.value, paid: row.paid, out: row.out, status: row.status, split: true, pays: paysOfProject(g.po, manage.project), projects };
+  }, [manage, groups, vBreak, vendors, payments]);
 
   // ───────────────────────── CLIENT PAYMENT ─────────────────────────
   const [cDrawer, setCDrawer] = useState(null);   // { isNew, id }
@@ -361,19 +453,19 @@ export default function PaymentProgress() {
                 {loading || error || vRows.length === 0 ? (
                   <StateRow cols={11} loading={loading} error={error}
                     empty={groups.length ? 'No POs match your search.' : 'No purchase orders yet. Raise a PO to record payments against it.'} />
-                ) : vRows.map(({ g, vn }) => (
-                  <tr key={g.po} className="row-click" onClick={() => openManage(g)}>
-                    <td className="id">{g.po}</td>
-                    <td>{vn}</td>
-                    <td>{g.project || '—'}</td>
-                    <td className="num">{inr(g.value)}</td>
-                    <td className="num">{inr(g.paid)}</td>
-                    <td className="num calc">{inr(g.out)}</td>
-                    <td className={g.payOverdueDays > 0 ? 'overdue' : ''}>{g.dueDate ? dfmt(g.dueDate) : '—'}{g.payOverdueDays > 0 ? ` · ${g.payOverdueDays}d overdue` : ''}</td>
-                    <td className="calc"><Pill s={g.payment} /></td>
-                    <td>{(() => { const ps = paysOf(g.po); return ps.length ? (ps[0].method || '—') : '—'; })()}</td>
-                    <td className="num">{paysOf(g.po).length}</td>
-                    <td onClick={(e) => e.stopPropagation()}><button className="link" onClick={() => openManage(g)}>View / Manage</button></td>
+                ) : vRows.map((r) => (
+                  <tr key={r.key} className="row-click" onClick={() => openManage(r)}>
+                    <td className="id">{r.g.po}{r.split && !r.unassigned ? <span className="split-tag">split</span> : ''}</td>
+                    <td>{r.vn}</td>
+                    <td>{r.unassigned ? <em className="muted-cell">{UNASSIGNED}</em> : (r.project || '—')}</td>
+                    <td className="num">{r.unassigned ? '—' : inr(r.value)}</td>
+                    <td className="num">{inr(r.paid)}</td>
+                    <td className="num calc">{r.unassigned ? '—' : inr(r.out)}</td>
+                    <td className={r.payOverdueDays > 0 ? 'overdue' : ''}>{r.dueDate ? dfmt(r.dueDate) : '—'}{r.payOverdueDays > 0 ? ` · ${r.payOverdueDays}d overdue` : ''}</td>
+                    <td className="calc">{r.unassigned ? '—' : <Pill s={r.status} />}</td>
+                    <td>{r.method}</td>
+                    <td className="num">{r.payCount}</td>
+                    <td onClick={(e) => e.stopPropagation()}><button className="link" onClick={() => openManage(r)}>View / Manage</button></td>
                   </tr>
                 ))}
               </tbody>
@@ -385,17 +477,28 @@ export default function PaymentProgress() {
       {/* ───────────── VENDOR manage drawer ───────────── */}
       {mg && (
         <Drawer onClose={close}>
-          <h3>Vendor Payments · {mg.po}</h3>
-          <p className="hint">{mg.vendorName || vendorName(vendors, mg.vid)} · {mg.project || 'No project'}</p>
+          <h3>Vendor Payments · {mg.po}{mg.split && !mg.unassigned ? ` · ${mg.project}` : ''}</h3>
+          <p className="hint">{mg.vn} · {mg.unassigned ? 'Payments not yet assigned to a project' : (mg.split ? `Project: ${mg.project}` : (mg.project || 'No project'))}</p>
+          {mg.split && !mg.unassigned && (
+            <p className="hint" style={{ marginTop: -4 }}>This purchase order is shared across {mg.projects.length} projects — you are viewing <b>{mg.project}</b> only. Each project keeps its own paid, outstanding and payment history.</p>
+          )}
 
           <div className="kpis" style={{ gridTemplateColumns: 'repeat(3,1fr)', margin: '4px 0 14px' }}>
-            <div className="kpi"><div className="l">PO Value</div><div className="v">{inr(mg.value)}</div></div>
+            <div className="kpi"><div className="l">{mg.unassigned ? 'PO Value' : (mg.split ? 'Project Value' : 'PO Value')}</div><div className="v">{mg.unassigned ? '—' : inr(mg.value)}</div></div>
             <div className="kpi"><div className="l">Paid</div><div className="v">{inr(mg.paid)}</div></div>
-            <div className="kpi"><div className="l">Outstanding</div><div className="v">{inr(mg.out)}</div></div>
+            <div className="kpi"><div className="l">Outstanding</div><div className="v">{mg.unassigned ? '—' : inr(mg.out)}</div></div>
           </div>
 
           <div className="po-items-head" style={{ marginBottom: 8 }}><span>{editId ? `Edit payment · ${editId}` : 'Add a payment'}</span></div>
           <div className="grid">
+            {mg.split && (
+              <Field label="For project *">
+                <select value={form.project} onChange={e => set('project', e.target.value)}>
+                  <option value="">— Select project —</option>
+                  {mg.projects.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </Field>
+            )}
             <Field label="Amount (₹) *"><input type="number" min="0" step="any" value={form.amount} onChange={e => set('amount', e.target.value)} /></Field>
             <Field label="Payment Date *"><input type="date" value={form.date} onChange={e => set('date', e.target.value)} /></Field>
             <Field label="Payment Method"><select value={form.method} onChange={e => set('method', e.target.value)}><option value="">— Select —</option>{PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}</select></Field>
@@ -409,7 +512,7 @@ export default function PaymentProgress() {
             <button className="btn primary" onClick={addPayment} disabled={busy}><Plus size={15} /> {busy ? 'Saving…' : editId ? 'Save changes' : 'Record payment'}</button>
           </div>
 
-          {paysOf(mg.po).length === 0 && mg.paid > 0 && (
+          {!mg.split && mg.pays.length === 0 && mg.paid > 0 && (
             <div className="reconcile-banner">
               {!paidEdit ? (
                 <>
@@ -434,12 +537,12 @@ export default function PaymentProgress() {
             </div>
           )}
 
-          <div className="po-items-head" style={{ margin: '16px 0 10px' }}><span>Payment History ({paysOf(mg.po).length})</span></div>
-          {paysOf(mg.po).length === 0 ? (
-            <div className="state" style={{ padding: '24px 8px' }}>No payments recorded yet.</div>
+          <div className="po-items-head" style={{ margin: '16px 0 10px' }}><span>Payment History ({mg.pays.length}){mg.split && !mg.unassigned ? ` · ${mg.project}` : ''}</span></div>
+          {mg.pays.length === 0 ? (
+            <div className="state" style={{ padding: '24px 8px' }}>No payments recorded yet{mg.split && !mg.unassigned ? ' for this project' : ''}.</div>
           ) : (
             <div className="ph-tl">
-              {paysOf(mg.po).map(p => (
+              {mg.pays.map(p => (
                 <div className={`ph-node ${editId === p.id ? 'editing' : ''}`} key={p.id}>
                   <div className="ph-dot"><FileDown size={12} /></div>
                   <div className="ph-card">
@@ -549,6 +652,8 @@ export default function PaymentProgress() {
         .ptab{display:inline-flex;align-items:center;gap:7px;border:0;background:none;padding:11px 16px;font:700 13.5px var(--f-body);color:var(--muted);cursor:pointer;border-bottom:2.5px solid transparent;margin-bottom:-1px}
         .ptab:hover{color:var(--fg)}
         .ptab.active{color:var(--accent-ink);border-bottom-color:var(--accent)}
+        .split-tag{display:inline-block;margin-left:7px;padding:1px 7px;border-radius:999px;font:700 9.5px var(--f-body);letter-spacing:.04em;text-transform:uppercase;background:var(--accent-soft);color:var(--accent-ink);vertical-align:1px}
+        .muted-cell{color:var(--muted);font-style:italic}
         .ph-tl{position:relative;padding-left:26px}
         .ph-tl:before{content:"";position:absolute;left:9px;top:4px;bottom:4px;width:2px;background:var(--line)}
         .ph-node{position:relative;margin-bottom:12px}
