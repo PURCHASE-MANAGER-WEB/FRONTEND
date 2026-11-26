@@ -51,7 +51,7 @@ body{
 
 /* ───────── app shell ───────── */
 .app{display:flex;min-height:100vh}
-.sidebar{width:252px;flex-shrink:0;background:var(--brand);color:var(--brand-fg);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;border-right:1px solid rgba(255,255,255,.06)}
+.sidebar{width:252px;flex-shrink:0;background:linear-gradient(185deg,var(--brand) 0%,var(--brand-2) 100%);color:var(--brand-fg);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;border-right:1px solid rgba(255,255,255,.06)}
 .sidebar .logo{padding:24px 22px 18px;border-bottom:1px solid rgba(255,255,255,.07)}
 .sidebar .logo .mark{display:flex;align-items:center;gap:12px}
 .sidebar .logo .tile{width:40px;height:40px;flex-shrink:0;border-radius:11px;background:#fff;padding:7px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px -8px rgba(0,0,0,.5),0 0 0 1px rgba(59,130,246,.45) inset}
@@ -60,7 +60,7 @@ body{
 .sidebar .logo span{display:block;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent-2);margin-top:4px;opacity:.9}
 .sidebar nav{display:flex;flex-direction:column;gap:3px;padding:14px 12px;flex:1}
 .sidebar nav a{display:flex;align-items:center;gap:12px;padding:11px 13px;border-radius:10px;color:var(--brand-fg);opacity:.92;text-decoration:none;font-weight:600;font-size:14.5px;position:relative;transition:.15s}
-.sidebar nav a:hover{opacity:1;background:rgba(255,255,255,.08)}
+.sidebar nav a:hover{opacity:1;background:rgba(255,255,255,.055)}
 .sidebar nav a.active{opacity:1;background:rgba(255,255,255,.08)}
 .sidebar nav a.active::before{content:"";position:absolute;left:-12px;top:9px;bottom:9px;width:3px;border-radius:0 3px 3px 0;background:linear-gradient(var(--accent-2),var(--accent))}
 .sidebar nav a.active svg{color:var(--accent-2)}
@@ -147,6 +147,14 @@ tfoot td{font-weight:700;background:var(--sunk);border-top:2px solid var(--line)
 .grid .full{grid-column:1/-1}
 label.fld{display:grid;gap:7px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.055em}
 label.fld input,label.fld select,label.fld textarea{font-size:14px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--fg);font-family:var(--f-body);line-height:1.5;resize:vertical}
+/* Attach-PO rows in the project form — keep every field on one baseline. Placed here (not
+   inline in Projects.jsx) and with .drawer specificity so it holds even if that file's inline
+   styles differ. A fixed-height label row makes all inputs start on the same line. */
+.drawer .po-attach-row .fld{grid-template-rows:30px auto;gap:5px;min-width:0;align-self:start}
+.drawer .po-attach-row .fld input{height:38px;box-sizing:border-box;width:100%;min-width:0}
+.drawer .po-attach-row .fld input[type=file]{height:auto;min-height:38px;font-size:12px;padding:8px}
+.drawer .po-attach-row .icon-x{align-self:start;margin-top:35px;width:34px;height:38px}
+@media (max-width:640px){.drawer .po-attach-row .fld{grid-template-rows:auto auto}.drawer .po-attach-row .icon-x{margin-top:0}}
 .calcbox{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:11px;background:linear-gradient(180deg,var(--sunk),color-mix(in srgb,var(--sunk) 70%,var(--surface)));border:1px solid var(--line);border-radius:var(--radius-sm);padding:14px}
 .calcbox .l{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}
 .calcbox .b{font:600 16px var(--f-mono);margin-top:4px}
