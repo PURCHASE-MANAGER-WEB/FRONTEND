@@ -6,6 +6,8 @@ import { Pill, Drawer, Field } from '../components/ui';
 import { num, inr, dfmt, qfmt, groupPOs, vendorName, poInProject, projStatus, cdtfmt, PAYMENT_METHODS, cpReceipts, cpOrderValue, cpReceived } from '../utils/procurement';
 import { openChallanDoc } from '../utils/challanDoc';
 import { openInvoice, downloadInvoice } from '../utils/cloudinary';
+import { openPoFile, downloadPoFile } from '../utils/poFiles';
+import { filesApi } from '../api/client';
 import ProjectForms from '../components/ProjectForms';
 import ProjectDesign from '../components/ProjectDesign';
 import { isRestrictedPM, projectsApi } from '../api/client';
@@ -51,6 +53,17 @@ export default function ProjectDetail() {
     () => payments.filter((pm) => poSet.has(pm.po)).sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))),
     [payments, poSet]
   );
+
+  // Attached PO documents (purchase_files) for this project's POs — view/download inline.
+  const [poDocs, setPoDocs] = useState({});   // { [poNumber]: [fileMeta, …] }
+  useEffect(() => {
+    let alive = true;
+    const pos = [...poSet];
+    if (!pos.length) { setPoDocs({}); return; }
+    Promise.all(pos.map((po) => filesApi.list(po).then((fs) => [po, Array.isArray(fs) ? fs : []]).catch(() => [po, []])))
+      .then((pairs) => { if (alive) setPoDocs(Object.fromEntries(pairs)); });
+    return () => { alive = false; };
+  }, [poSet]);
   const schedule = useMemo(
     () => (project ? projectPayments.filter((r) => (r.project || r.customerName) === project.name) : []),
     [projectPayments, project]
@@ -331,9 +344,9 @@ export default function ProjectDetail() {
       {tab === 'Purchase Orders' && (
         <div className="tbl">
           <table>
-            <thead><tr><th>PO</th><th>Vendor</th><th className="num">Value</th>{!pm && <th className="num">Paid</th>}{!pm && <th className="num">Outstanding</th>}<th>Delivery</th>{!pm && <th>Payment</th>}<th>Invoice</th></tr></thead>
+            <thead><tr><th>PO</th><th>Vendor</th><th className="num">Value</th>{!pm && <th className="num">Paid</th>}{!pm && <th className="num">Outstanding</th>}<th>Delivery</th>{!pm && <th>Payment</th>}<th>Invoice</th><th>Documents</th></tr></thead>
             <tbody>
-              {projGroups.length === 0 ? (<tr><td colSpan={pm ? 5 : 8} className="state">No purchase orders linked to this project yet.</td></tr>
+              {projGroups.length === 0 ? (<tr><td colSpan={pm ? 6 : 9} className="state">No purchase orders linked to this project yet.</td></tr>
               ) : projGroups.map((g) => (
                 <tr key={g.po}>
                   <td><Link to={`/purchase-orders/${encodeURIComponent(g.po)}`} className="id" style={{ color: 'var(--accent-ink)', fontWeight: 700 }}>{g.po}</Link></td>
@@ -344,6 +357,7 @@ export default function ProjectDetail() {
                   <td><Pill s={g.delivery} /></td>
                   {!pm && <td><Pill s={g.payment} /></td>}
                   <td>{(() => { const inv = (lines.find((l) => l.po === g.po && l.invoice) || {}).invoice; return inv ? (<span><button type="button" className="link" onClick={() => openInvoice(inv)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent-ink)', fontWeight: 600, font: 'inherit' }}>View</button><span style={{ margin: '0 6px', color: 'var(--muted)' }}>·</span><button type="button" className="link" onClick={() => downloadInvoice(inv)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent-ink)', fontWeight: 600, font: 'inherit' }}>Download</button></span>) : '—'; })()}</td>
+                  <td>{(() => { const fs = poDocs[g.po] || []; return fs.length ? (<div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>{fs.map((f) => (<span key={f.fileId} style={{ whiteSpace: 'nowrap' }}><button type="button" className="link" title={f.name} onClick={() => openPoFile(f)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent-ink)', fontWeight: 600, font: 'inherit' }}>{f.name.length > 18 ? f.name.slice(0, 16) + '…' : f.name}</button><span style={{ margin: '0 5px', color: 'var(--muted)' }}>·</span><button type="button" className="link" onClick={() => downloadPoFile(f)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent-ink)', fontWeight: 600, font: 'inherit' }}>↓</button></span>))}</div>) : '—'; })()}</td>
                 </tr>
               ))}
             </tbody>

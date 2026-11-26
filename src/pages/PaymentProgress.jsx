@@ -7,7 +7,7 @@ import { Pill, Drawer, Field, StateRow } from '../components/ui';
 import ComboBox from '../components/ComboBox';
 import {
   groupPOs, calcLine, vendorName, inr, num, dfmt, today, PAYMENT_METHODS,
-  cpReceipts, cpOrderValue, cpReceived, cpOutstanding, cpStatus, cpOverdueDays, cpLastDate,
+  cpReceipts, cpOrderValue, cpReceived, cpOutstanding, cpPaidPct, cpPendingPct, cpStatus, cpOverdueDays, cpLastDate,
 } from '../utils/procurement';
 import { downloadPaymentSlip } from '../utils/paymentSlip';
 
@@ -15,6 +15,18 @@ const TABS = ['Client Payment', 'Vendor Payment'];
 const UNASSIGNED = '(Unassigned)';
 const blankPay = () => ({ amount: '', date: today(), method: '', refNo: '', remarks: '', dueDate: '', project: '' });
 const blankOrder = () => ({ project: '', clientName: '', totalOrderValue: '', paymentTerms: '', dueDate: '', notes: '' });
+
+// Auto paid-% with a small progress bar. Over 100% (over-paid) is shown in full and the bar
+// caps at 100% but turns amber so it reads as "over".
+function PctCell({ pct }) {
+  const over = pct > 100;
+  return (
+    <div className="pct-cell">
+      <span className={`pct-num ${over ? 'over' : ''}`}>{pct}%</span>
+      <div className="pct-bar"><i className={over ? 'over' : ''} style={{ width: Math.min(pct, 100) + '%' }} /></div>
+    </div>
+  );
+}
 
 // Payment Progress — two completely separate ledgers:
 //   • Client Payment  : money RECEIVED from clients, per project order (purchase_project_payments)
@@ -398,7 +410,7 @@ export default function PaymentProgress() {
           <div className="tbl">
             <table>
               <thead><tr>
-                <th>Project</th><th>Client</th><th className="num">Order Value</th><th>Payment Terms</th>
+                <th>Project</th><th>Client</th><th className="num">Order Value</th><th className="num">Paid %</th>
                 <th className="num">Received</th><th>Last Payment</th><th className="num">Outstanding</th><th>Status</th><th className="num">Receipts</th><th></th>
               </tr></thead>
               <tbody>
@@ -407,15 +419,17 @@ export default function PaymentProgress() {
                     empty={(projectPayments || []).length ? 'No client orders match your search.' : 'No client orders yet. Click "New client order" to start tracking a client payment.'} />
                 ) : cRows.map(({ r, client }) => {
                   const od = cpOverdueDays(r);
+                  const outv = cpOutstanding(r);
+                  const pct = cpPaidPct(r);
                   return (
                     <tr key={r.id} className="row-click" onClick={() => openClientManage(r)}>
                       <td>{r.project || '—'}</td>
                       <td><b>{client}</b></td>
                       <td className="num">{inr(cpOrderValue(r))}</td>
-                      <td>{r.paymentTerms || '—'}</td>
+                      <td className="num"><PctCell pct={pct} /></td>
                       <td className="num calc">{inr(cpReceived(r))}</td>
                       <td className={od > 0 ? 'overdue' : ''}>{cpLastDate(r) ? dfmt(cpLastDate(r)) : '—'}{od > 0 ? ` · ${od}d overdue` : ''}</td>
-                      <td className={`num calc ${cpOutstanding(r) > 0 ? 'overdue' : ''}`}>{inr(cpOutstanding(r))}</td>
+                      <td className={`num calc ${outv > 0 ? 'overdue' : outv < 0 ? 'over' : ''}`}>{outv < 0 ? `-${inr(Math.abs(outv))}` : inr(outv)}{outv < 0 ? <span className="over-tag" title="Received more than the order value">over</span> : ''}</td>
                       <td className="calc"><Pill s={cpStatus(r)} /></td>
                       <td className="num">{cpReceipts(r).length}</td>
                       <td onClick={(e) => e.stopPropagation()}><button className="link" onClick={() => openClientManage(r)}>View / Manage</button></td>
@@ -573,22 +587,30 @@ export default function PaymentProgress() {
           <h3>{cDrawer.isNew ? 'New client order' : `Client Payments · ${cDetail.clientName || cmg?.project || ''}`}</h3>
           <p className="hint">{cDrawer.isNew ? 'Record the client order, then collect receipts against it.' : 'Money received from the client for this project order.'}</p>
 
-          {!cDrawer.isNew && cmg && (
-            <div className="kpis" style={{ gridTemplateColumns: 'repeat(3,1fr)', margin: '4px 0 14px' }}>
-              <div className="kpi"><div className="l">Order Value</div><div className="v">{inr(cpOrderValue(cmg))}</div></div>
-              <div className="kpi"><div className="l">Received</div><div className="v">{inr(cpReceived(cmg))}</div></div>
-              <div className="kpi"><div className="l">Outstanding</div><div className={`v ${cpOutstanding(cmg) > 0 ? 'bad' : ''}`}>{inr(cpOutstanding(cmg))}</div></div>
-            </div>
-          )}
+          {!cDrawer.isNew && cmg && (() => {
+            const outv = cpOutstanding(cmg); const pct = cpPaidPct(cmg); const pend = cpPendingPct(cmg);
+            return (
+              <>
+                <div className="kpis" style={{ gridTemplateColumns: 'repeat(3,1fr)', margin: '4px 0 10px' }}>
+                  <div className="kpi"><div className="l">Order Value</div><div className="v">{inr(cpOrderValue(cmg))}</div></div>
+                  <div className="kpi"><div className="l">Received</div><div className="v">{inr(cpReceived(cmg))}</div></div>
+                  <div className="kpi"><div className="l">{outv < 0 ? 'Over-received' : 'Outstanding'}</div><div className={`v ${outv > 0 ? 'bad' : outv < 0 ? 'over' : ''}`}>{outv < 0 ? `-${inr(Math.abs(outv))}` : inr(outv)}</div></div>
+                </div>
+                <div className="pct-line">
+                  <div className="pct-bar lg"><i className={pct > 100 ? 'over' : ''} style={{ width: Math.min(pct, 100) + '%' }} /></div>
+                  <div className="pct-cap"><b className={pct > 100 ? 'over' : ''}>{pct}% paid</b>{pct <= 100 ? ` · ${pend}% pending` : ' · over by ' + inr(Math.abs(outv))}</div>
+                </div>
+              </>
+            );
+          })()}
 
           <div className="po-items-head" style={{ marginBottom: 8 }}><span>Order details</span></div>
           <div className="grid">
             <Field label="Project"><ComboBox value={cDetail.project} onChange={onPickProject} options={projects.map(p => p.name)} placeholder="Link to a project" /></Field>
             <Field label="Client Name"><input value={cDetail.clientName} onChange={e => setCD('clientName', e.target.value)} placeholder="Customer / client" /></Field>
             <Field label="Order Value (₹) *"><input type="number" min="0" step="any" value={cDetail.totalOrderValue} onChange={e => setCD('totalOrderValue', e.target.value)} /></Field>
-            <Field label="Payment Terms"><input value={cDetail.paymentTerms} onChange={e => setCD('paymentTerms', e.target.value)} placeholder="e.g. 50% advance, balance on delivery" /></Field>
             <Field label="Payment Due Date"><input type="date" value={cDetail.dueDate} onChange={e => setCD('dueDate', e.target.value)} /></Field>
-            <Field label="Notes"><input value={cDetail.notes} onChange={e => setCD('notes', e.target.value)} placeholder="Any note" /></Field>
+            <Field label="Notes" full><input value={cDetail.notes} onChange={e => setCD('notes', e.target.value)} placeholder="Any note" /></Field>
           </div>
           {cErr && <div className="err">{cErr}</div>}
           <div className="actions">
@@ -654,6 +676,19 @@ export default function PaymentProgress() {
         .ptab.active{color:var(--accent-ink);border-bottom-color:var(--accent)}
         .split-tag{display:inline-block;margin-left:7px;padding:1px 7px;border-radius:999px;font:700 9.5px var(--f-body);letter-spacing:.04em;text-transform:uppercase;background:var(--accent-soft);color:var(--accent-ink);vertical-align:1px}
         .muted-cell{color:var(--muted);font-style:italic}
+        .pct-cell{display:inline-flex;flex-direction:column;align-items:flex-end;gap:3px;min-width:58px}
+        .pct-num{font:700 12.5px var(--f-body);color:var(--fg)}
+        .pct-num.over{color:#b45309}
+        .pct-bar{width:58px;height:5px;border-radius:999px;background:var(--line);overflow:hidden}
+        .pct-bar i{display:block;height:100%;background:var(--accent);border-radius:999px}
+        .pct-bar i.over{background:#f59e0b}
+        .pct-bar.lg{width:100%;height:8px;margin-top:2px}
+        .pct-line{margin:0 0 14px}
+        .pct-cap{font-size:12.5px;color:var(--muted);margin-top:6px}
+        .pct-cap b{color:var(--accent-ink)}
+        .pct-cap b.over{color:#b45309}
+        td.over,.kpi .v.over{color:#b45309!important}
+        .over-tag{display:inline-block;margin-left:6px;padding:0 6px;border-radius:999px;font:700 9.5px var(--f-body);text-transform:uppercase;letter-spacing:.04em;background:#fef3c7;color:#b45309;vertical-align:1px}
         .ph-tl{position:relative;padding-left:26px}
         .ph-tl:before{content:"";position:absolute;left:9px;top:4px;bottom:4px;width:2px;background:var(--line)}
         .ph-node{position:relative;margin-bottom:12px}

@@ -6,6 +6,10 @@ import { useToast } from '../components/Toast';
 import { Pill, Drawer, Field, StateRow } from '../components/ui';
 import { num, inr, groupPOs, poInProject, projStatus, isOngoing, cdfmt, cdkey, cpOrderValue } from '../utils/procurement';
 import { isRestrictedPM, purchaseApi } from '../api/client';
+import { uploadPoFile, validatePoFile } from '../utils/poFiles';
+
+const poLineId = () => 'POL' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const poNorm = (v) => String(v || '').trim().toUpperCase();
 
 export const PROJECT_STATUS = ['Ongoing', 'On Hold', 'Completed', 'Cancelled'];
 const STATUS_STYLE = { 'Ongoing': { color: '#92400e', background: '#fef3c7' }, 'On Hold': { color: '#334155', background: '#e2e8f0' }, 'Completed': { color: '#166534', background: '#dcfce7' }, 'Cancelled': { color: '#991b1b', background: '#fee2e2' } };
@@ -35,10 +39,11 @@ const blank = () => ({
   quotedPrice: '', paymentTerms: DEFAULT_TERMS(),
   siteEngineerVisit: false, salespersonDeclaration: false,
   materialDescription: '', notes: '',
+  attachPOs: [],   // POs to create/link + their documents, added from this form
 });
 
 export default function Projects() {
-  const { projects, lines, projectPayments, loading, error, saveProject, deleteProject, reloadLines } = usePurchaseData();
+  const { projects, lines, projectPayments, loading, error, saveProject, saveLine, deleteProject, reloadLines } = usePurchaseData();
   const pm = isRestrictedPM();
   const toast = useToast();
   const navigate = useNavigate();
@@ -144,6 +149,11 @@ export default function Projects() {
   const setSec = (id, k, v) => setEditing((e) => ({ ...e, data: { ...e.data, sizeSections: e.data.sizeSections.map((x) => x._id === id ? { ...x, [k]: v } : x) } }));
   const addSec = () => setEditing((e) => ({ ...e, data: { ...e.data, sizeSections: [...e.data.sizeSections, { _id: tid(), name: '', length: '', width: '' }] } }));
   const removeSec = (id) => setEditing((e) => ({ ...e, data: { ...e.data, sizeSections: e.data.sizeSections.filter((x) => x._id !== id) } }));
+  // Attach-PO rows (create/link a real Purchase Order + its document from the project form)
+  const addPO = () => setEditing((e) => ({ ...e, data: { ...e.data, attachPOs: [...(e.data.attachPOs || []), { _id: tid(), poNumber: '', poDate: '', poAmount: '', file: null, fileName: '', fileErr: '' }] } }));
+  const setPO = (id, k, v) => setEditing((e) => ({ ...e, data: { ...e.data, attachPOs: e.data.attachPOs.map((x) => x._id === id ? { ...x, [k]: v } : x) } }));
+  const removePO = (id) => setEditing((e) => ({ ...e, data: { ...e.data, attachPOs: e.data.attachPOs.filter((x) => x._id !== id) } }));
+  const setPOFile = (id, file) => { const err = file ? validatePoFile(file) : ''; setEditing((e) => ({ ...e, data: { ...e.data, attachPOs: e.data.attachPOs.map((x) => x._id === id ? { ...x, file: err ? null : file, fileName: file ? file.name : '', fileErr: err } : x) } })); };
   const setPct = (id, raw) => {
     let v = String(raw).replace(/[^0-9.]/g, '');
     const dot = v.indexOf('.'); if (dot !== -1) v = v.slice(0, dot + 1) + v.slice(dot + 1).replace(/\./g, '').slice(0, 2);
@@ -166,6 +176,12 @@ export default function Projects() {
       : !pctValid ? 'Total payment percentage must be exactly 100%.'
       : '';
     if (err) { setFormErr(err); return; }
+    // Validate any attached-PO rows: a row with an amount or a file must carry a PO number.
+    const poRows = (d.attachPOs || []).filter((p) => poNorm(p.poNumber) || num(p.poAmount) > 0 || p.file);
+    for (const p of poRows) {
+      if (!poNorm(p.poNumber)) { setFormErr('Enter a PO number for each attached PO (or remove that row).'); return; }
+      if (p.fileErr) { setFormErr(p.fileErr); return; }
+    }
     const paymentTerms = d.paymentTerms
       .filter((t) => String(t.term).trim() || String(t.percentage).trim())
       .map((t) => ({ term: String(t.term).trim(), percentage: num(t.percentage), value: msAmount(d.quotedPrice, t.percentage) }));
@@ -188,7 +204,36 @@ export default function Projects() {
       materialDescription: String(d.materialDescription || '').trim(), notes: String(d.notes || '').trim(),
     };
     setBusy(true);
-    try { await saveProject(editing.isNew, editing.data.id, payload); close(); toast(editing.isNew ? 'Project added' : 'Project saved'); }
+    try {
+      await saveProject(editing.isNew, editing.data.id, payload);
+      // Create/link the attached POs and upload their documents. A PO is linked by the project
+      // NAME. If the PO number already exists we DON'T create a duplicate line — we only attach
+      // the document to it. Otherwise we create one real PO line that flows into Purchase Orders
+      // and Payment Progress automatically.
+      if (poRows.length) {
+        const existing = new Set((Array.isArray(lines) ? lines : []).map((l) => poNorm(l.po)));
+        let created = 0, linked = 0, filed = 0; const problems = [];
+        for (const p of poRows) {
+          const po = poNorm(p.poNumber);
+          try {
+            if (!existing.has(po)) {
+              await saveLine(true, poLineId(), { po, project: name, poDate: p.poDate || '', material: 'Purchase Order', qty: 1, rate: num(p.poAmount), unit: 'lot' });
+              existing.add(po); created++;
+            } else { linked++; }
+            if (p.file) { await uploadPoFile(p.file, po); filed++; }
+          } catch (pe) { problems.push(`${po}: ${pe.message || 'failed'}`); }
+        }
+        await reloadLines();
+        const parts = [];
+        if (created) parts.push(`${created} PO${created > 1 ? 's' : ''} created`);
+        if (linked) parts.push(`${linked} linked`);
+        if (filed) parts.push(`${filed} document${filed > 1 ? 's' : ''} attached`);
+        if (parts.length) toast(parts.join(' · '));
+        if (problems.length) { setFormErr('Project saved, but some POs had issues: ' + problems.join('; ')); return; }
+      }
+      close();
+      toast(editing.isNew ? 'Project added' : 'Project saved');
+    }
     catch (e) { setFormErr(e.message || 'Could not save project.'); }
     finally { setBusy(false); }
   };
@@ -415,6 +460,29 @@ export default function Projects() {
             <Field label="Notes" full><input value={d.notes} onChange={(e) => set('notes', e.target.value)} /></Field>
           </div>
 
+          <div className="pj-sec">6. Purchase Orders</div>
+          <div className="grid" style={{ gridTemplateColumns: '1fr' }}>
+            <div>
+              <div className="po-items-head"><span>Attach Purchase Orders</span><button type="button" className="link" onClick={addPO}><Plus size={14} style={{ verticalAlign: '-2px' }} /> Add PO</button></div>
+              <p className="hint" style={{ fontSize: 11.5, margin: '0 0 10px' }}>Each PO is created as a real Purchase Order linked to this project and appears in Purchase Orders &amp; Payment Progress. If a PO number already exists it is linked (not duplicated); the document is still attached. Documents: PDF, JPG, PNG or Excel (max 12 MB).</p>
+              {(d.attachPOs || []).length === 0 ? (
+                <div className="state" style={{ padding: '14px 8px', fontSize: 12.5 }}>No POs added. Click “Add PO” to attach one.</div>
+              ) : (d.attachPOs.map((p) => (
+                <div key={p._id} className="po-attach-row">
+                  <Field label="PO Number *"><input value={p.poNumber} onChange={(e) => setPO(p._id, 'poNumber', e.target.value)} placeholder="PO-123" /></Field>
+                  <Field label="PO Date"><input type="date" value={p.poDate} onChange={(e) => setPO(p._id, 'poDate', e.target.value)} /></Field>
+                  <Field label="PO Amount (₹)"><input type="number" min="0" step="any" value={p.poAmount} onChange={(e) => setPO(p._id, 'poAmount', e.target.value)} placeholder="0" /></Field>
+                  <Field label="Document (PDF / image)">
+                    <input type="file" accept=".pdf,.jpg,.jpeg,.png,.xls,.xlsx" onChange={(e) => setPOFile(p._id, e.target.files && e.target.files[0])} />
+                    {p.fileName && !p.fileErr ? <div className="hint" style={{ fontSize: 11, marginTop: 3 }}>Selected: {p.fileName}</div> : null}
+                    {p.fileErr ? <div className="err" style={{ marginTop: 3 }}>{p.fileErr}</div> : null}
+                  </Field>
+                  <button type="button" className="icon-x" title="Remove PO" onClick={() => removePO(p._id)}><X size={15} /></button>
+                </div>
+              )))}
+            </div>
+          </div>
+
           {formErr && <div className="err">{formErr}</div>}
           <div className="actions">
             <div>{!editing.isNew && <button className="btn danger" onClick={() => setConfirmDel(true)}>Delete project</button>}</div>
@@ -438,6 +506,11 @@ export default function Projects() {
         .pj-sec{font:700 12px var(--f-body);text-transform:uppercase;letter-spacing:.06em;color:var(--accent-ink);margin:28px 0 16px;padding-bottom:9px;border-bottom:1px solid var(--line)}
         .pj-sec:first-of-type{margin-top:18px}
         .po-items-head{display:flex;justify-content:space-between;align-items:center;font:700 12px var(--f-body);color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
+        .po-attach-row{display:grid;grid-template-columns:1.1fr .9fr .9fr 1.4fr auto;gap:10px;align-items:start;padding:12px;margin-bottom:10px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+        .po-attach-row .icon-x{align-self:center;background:none;border:1px solid var(--line);border-radius:8px;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;color:var(--muted);cursor:pointer}
+        .po-attach-row .icon-x:hover{color:var(--bad);border-color:var(--bad)}
+        .po-attach-row input[type=file]{font-size:12px;max-width:100%}
+        @media (max-width:640px){.po-attach-row{grid-template-columns:1fr 1fr;gap:8px}.po-attach-row .icon-x{grid-column:2;justify-self:end}}
         .pj-chips{display:flex;gap:16px 28px;flex-wrap:wrap;align-items:center;margin-top:2px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
         .pj-chk{display:inline-flex;align-items:center;gap:8px;font:600 13.5px var(--f-body);color:var(--fg);cursor:pointer}
         .pj-seg{display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap}

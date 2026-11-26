@@ -416,7 +416,18 @@ export const cpReceived = (r = {}) => {
   const rs = cpReceipts(r);
   return rs.length ? rs.reduce((s, p) => s + p.amount, 0) : num(r.collectionSoFar);
 };
-export const cpOutstanding = (r) => Math.max(cpOrderValue(r) - cpReceived(r), 0);
+// Outstanding is SIGNED: positive = still owed by the client; negative = the client has paid
+// MORE than the original order value (over-billed), e.g. order ₹1,00,000 and received ₹1,10,000
+// gives -₹10,000. The extra is never ignored — it shows as a negative outstanding / variance.
+export const cpOutstanding = (r) => cpOrderValue(r) - cpReceived(r);
+// Cumulative paid % of the order value (auto, from the receipts ledger). Can exceed 100% when
+// the client has over-paid. When there is no order value but money was received, treat as 100%.
+export const cpPaidPct = (r) => {
+  const v = cpOrderValue(r), rec = cpReceived(r);
+  if (v <= 0) return rec > 0 ? 100 : 0;
+  return Math.round((rec / v) * 100);
+};
+export const cpPendingPct = (r) => Math.max(100 - cpPaidPct(r), 0);
 export const cpStatus = (r) => {
   const v = cpOrderValue(r), rec = cpReceived(r);
   if (rec <= 0) return 'Unpaid';
