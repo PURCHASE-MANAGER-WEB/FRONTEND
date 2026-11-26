@@ -472,7 +472,7 @@ export default function Projects() {
                   <Field label="PO Number *"><input value={p.poNumber} onChange={(e) => setPO(p._id, 'poNumber', e.target.value)} placeholder="PO-123" /></Field>
                   <Field label="PO Date"><input type="date" value={p.poDate} onChange={(e) => setPO(p._id, 'poDate', e.target.value)} /></Field>
                   <Field label="PO Amount (₹)"><input type="number" min="0" step="any" value={p.poAmount} onChange={(e) => setPO(p._id, 'poAmount', e.target.value)} placeholder="0" /></Field>
-                  <Field label="Document (PDF / image)">
+                  <Field label="Document">
                     <input type="file" accept=".pdf,.jpg,.jpeg,.png,.xls,.xlsx" onChange={(e) => setPOFile(p._id, e.target.files && e.target.files[0])} />
                     {p.fileName && !p.fileErr ? <div className="hint" style={{ fontSize: 11, marginTop: 3 }}>Selected: {p.fileName}</div> : null}
                     {p.fileErr ? <div className="err" style={{ marginTop: 3 }}>{p.fileErr}</div> : null}
@@ -506,11 +506,14 @@ export default function Projects() {
         .pj-sec{font:700 12px var(--f-body);text-transform:uppercase;letter-spacing:.06em;color:var(--accent-ink);margin:28px 0 16px;padding-bottom:9px;border-bottom:1px solid var(--line)}
         .pj-sec:first-of-type{margin-top:18px}
         .po-items-head{display:flex;justify-content:space-between;align-items:center;font:700 12px var(--f-body);color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
-        .po-attach-row{display:grid;grid-template-columns:1.1fr .9fr .9fr 1.4fr auto;gap:10px;align-items:start;padding:12px;margin-bottom:10px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
-        .po-attach-row .icon-x{align-self:center;background:none;border:1px solid var(--line);border-radius:8px;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;color:var(--muted);cursor:pointer}
+        .po-attach-row{display:grid;grid-template-columns:1.1fr .9fr .9fr 1.5fr 34px;gap:12px;align-items:start;padding:14px 14px 16px;margin-bottom:10px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+        .po-attach-row .field,.po-attach-row label{margin:0;display:block}
+        .po-attach-row .field .label,.po-attach-row .label{white-space:nowrap;display:block;height:15px;line-height:15px;margin-bottom:6px;font-size:11px}
+        .po-attach-row input{height:38px;box-sizing:border-box;width:100%}
+        .po-attach-row input[type=file]{font-size:12px;max-width:100%;padding:8px}
+        .po-attach-row .icon-x{align-self:start;margin-top:21px;height:38px;width:34px;background:none;border:1px solid var(--line);border-radius:8px;display:inline-flex;align-items:center;justify-content:center;color:var(--muted);cursor:pointer}
         .po-attach-row .icon-x:hover{color:var(--bad);border-color:var(--bad)}
-        .po-attach-row input[type=file]{font-size:12px;max-width:100%}
-        @media (max-width:640px){.po-attach-row{grid-template-columns:1fr 1fr;gap:8px}.po-attach-row .icon-x{grid-column:2;justify-self:end}}
+        @media (max-width:640px){.po-attach-row{grid-template-columns:1fr 1fr;gap:10px}.po-attach-row .icon-x{grid-column:2;justify-self:end;margin-top:0}.po-attach-row .field .label{white-space:normal;height:auto}}
         .pj-chips{display:flex;gap:16px 28px;flex-wrap:wrap;align-items:center;margin-top:2px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
         .pj-chk{display:inline-flex;align-items:center;gap:8px;font:600 13.5px var(--f-body);color:var(--fg);cursor:pointer}
         .pj-seg{display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap}
