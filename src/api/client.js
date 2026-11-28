@@ -226,6 +226,9 @@ export const salesHandoversApi = {
   notifications: () => api('/sales-handovers/notifications', { auth: true }),
   newCount: () => api('/sales-handovers/new-count', { auth: true }),
   markRead: () => api('/sales-handovers/notifications/read-all', { method: 'POST', auth: true }),
+  // Procurement review actions — accept (auto-creates the project) or reject (reason required).
+  accept: (id) => api(`/sales-handovers/${encodeURIComponent(id)}/accept`, { method: 'POST', auth: true }),
+  reject: (id, reason) => api(`/sales-handovers/${encodeURIComponent(id)}/reject`, { method: 'POST', body: { reason }, auth: true }),
   fileBlob: async (id, fileId, { download = false } = {}) => {
     const res = await fetch(`${API_BASE}/sales-handovers/${encodeURIComponent(id)}/attachments/${encodeURIComponent(fileId)}${download ? '?download=1' : ''}`, { headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {} });
     if (!res.ok) throw new Error('Could not load the document.');
